@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+
+model User {
+  id       String @id @default(uuid())
+  email    String @unique
+  password String
+  name     String
+  role     String @default("OFFICE_ADMIN") // "SYSTEM_ADMIN" or "OFFICE_ADMIN"
+
+  @@map("user")
+}
+
+// ─── Lookup Tables ───────────────────────────────────────────────────────────
+
+model OrganizationType {
+  id       String    @id @default(uuid())
+  typeName String    @unique @map("type_name")
+  partners Partner[]
+
+  @@map("organization_type")
+}
+
+model RelationshipType {
+  id               String         @id @default(uuid())
+  relationshipDesc String         @map("relationship_desc")
+  notes            String?
+  relationships    Relationship[]
+
+  @@map("relationship_type")
+}
+
+// ─── Core Tables ─────────────────────────────────────────────────────────────
+
+model People {
+  id            String   @id @default(uuid())
+  fullName      String   @map("full_name")
+  address       String?
+  city          String?
+  state         String?
+  zip           String?
+  phoneNumber   String?  @map("phone_number")
+  personalEmail String?  @map("personal_email")
+  isConnector   Boolean  @default(false) @map("is_connector")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  partnerRoles   PartnerRole[]
+  relationships  Relationship[]
+  connections    Connection[]
+  eventResponses EventResponse[]
+
+  @@map("people")
+}
+
+model Partner {
+  id                 String            @id @default(uuid())
+  orgPeopleFlag      String            @map("org_people_flag") // "O" or "P"
+  organizationName   String?           @map("organization_name")
+  organizationTypeId String?           @map("organization_type_id")
+  organizationType   OrganizationType? @relation(fields: [organizationTypeId], references: [id])
+  address            String?
+  city               String?
+  state              String?
+  zip                String?
+  phoneNumber        String?           @map("phone_number")
+  email              String?
+  website            String?
+  createdAt          DateTime          @default(now()) @map("created_at")
+  updatedAt          DateTime          @updatedAt @map("updated_at")
+
+  partnerRoles PartnerRole[]
+
+  @@map("partner")
+}
+
+model PartnerRole {
+  id              String  @id @default(uuid())
+  partnerId       String  @map("partner_id")
+  partner         Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  roleDescription String  @map("role_description")
+  peopleId        String? @map("people_id")
+  person          People? @relation(fields: [peopleId], references: [id])
+
+  relationships Relationship[]
+  connections   Connection[]
+
+  @@map("partner_role")
+}
+
+model Relationship {
+  id                 String           @id @default(uuid())
+  peopleId           String           @map("people_id")
+  person             People           @relation(fields: [peopleId], references: [id])
+  partnerRoleId      String           @map("partner_role_id")
+  partnerRole        PartnerRole      @relation(fields: [partnerRoleId], references: [id], onDelete: Cascade)
+  relationshipTypeId String           @map("relationship_type_id")
+  relationshipType   RelationshipType @relation(fields: [relationshipTypeId], references: [id])
+  lastReviewedDate   DateTime?        @map("last_reviewed_date")
+  createdAt          DateTime         @default(now()) @map("created_at")
+  updatedAt          DateTime         @updatedAt @map("updated_at")
+
+  @@unique([peopleId, partnerRoleId])
+  @@map("relationship")
+}
+
+model Connection {
+  id             String      @id @default(uuid())
+  peopleId       String      @map("people_id")
+  person         People      @relation(fields: [peopleId], references: [id])
+  partnerRoleId  String      @map("partner_role_id")
+  partnerRole    PartnerRole @relation(fields: [partnerRoleId], references: [id], onDelete: Cascade)
+  connectionDate DateTime    @map("connection_date")
+  connectionTime String?     @map("connection_time")
+  notes          String?
+  createdAt      DateTime    @default(now()) @map("created_at")
+
+  @@map("connection")
+}
+
+model Event {
+  id               String          @id @default(uuid())
+  eventDate        DateTime        @map("event_date")
+  eventTime        String?         @map("event_time")
+  eventDescription String          @map("event_description")
+  createdAt        DateTime        @default(now()) @map("created_at")
+
+  responses EventResponse[]
+
+  @@map("event")
+}
+
+model EventResponse {
+  id            String   @id @default(uuid())
+  peopleId      String   @map("people_id")
+  person        People   @relation(fields: [peopleId], references: [id])
+  eventId       String   @map("event_id")
+  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  responseDate  DateTime? @map("response_date")
+  responseTime  String?  @map("response_time")
+  responseNotes String?  @map("response_notes")
+  isPublic      Boolean  @default(true) @map("is_public")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("event_response")
+}

@@ -1,0 +1,647 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+
+interface RelationshipType {
+  id: string;
+  relationshipDesc: string;
+  notes: string | null;
+  _count?: { relationships: number };
+}
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+}
+
+export default function SettingsPage() {
+  const { data: session } = useSession();
+  const role = session?.user?.role;
+  const isSystemAdmin = role === "SYSTEM_ADMIN";
+
+  const [relTypes, setRelTypes] = useState<RelationshipType[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // New type form
+  const [showForm, setShowForm] = useState(false);
+  const [newDesc, setNewDesc] = useState("");
+  const [newNotes, setNewNotes] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  // Edit state
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDesc, setEditDesc] = useState("");
+  const [editNotes, setEditNotes] = useState("");
+
+  // Delete state
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  const [reassignNeeded, setReassignNeeded] = useState<{ id: string; count: number } | null>(null);
+  const [reassignTo, setReassignTo] = useState("");
+
+  // User management state
+  const [users, setUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [userName, setUserName] = useState("");
+  const [userEmail, setUserEmail] = useState("");
+  const [userPassword, setUserPassword] = useState("");
+  const [userRole, setUserRole] = useState("OFFICE_ADMIN");
+  const [userSubmitting, setUserSubmitting] = useState(false);
+  const [userError, setUserError] = useState("");
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+
+  function fetchTypes() {
+    fetch("/api/lookup/relationship-types")
+      .then((res) => res.json())
+      .then((data) => {
+        setRelTypes(data);
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
+  }
+
+  function fetchUsers() {
+    if (!isSystemAdmin) return;
+    fetch("/api/users")
+      .then((res) => res.json())
+      .then((data) => {
+        setUsers(data);
+        setUsersLoading(false);
+      })
+      .catch(() => setUsersLoading(false));
+  }
+
+  useEffect(() => {
+    fetchTypes();
+  }, []);
+
+  useEffect(() => {
+    if (isSystemAdmin) fetchUsers();
+  }, [isSystemAdmin]);
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const res = await fetch("/api/lookup/relationship-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ relationshipDesc: newDesc, notes: newNotes }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create");
+      }
+
+      setNewDesc("");
+      setNewNotes("");
+      setShowForm(false);
+      fetchTypes();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleUpdate(id: string) {
+    setSubmitting(true);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/lookup/relationship-types/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ relationshipDesc: editDesc, notes: editNotes }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update");
+      }
+
+      setEditingId(null);
+      fetchTypes();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setDeleteError("");
+
+    try {
+      const res = await fetch(`/api/lookup/relationship-types/${id}`, {
+        method: "DELETE",
+      });
+
+      if (res.status === 409) {
+        const data = await res.json();
+        setReassignNeeded({ id, count: data.count });
+        setReassignTo("");
+        return;
+      }
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete");
+      }
+
+      setDeletingId(null);
+      setReassignNeeded(null);
+      fetchTypes();
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  async function handleDeleteWithReassign() {
+    if (!reassignNeeded || !reassignTo) return;
+    setDeleteError("");
+
+    try {
+      const res = await fetch(
+        `/api/lookup/relationship-types/${reassignNeeded.id}?reassignTo=${reassignTo}`,
+        { method: "DELETE" }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete");
+      }
+
+      setDeletingId(null);
+      setReassignNeeded(null);
+      setReassignTo("");
+      fetchTypes();
+    } catch (err: unknown) {
+      setDeleteError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  function startEdit(rt: RelationshipType) {
+    setEditingId(rt.id);
+    setEditDesc(rt.relationshipDesc);
+    setEditNotes(rt.notes ?? "");
+    setDeletingId(null);
+  }
+
+  async function handleCreateUser(e: React.FormEvent) {
+    e.preventDefault();
+    setUserSubmitting(true);
+    setUserError("");
+
+    try {
+      const res = await fetch("/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: userName, email: userEmail, password: userPassword, role: userRole }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create user");
+      }
+
+      setUserName("");
+      setUserEmail("");
+      setUserPassword("");
+      setUserRole("OFFICE_ADMIN");
+      setShowUserForm(false);
+      fetchUsers();
+    } catch (err: unknown) {
+      setUserError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setUserSubmitting(false);
+    }
+  }
+
+  async function handleDeleteUser(id: string) {
+    try {
+      const res = await fetch(`/api/users/${id}`, { method: "DELETE" });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete user");
+      }
+
+      setDeletingUserId(null);
+      fetchUsers();
+    } catch (err: unknown) {
+      setUserError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  return (
+    <div>
+      <h1 className="text-2xl font-bold text-navy mb-6">Settings</h1>
+
+      {/* Relationship Types */}
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-navy">Relationship Types</h2>
+          {!showForm && (
+            <button
+              onClick={() => { setShowForm(true); setEditingId(null); }}
+              className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors text-sm"
+            >
+              Add Relationship Type
+            </button>
+          )}
+        </div>
+
+        {error && (
+          <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Add form */}
+        {showForm && (
+          <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
+            <h3 className="font-semibold text-navy mb-3 text-sm">New Relationship Type</h3>
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
+                  placeholder="e.g. Board Member"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <input
+                  type="text"
+                  value={newNotes}
+                  onChange={(e) => setNewNotes(e.target.value)}
+                  placeholder="Optional description of this relationship type"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-[#2E75B6] text-white px-4 py-1.5 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+                >
+                  {submitting ? "Saving..." : "Create"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); setError(""); }}
+                  className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Table */}
+        {loading ? (
+          <p className="text-gray-400 text-sm">Loading...</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold text-navy">Description</th>
+                <th className="text-left px-4 py-3 font-semibold text-navy">Notes</th>
+                <th className="text-left px-4 py-3 font-semibold text-navy">In Use</th>
+                <th className="text-right px-4 py-3 font-semibold text-navy">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {relTypes.map((rt) => (
+                <tr key={rt.id} className="hover:bg-gray-50">
+                  {editingId === rt.id ? (
+                    <>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          value={editDesc}
+                          onChange={(e) => setEditDesc(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          value={editNotes}
+                          onChange={(e) => setEditNotes(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-gray-600">
+                        {rt._count?.relationships ?? 0}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => handleUpdate(rt.id)}
+                            disabled={submitting}
+                            className="text-[#2E75B6] hover:underline text-xs disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="text-gray-500 hover:text-gray-700 text-xs"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-3 font-medium">{rt.relationshipDesc}</td>
+                      <td className="px-4 py-3 text-gray-600">{rt.notes ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                          {rt._count?.relationships ?? 0}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex gap-3 justify-end">
+                          <button
+                            onClick={() => startEdit(rt)}
+                            className="text-[#2E75B6] hover:underline text-xs"
+                          >
+                            Edit
+                          </button>
+                          {deletingId === rt.id ? (
+                            reassignNeeded?.id === rt.id ? (
+                              <div className="flex flex-col items-end gap-2">
+                                <span className="text-amber-700 text-xs">
+                                  {reassignNeeded.count} relationship(s) use this type. Move them to:
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={reassignTo}
+                                    onChange={(e) => setReassignTo(e.target.value)}
+                                    className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                                  >
+                                    <option value="">Select type...</option>
+                                    {relTypes
+                                      .filter((t) => t.id !== rt.id)
+                                      .map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                          {t.relationshipDesc}
+                                        </option>
+                                      ))}
+                                  </select>
+                                  <button
+                                    onClick={handleDeleteWithReassign}
+                                    disabled={!reassignTo}
+                                    className="text-red-600 hover:underline text-xs font-medium disabled:opacity-50"
+                                  >
+                                    Move &amp; Delete
+                                  </button>
+                                  <button
+                                    onClick={() => { setDeletingId(null); setReassignNeeded(null); setDeleteError(""); }}
+                                    className="text-gray-500 hover:text-gray-700 text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                                {deleteError && (
+                                  <span className="text-red-600 text-xs">{deleteError}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="flex items-center gap-2">
+                                {deleteError && (
+                                  <span className="text-red-600 text-xs">{deleteError}</span>
+                                )}
+                                <button
+                                  onClick={() => handleDelete(rt.id)}
+                                  className="text-red-600 hover:underline text-xs font-medium"
+                                >
+                                  Confirm
+                                </button>
+                                <button
+                                  onClick={() => { setDeletingId(null); setDeleteError(""); }}
+                                  className="text-gray-500 hover:text-gray-700 text-xs"
+                                >
+                                  Cancel
+                                </button>
+                              </span>
+                            )
+                          ) : (
+                            <button
+                              onClick={() => { setDeletingId(rt.id); setReassignNeeded(null); setDeleteError(""); }}
+                              className="text-red-600 hover:underline text-xs"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+              {relTypes.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                    No relationship types defined.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* User Management — SYSTEM_ADMIN only */}
+      {isSystemAdmin && (
+        <div className="bg-white rounded-lg shadow p-6 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-navy">User Management</h2>
+            {!showUserForm && (
+              <button
+                onClick={() => setShowUserForm(true)}
+                className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors text-sm"
+              >
+                Add User
+              </button>
+            )}
+          </div>
+
+          {userError && (
+            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
+              {userError}
+            </div>
+          )}
+
+          {/* Add user form */}
+          {showUserForm && (
+            <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
+              <h3 className="font-semibold text-navy mb-3 text-sm">New User</h3>
+              <form onSubmit={handleCreateUser} className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={userName}
+                      onChange={(e) => setUserName(e.target.value)}
+                      placeholder="Full name"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Email <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={userEmail}
+                      onChange={(e) => setUserEmail(e.target.value)}
+                      placeholder="user@jcrb.org"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Password <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="password"
+                      required
+                      value={userPassword}
+                      onChange={(e) => setUserPassword(e.target.value)}
+                      placeholder="Temporary password"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Role
+                    </label>
+                    <select
+                      value={userRole}
+                      onChange={(e) => setUserRole(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                    >
+                      <option value="OFFICE_ADMIN">Office Admin</option>
+                      <option value="OFFICE_USER">Office User</option>
+                      <option value="CONNECTOR">Connector</option>
+                      <option value="SYSTEM_ADMIN">System Admin</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={userSubmitting}
+                    className="bg-[#2E75B6] text-white px-4 py-1.5 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+                  >
+                    {userSubmitting ? "Creating..." : "Create User"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowUserForm(false); setUserError(""); }}
+                    className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Users table */}
+          {usersLoading ? (
+            <p className="text-gray-400 text-sm">Loading...</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-navy">Name</th>
+                  <th className="text-left px-4 py-3 font-semibold text-navy">Email</th>
+                  <th className="text-left px-4 py-3 font-semibold text-navy">Role</th>
+                  <th className="text-right px-4 py-3 font-semibold text-navy">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {users.map((user) => (
+                  <tr key={user.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 font-medium">{user.name}</td>
+                    <td className="px-4 py-3 text-gray-600">{user.email}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
+                        user.role === "SYSTEM_ADMIN"
+                          ? "bg-navy text-white"
+                          : "bg-gray-100 text-gray-700"
+                      }`}>
+                        {{ SYSTEM_ADMIN: "System Admin", OFFICE_ADMIN: "Office Admin", OFFICE_USER: "Office User", CONNECTOR: "Connector" }[user.role] || user.role}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {user.id === session?.user?.id ? (
+                        <span className="text-gray-400 text-xs">You</span>
+                      ) : deletingUserId === user.id ? (
+                        <span className="flex items-center gap-2 justify-end">
+                          <button
+                            onClick={() => handleDeleteUser(user.id)}
+                            className="text-red-600 hover:underline text-xs font-medium"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setDeletingUserId(null)}
+                            className="text-gray-500 hover:text-gray-700 text-xs"
+                          >
+                            Cancel
+                          </button>
+                        </span>
+                      ) : (
+                        <button
+                          onClick={() => setDeletingUserId(user.id)}
+                          className="text-red-600 hover:underline text-xs"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {users.length === 0 && (
+                  <tr>
+                    <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                      No users found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
