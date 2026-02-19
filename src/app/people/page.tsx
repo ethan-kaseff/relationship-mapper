@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getOfficeFilter } from "@/lib/office-filter";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function PeoplePage() {
+  const officeFilter = await getOfficeFilter();
   const people = await prisma.people.findMany({
-    orderBy: { fullName: "asc" },
+    where: officeFilter,
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 
   return (
@@ -41,7 +44,7 @@ export default async function PeoplePage() {
                     href={`/people/${person.id}`}
                     className="text-[#2E75B6] hover:underline font-medium"
                   >
-                    {person.fullName}
+                    {person.lastName}, {person.firstName}
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-gray-600">{person.city ?? "—"}</td>

@@ -7,14 +7,29 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ─── Office ──────────────────────────────────────────────────────────────────
+
+model Office {
+  id       String    @id @default(uuid())
+  name     String    @unique
+  users    User[]
+  people   People[]
+  partners Partner[]
+
+  @@map("office")
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 model User {
   id       String @id @default(uuid())
   email    String @unique
-  password String
-  name     String
+  password  String
+  firstName String @map("first_name")
+  lastName  String @map("last_name")
   role     String @default("OFFICE_ADMIN") // "SYSTEM_ADMIN" or "OFFICE_ADMIN"
+  officeId String @map("office_id")
+  office   Office @relation(fields: [officeId], references: [id])
 
   @@map("user")
 }
@@ -42,7 +57,8 @@ model RelationshipType {
 
 model People {
   id            String   @id @default(uuid())
-  fullName      String   @map("full_name")
+  firstName     String   @map("first_name")
+  lastName      String   @map("last_name")
   address       String?
   city          String?
   state         String?
@@ -52,6 +68,8 @@ model People {
   isConnector   Boolean  @default(false) @map("is_connector")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
+  officeId      String   @map("office_id")
+  office        Office   @relation(fields: [officeId], references: [id])
 
   partnerRoles   PartnerRole[]
   relationships  Relationship[]
@@ -76,6 +94,8 @@ model Partner {
   website            String?
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
+  officeId           String            @map("office_id")
+  office             Office            @relation(fields: [officeId], references: [id])
 
   partnerRoles PartnerRole[]
 

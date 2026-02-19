@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 
 export async function GET(
   request: Request,
@@ -59,12 +60,18 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const session = await auth();
+    if (session?.user?.role === "CONNECTOR") {
+      return NextResponse.json({ error: "Connectors cannot edit people" }, { status: 403 });
+    }
+
     const { id } = await params;
     const body = await request.json();
     const person = await prisma.people.update({
       where: { id },
       data: {
-        fullName: body.fullName,
+        firstName: body.firstName,
+        lastName: body.lastName,
         address: body.address,
         city: body.city,
         state: body.state,
@@ -90,6 +97,17 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+
+    // Delete related records first (no cascade in schema)
+    await prisma.eventResponse.deleteMany({ where: { peopleId: id } });
+    await prisma.connection.deleteMany({ where: { peopleId: id } });
+    await prisma.relationship.deleteMany({ where: { peopleId: id } });
+    // Unlink from partner roles (don't delete the roles themselves)
+    await prisma.partnerRole.updateMany({
+      where: { peopleId: id },
+      data: { peopleId: null },
+    });
+
     await prisma.people.delete({ where: { id } });
     return NextResponse.json({ message: "Person deleted" });
   } catch (error) {

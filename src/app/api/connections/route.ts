@@ -1,9 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getOfficeFilterFromRequest } from "@/lib/office-filter";
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
+    const officeFilter = await getOfficeFilterFromRequest(request);
+    const personFilter = officeFilter.officeId ? { person: { officeId: officeFilter.officeId } } : {};
     const connections = await prisma.connection.findMany({
+      where: personFilter,
       include: {
         person: true,
         partnerRole: {

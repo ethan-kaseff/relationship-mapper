@@ -82,7 +82,7 @@ export default async function EventDetailPage({
                       href={`/people/${resp.person.id}`}
                       className="text-[#2E75B6] hover:underline"
                     >
-                      {resp.person.fullName}
+                      {resp.person.firstName} {resp.person.lastName}
                     </Link>
                   </td>
                   <td className="px-4 py-2 text-gray-600">

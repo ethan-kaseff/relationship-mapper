@@ -136,7 +136,7 @@ export default async function PartnerDetailPage({
                         href={`/people/${role.person.id}`}
                         className="text-[#2E75B6] hover:underline"
                       >
-                        {role.person.fullName}
+                        {role.person.firstName} {role.person.lastName}
                       </Link>
                     </span>
                   )}
@@ -159,7 +159,7 @@ export default async function PartnerDetailPage({
                               href={`/people/${rel.person.id}`}
                               className="text-[#2E75B6] hover:underline"
                             >
-                              {rel.person.fullName}
+                              {rel.person.firstName} {rel.person.lastName}
                             </Link>
                           </td>
                           <td className="px-3 py-2 text-gray-600">

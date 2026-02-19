@@ -7,7 +7,8 @@ import SearchableSelect from "@/components/SearchableSelect";
 
 interface Person {
   id: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
 }
 
 interface PartnerRole {
@@ -79,7 +80,7 @@ export default function NewInteractionPage() {
 
   const personOptions = people.map((p) => ({
     value: p.id,
-    label: p.fullName,
+    label: `${p.lastName}, ${p.firstName}`,
   }));
 
   const partnerRoleOptions = partnerRoles.map((pr) => ({

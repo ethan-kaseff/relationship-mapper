@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
 
 interface OrgType {
@@ -9,11 +10,20 @@ interface OrgType {
   typeName: string;
 }
 
+interface Office {
+  id: string;
+  name: string;
+}
+
 export default function NewPartnerPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isSystemAdmin = session?.user?.role === "SYSTEM_ADMIN";
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [orgTypes, setOrgTypes] = useState<OrgType[]>([]);
+  const [offices, setOffices] = useState<Office[]>([]);
+  const [selectedOfficeId, setSelectedOfficeId] = useState("");
 
   const [form, setForm] = useState({
     orgPeopleFlag: "O",
@@ -33,7 +43,13 @@ export default function NewPartnerPage() {
       .then((res) => res.json())
       .then((data) => setOrgTypes(data))
       .catch(() => {});
-  }, []);
+    if (isSystemAdmin) {
+      fetch("/api/offices")
+        .then((res) => res.json())
+        .then((data) => setOffices(data))
+        .catch(() => {});
+    }
+  }, [isSystemAdmin]);
 
   const isOrg = form.orgPeopleFlag === "O";
 
@@ -62,6 +78,7 @@ export default function NewPartnerPage() {
         body: JSON.stringify({
           ...form,
           organizationTypeId: form.organizationTypeId || null,
+          ...(isSystemAdmin && selectedOfficeId ? { officeId: selectedOfficeId } : {}),
         }),
       });
 
@@ -222,6 +239,24 @@ export default function NewPartnerPage() {
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
             />
           </div>
+
+          {isSystemAdmin && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Office
+              </label>
+              <select
+                value={selectedOfficeId}
+                onChange={(e) => setSelectedOfficeId(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              >
+                <option value="">— Default (your office) —</option>
+                {offices.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="pt-4">
             <button

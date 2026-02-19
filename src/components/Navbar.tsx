@@ -1,8 +1,9 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 const allNavLinks = [
   { href: "/", label: "Dashboard" },
@@ -34,11 +35,27 @@ function getNavLinks(role: string) {
 export default function Navbar() {
   const { data: session, status } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
+
+  // Read viewAllOffices cookie
+  const [viewAll, setViewAll] = useState(false);
+  useEffect(() => {
+    const match = document.cookie.match(/(?:^|; )viewAllOffices=([^;]*)/);
+    setViewAll(match?.[1] === "true");
+  }, []);
 
   if (pathname === "/login" || status !== "authenticated") return null;
 
   const role = session.user.role;
   const navLinks = getNavLinks(role);
+  const showToggle = role !== "SYSTEM_ADMIN";
+
+  function toggleViewAll() {
+    const next = !viewAll;
+    document.cookie = `viewAllOffices=${next}; path=/; max-age=${60 * 60 * 24 * 365}`;
+    setViewAll(next);
+    router.refresh();
+  }
 
   return (
     <nav className="bg-navy text-white shadow-md">
@@ -58,6 +75,18 @@ export default function Navbar() {
           ))}
         </div>
         <div className="ml-auto flex items-center gap-4 text-sm">
+          {showToggle && (
+            <button
+              onClick={toggleViewAll}
+              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                viewAll
+                  ? "bg-blue-200 text-navy"
+                  : "bg-navy-light border border-blue-300 text-blue-200"
+              }`}
+            >
+              {viewAll ? "All Offices" : "My Office"}
+            </button>
+          )}
           <span>
             {session.user.name}{" "}
             <span className="text-blue-200 text-xs">({ROLE_LABELS[role] || role})</span>

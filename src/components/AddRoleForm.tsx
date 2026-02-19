@@ -6,7 +6,8 @@ import SearchableSelect from "@/components/SearchableSelect";
 
 interface Person {
   id: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
 }
 
 export default function AddRoleForm({ partnerId }: { partnerId: string }) {
@@ -73,7 +74,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
 
   const personOptions = people.map((p) => ({
     value: p.id,
-    label: p.fullName,
+    label: `${p.lastName}, ${p.firstName}`,
   }));
 
   return (

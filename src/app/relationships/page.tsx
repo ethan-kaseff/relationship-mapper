@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getOfficeFilter } from "@/lib/office-filter";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function RelationshipsPage() {
+  const officeFilter = await getOfficeFilter();
+  const personFilter = officeFilter.officeId ? { person: { officeId: officeFilter.officeId } } : {};
   const relationships = await prisma.relationship.findMany({
+    where: personFilter,
     include: {
       person: true,
       partnerRole: {
@@ -47,7 +51,7 @@ export default async function RelationshipsPage() {
                     href={`/people/${rel.person.id}`}
                     className="text-[#2E75B6] hover:underline font-medium"
                   >
-                    {rel.person.fullName}
+                    {rel.person.firstName} {rel.person.lastName}
                   </Link>
                 </td>
                 <td className="px-4 py-3">
