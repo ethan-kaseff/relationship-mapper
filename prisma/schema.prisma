@@ -71,9 +71,10 @@ model People {
   officeId      String   @map("office_id")
   office        Office   @relation(fields: [officeId], references: [id])
 
-  partnerRoles   PartnerRole[]
-  relationships  Relationship[]
-  connections    Connection[]
+  partnerRoles            PartnerRole[]
+  relationships           Relationship[]  @relation("ConnectorRelationships")
+  targetOfRelationships   Relationship[]  @relation("TargetRelationships")
+  connections             Connection[]
   eventResponses EventResponse[]
 
   @@map("people")
@@ -119,16 +120,18 @@ model PartnerRole {
 model Relationship {
   id                 String           @id @default(uuid())
   peopleId           String           @map("people_id")
-  person             People           @relation(fields: [peopleId], references: [id])
-  partnerRoleId      String           @map("partner_role_id")
-  partnerRole        PartnerRole      @relation(fields: [partnerRoleId], references: [id], onDelete: Cascade)
+  person             People           @relation("ConnectorRelationships", fields: [peopleId], references: [id])
+  targetPersonId     String           @map("target_person_id")
+  targetPerson       People           @relation("TargetRelationships", fields: [targetPersonId], references: [id])
+  partnerRoleId      String?          @map("partner_role_id")
+  partnerRole        PartnerRole?     @relation(fields: [partnerRoleId], references: [id], onDelete: SetNull)
   relationshipTypeId String           @map("relationship_type_id")
   relationshipType   RelationshipType @relation(fields: [relationshipTypeId], references: [id])
   lastReviewedDate   DateTime?        @map("last_reviewed_date")
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
 
-  @@unique([peopleId, partnerRoleId])
+  @@unique([peopleId, targetPersonId])
   @@map("relationship")
 }
 

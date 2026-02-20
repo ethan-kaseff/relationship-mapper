@@ -10,6 +10,7 @@ export async function GET(request: Request) {
       where: personFilter,
       include: {
         person: true,
+        targetPerson: true,
         partnerRole: {
           include: {
             partner: true,
@@ -31,10 +32,28 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+
+    // If targetPersonId not provided, look it up from the partner role
+    let targetPersonId = body.targetPersonId;
+    if (!targetPersonId && body.partnerRoleId) {
+      const role = await prisma.partnerRole.findUnique({
+        where: { id: body.partnerRoleId },
+      });
+      targetPersonId = role?.peopleId;
+    }
+
+    if (!targetPersonId) {
+      return NextResponse.json(
+        { error: "Could not determine target person" },
+        { status: 400 }
+      );
+    }
+
     const relationship = await prisma.relationship.create({
       data: {
         peopleId: body.peopleId,
-        partnerRoleId: body.partnerRoleId,
+        targetPersonId,
+        partnerRoleId: body.partnerRoleId || null,
         relationshipTypeId: body.relationshipTypeId,
         lastReviewedDate: body.lastReviewedDate
           ? new Date(body.lastReviewedDate)

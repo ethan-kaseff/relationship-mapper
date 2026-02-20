@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import AddRoleForm from "@/components/AddRoleForm";
 import DeletePartnerButton from "@/components/DeletePartnerButton";
+import RemoveRolePersonButton from "@/components/RemoveRolePersonButton";
+import AssignRolePersonButton from "@/components/AssignRolePersonButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -24,6 +26,7 @@ export default async function PartnerDetailPage({
           relationships: {
             include: {
               person: true,
+              targetPerson: true,
               relationshipType: true,
             },
           },
@@ -129,8 +132,8 @@ export default async function PartnerDetailPage({
               <div key={role.id} className="border border-gray-200 rounded-md p-4">
                 <div className="flex items-center gap-3 mb-3">
                   <h3 className="font-semibold text-navy">{role.roleDescription}</h3>
-                  {role.person && (
-                    <span className="text-sm text-gray-500">
+                  {role.person ? (
+                    <span className="text-sm text-gray-500 flex items-center">
                       —{" "}
                       <Link
                         href={`/people/${role.person.id}`}
@@ -138,6 +141,22 @@ export default async function PartnerDetailPage({
                       >
                         {role.person.firstName} {role.person.lastName}
                       </Link>
+                      <RemoveRolePersonButton
+                        roleId={role.id}
+                        personName={`${role.person.firstName} ${role.person.lastName}`}
+                      />
+                      <AssignRolePersonButton
+                        roleId={role.id}
+                        currentPersonId={role.person.id}
+                      />
+                    </span>
+                  ) : (
+                    <span className="text-sm text-gray-400 flex items-center">
+                      — Vacant
+                      <AssignRolePersonButton
+                        roleId={role.id}
+                        currentPersonId={null}
+                      />
                     </span>
                   )}
                 </div>
@@ -147,6 +166,7 @@ export default async function PartnerDetailPage({
                     <thead className="bg-gray-50 border-b">
                       <tr>
                         <th className="text-left px-3 py-2 font-semibold text-navy">Connector</th>
+                        <th className="text-left px-3 py-2 font-semibold text-navy">Person</th>
                         <th className="text-left px-3 py-2 font-semibold text-navy">Relationship Type</th>
                         <th className="text-left px-3 py-2 font-semibold text-navy">Last Reviewed</th>
                       </tr>
@@ -160,6 +180,14 @@ export default async function PartnerDetailPage({
                               className="text-[#2E75B6] hover:underline"
                             >
                               {rel.person.firstName} {rel.person.lastName}
+                            </Link>
+                          </td>
+                          <td className="px-3 py-2">
+                            <Link
+                              href={`/people/${rel.targetPerson.id}`}
+                              className="text-[#2E75B6] hover:underline"
+                            >
+                              {rel.targetPerson.firstName} {rel.targetPerson.lastName}
                             </Link>
                           </td>
                           <td className="px-3 py-2 text-gray-600">

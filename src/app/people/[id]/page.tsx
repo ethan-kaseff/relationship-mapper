@@ -5,6 +5,7 @@ import { auth } from "@/lib/auth";
 import AddRelationshipForm from "@/components/AddRelationshipForm";
 import DeletePersonButton from "@/components/DeletePersonButton";
 import EditPersonButton from "@/components/EditPersonName";
+import RemoveRolePersonButton from "@/components/RemoveRolePersonButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -36,6 +37,14 @@ export default async function PersonDetailPage({
       },
       relationships: {
         include: {
+          targetPerson: true,
+          partnerRole: { include: { partner: true } },
+          relationshipType: true,
+        },
+      },
+      targetOfRelationships: {
+        include: {
+          person: true,
           partnerRole: { include: { partner: true } },
           relationshipType: true,
         },
@@ -58,19 +67,18 @@ export default async function PersonDetailPage({
   const session = await auth();
   const canEdit = session?.user?.role !== "CONNECTOR";
 
-  // Relationships via this person's partner roles (where they are the target)
-  const roleRelationships = person.partnerRoles.flatMap((pr) =>
-    pr.relationships.map((rel) => ({
-      id: rel.id,
-      connectorName: `${rel.person.firstName} ${rel.person.lastName}`,
-      connectorId: rel.person.id,
-      partner: pr.partner.organizationName ?? "—",
-      partnerId: pr.partner.id,
-      role: pr.roleDescription,
-      type: rel.relationshipType.relationshipDesc,
-      lastReviewed: rel.lastReviewedDate,
-    }))
-  );
+  // Relationships where this person is the target (others connecting to them)
+  const targetRelationships = person.targetOfRelationships.map((rel) => ({
+    id: rel.id,
+    connectorName: `${rel.person.firstName} ${rel.person.lastName}`,
+    connectorId: rel.person.id,
+    partner: rel.partnerRole?.partner?.organizationName ?? "—",
+    partnerId: rel.partnerRole?.partner?.id,
+    role: rel.partnerRole?.roleDescription ?? "—",
+    type: rel.relationshipType.relationshipDesc,
+    lastReviewed: rel.lastReviewedDate,
+    hasPartnerRole: !!rel.partnerRole,
+  }));
 
   // Interactions via this person's partner roles
   const roleConnections = person.partnerRoles.flatMap((pr) =>
@@ -170,6 +178,9 @@ export default async function PersonDetailPage({
               <tr>
                 <th className="text-left px-4 py-2 font-semibold text-navy">Partner</th>
                 <th className="text-left px-4 py-2 font-semibold text-navy">Role</th>
+                {canEdit && (
+                  <th className="text-right px-4 py-2 font-semibold text-navy">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -184,6 +195,14 @@ export default async function PersonDetailPage({
                     </Link>
                   </td>
                   <td className="px-4 py-2 text-gray-600">{pr.roleDescription}</td>
+                  {canEdit && (
+                    <td className="px-4 py-2 text-right">
+                      <RemoveRolePersonButton
+                        roleId={pr.id}
+                        personName={`${person.firstName} ${person.lastName}`}
+                      />
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
@@ -201,8 +220,8 @@ export default async function PersonDetailPage({
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Partner</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Role</th>
+                <th className="text-left px-4 py-2 font-semibold text-navy">Person</th>
+                <th className="text-left px-4 py-2 font-semibold text-navy">Partner / Role</th>
                 <th className="text-left px-4 py-2 font-semibold text-navy">Type</th>
                 <th className="text-left px-4 py-2 font-semibold text-navy">Last Reviewed</th>
               </tr>
@@ -212,13 +231,24 @@ export default async function PersonDetailPage({
                 <tr key={rel.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2">
                     <Link
-                      href={`/partners/${rel.partnerRole.partner.id}`}
-                      className="text-[#2E75B6] hover:underline"
+                      href={`/people/${rel.targetPerson.id}`}
+                      className="text-[#2E75B6] hover:underline font-medium"
                     >
-                      {rel.partnerRole.partner.organizationName ?? "—"}
+                      {rel.targetPerson.firstName} {rel.targetPerson.lastName}
                     </Link>
                   </td>
-                  <td className="px-4 py-2 text-gray-600">{rel.partnerRole.roleDescription}</td>
+                  <td className="px-4 py-2 text-gray-600">
+                    {rel.partnerRole ? (
+                      <Link
+                        href={`/partners/${rel.partnerRole.partner.id}`}
+                        className="text-[#2E75B6] hover:underline"
+                      >
+                        {rel.partnerRole.partner.organizationName ?? "—"} — {rel.partnerRole.roleDescription}
+                      </Link>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
+                  </td>
                   <td className="px-4 py-2 text-gray-600">{rel.relationshipType.relationshipDesc}</td>
                   <td className="px-4 py-2 text-gray-600">
                     {rel.lastReviewedDate
@@ -232,34 +262,36 @@ export default async function PersonDetailPage({
         </div>
       )}
 
-      {/* Relationships (via partner role — others connecting to this person) */}
-      {roleRelationships.length > 0 && (
+      {/* Relationships where others connect to this person */}
+      {targetRelationships.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold text-navy mb-4">Relationships (via Partner Role)</h2>
+          <h2 className="text-lg font-semibold text-navy mb-4">Relationships (Others Connecting to Me)</h2>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="text-left px-4 py-2 font-semibold text-navy">Connector</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Partner</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Role</th>
+                <th className="text-left px-4 py-2 font-semibold text-navy">Partner / Role</th>
                 <th className="text-left px-4 py-2 font-semibold text-navy">Type</th>
                 <th className="text-left px-4 py-2 font-semibold text-navy">Last Reviewed</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {roleRelationships.map((rel) => (
+              {targetRelationships.map((rel) => (
                 <tr key={rel.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2">
-                    <Link href={`/people/${rel.connectorId}`} className="text-[#2E75B6] hover:underline">
+                    <Link href={`/people/${rel.connectorId}`} className="text-[#2E75B6] hover:underline font-medium">
                       {rel.connectorName}
                     </Link>
                   </td>
-                  <td className="px-4 py-2">
-                    <Link href={`/partners/${rel.partnerId}`} className="text-[#2E75B6] hover:underline">
-                      {rel.partner}
-                    </Link>
+                  <td className="px-4 py-2 text-gray-600">
+                    {rel.hasPartnerRole && rel.partnerId ? (
+                      <Link href={`/partners/${rel.partnerId}`} className="text-[#2E75B6] hover:underline">
+                        {rel.partner} — {rel.role}
+                      </Link>
+                    ) : (
+                      <span className="text-gray-400">—</span>
+                    )}
                   </td>
-                  <td className="px-4 py-2 text-gray-600">{rel.role}</td>
                   <td className="px-4 py-2 text-gray-600">{rel.type}</td>
                   <td className="px-4 py-2 text-gray-600">
                     {rel.lastReviewed ? new Date(rel.lastReviewed).toLocaleDateString() : "—"}
@@ -272,7 +304,7 @@ export default async function PersonDetailPage({
       )}
 
       {/* No relationships at all */}
-      {person.relationships.length === 0 && roleRelationships.length === 0 && (
+      {person.relationships.length === 0 && targetRelationships.length === 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-navy">Relationships</h2>

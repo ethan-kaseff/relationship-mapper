@@ -167,14 +167,14 @@ async function main() {
 
   console.log("  Created 4 partner roles");
 
-  // ─── Relationships (Connector ↔ PartnerRole) ────────────────────────────
+  // ─── Relationships (Connector ↔ Person via PartnerRole) ─────────────────
   await prisma.relationship.createMany({
     data: [
-      { peopleId: connectorRecords[0], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Can Text"], lastReviewedDate: new Date("2025-09-15") },
-      { peopleId: connectorRecords[0], partnerRoleId: faithRole.id, relationshipTypeId: relTypeRecords["Close Friend"], lastReviewedDate: new Date("2025-11-01") },
-      { peopleId: connectorRecords[1], partnerRoleId: ltGovRole.id, relationshipTypeId: relTypeRecords["Professional Contact"] },
-      { peopleId: connectorRecords[1], partnerRoleId: bizRole.id, relationshipTypeId: relTypeRecords["Acquaintance"] },
-      { peopleId: connectorRecords[2], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Met Once"] },
+      { peopleId: connectorRecords[0], targetPersonId: contactRecords[0], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Can Text"], lastReviewedDate: new Date("2025-09-15") },
+      { peopleId: connectorRecords[0], targetPersonId: contactRecords[2], partnerRoleId: faithRole.id, relationshipTypeId: relTypeRecords["Close Friend"], lastReviewedDate: new Date("2025-11-01") },
+      { peopleId: connectorRecords[1], targetPersonId: contactRecords[1], partnerRoleId: ltGovRole.id, relationshipTypeId: relTypeRecords["Professional Contact"] },
+      { peopleId: connectorRecords[1], targetPersonId: contactRecords[3], partnerRoleId: bizRole.id, relationshipTypeId: relTypeRecords["Acquaintance"] },
+      { peopleId: connectorRecords[2], targetPersonId: contactRecords[0], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Met Once"] },
     ],
   });
   console.log("  Created 5 relationships");

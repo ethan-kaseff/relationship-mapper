@@ -27,7 +27,7 @@ export default async function Dashboard() {
         },
       },
     },
-    include: { organizationType: true },
+    include: { organizationType: true, partnerRoles: true },
     orderBy: { organizationName: "asc" },
   });
 
@@ -80,6 +80,7 @@ export default async function Dashboard() {
             <thead>
               <tr className="text-left border-b text-gray-500">
                 <th className="pb-2">Partner</th>
+                <th className="pb-2">Role(s)</th>
                 <th className="pb-2">Type</th>
                 <th className="pb-2">City</th>
                 <th className="pb-2">State</th>
@@ -92,6 +93,11 @@ export default async function Dashboard() {
                     <Link href={`/partners/${p.id}`} className="text-[#2E75B6] hover:underline font-medium">
                       {p.organizationName || "—"}
                     </Link>
+                  </td>
+                  <td className="py-2 text-gray-600">
+                    {p.partnerRoles.length > 0
+                      ? p.partnerRoles.map((r) => r.roleDescription).join(", ")
+                      : "—"}
                   </td>
                   <td className="py-2 text-gray-600">{p.organizationType?.typeName || "—"}</td>
                   <td className="py-2 text-gray-600">{p.city || "—"}</td>

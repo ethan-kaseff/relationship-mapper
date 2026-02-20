@@ -15,6 +15,7 @@ interface PartnerRole {
   id: string;
   roleDescription: string;
   partner: { organizationName: string | null };
+  person: { id: string; firstName: string; lastName: string } | null;
 }
 
 interface RelType {
@@ -81,10 +82,12 @@ export default function NewRelationshipPage() {
     label: `${p.lastName}, ${p.firstName}`,
   }));
 
-  const partnerRoleOptions = partnerRoles.map((pr) => ({
-    value: pr.id,
-    label: `${pr.partner.organizationName ?? "Unknown"} — ${pr.roleDescription}`,
-  }));
+  const partnerRoleOptions = partnerRoles
+    .filter((pr) => pr.person)
+    .map((pr) => ({
+      value: pr.id,
+      label: `${pr.person!.lastName}, ${pr.person!.firstName} — ${pr.roleDescription} at ${pr.partner.organizationName ?? "Unknown"}`,
+    }));
 
   return (
     <div>
@@ -118,7 +121,7 @@ export default function NewRelationshipPage() {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Partner Role <span className="text-red-500">*</span>
+              Person (via Partner Role) <span className="text-red-500">*</span>
             </label>
             <SearchableSelect
               options={partnerRoleOptions}
