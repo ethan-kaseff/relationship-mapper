@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireNonConnector } from "@/lib/api-auth";
+import { validateBody, createPartnerSchema } from "@/lib/validations";
+import { handleApiError } from "@/lib/api-error";
 
 export async function GET() {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
   try {
     const partners = await prisma.partner.findMany({
       include: {
@@ -15,43 +21,45 @@ export async function GET() {
     });
     return NextResponse.json(partners);
   } catch (error) {
-    console.error("Failed to fetch partners:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch partners" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
 export async function POST(request: Request) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
+  const validation = await validateBody(request, createPartnerSchema);
+  if (!validation.success) return validation.response;
+
   try {
-    const body = await request.json();
+    const data = validation.data;
     const partner = await prisma.partner.create({
       data: {
-        orgPeopleFlag: body.orgPeopleFlag,
-        organizationName: body.organizationName,
-        organizationTypeId: body.organizationTypeId,
-        address: body.address,
-        city: body.city,
-        state: body.state,
-        zip: body.zip,
-        phoneNumber: body.phoneNumber,
-        email: body.email,
-        website: body.website,
+        orgPeopleFlag: data.orgPeopleFlag,
+        organizationName: data.organizationName,
+        organizationTypeId: data.organizationTypeId,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        zip: data.zip,
+        phoneNumber: data.phoneNumber,
+        email: data.email || null,
+        website: data.website || null,
       },
     });
 
     // For individual partners, create a People record and a PartnerRole
-    if (body.orgPeopleFlag === "P" && body.organizationName) {
+    if (data.orgPeopleFlag === "P" && data.organizationName) {
       const person = await prisma.people.create({
         data: {
-          fullName: body.organizationName,
-          address: body.address,
-          city: body.city,
-          state: body.state,
-          zip: body.zip,
-          phoneNumber: body.phoneNumber,
-          personalEmail: body.email,
+          fullName: data.organizationName,
+          address: data.address,
+          city: data.city,
+          state: data.state,
+          zip: data.zip,
+          phoneNumber: data.phoneNumber,
+          personalEmail: data.email || null,
           isConnector: false,
         },
       });
@@ -67,10 +75,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(partner, { status: 201 });
   } catch (error) {
-    console.error("Failed to create partner:", error);
-    return NextResponse.json(
-      { error: "Failed to create partner" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

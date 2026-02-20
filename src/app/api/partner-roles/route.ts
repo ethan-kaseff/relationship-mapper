@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireNonConnector } from "@/lib/api-auth";
+import { validateBody, createPartnerRoleSchema } from "@/lib/validations";
+import { handleApiError } from "@/lib/api-error";
 
 export async function GET() {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
   try {
     const partnerRoles = await prisma.partnerRole.findMany({
       include: {
@@ -11,30 +17,28 @@ export async function GET() {
     });
     return NextResponse.json(partnerRoles);
   } catch (error) {
-    console.error("Failed to fetch partner roles:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch partner roles" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
 export async function POST(request: Request) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
+  const validation = await validateBody(request, createPartnerRoleSchema);
+  if (!validation.success) return validation.response;
+
   try {
-    const body = await request.json();
+    const data = validation.data;
     const partnerRole = await prisma.partnerRole.create({
       data: {
-        partnerId: body.partnerId,
-        roleDescription: body.roleDescription,
-        peopleId: body.peopleId,
+        partnerId: data.partnerId,
+        roleDescription: data.roleDescription,
+        peopleId: data.peopleId,
       },
     });
     return NextResponse.json(partnerRole, { status: 201 });
   } catch (error) {
-    console.error("Failed to create partner role:", error);
-    return NextResponse.json(
-      { error: "Failed to create partner role" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

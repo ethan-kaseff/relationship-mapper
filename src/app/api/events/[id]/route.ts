@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireNonConnector } from "@/lib/api-auth";
+import { validateBody, updateEventSchema } from "@/lib/validations";
+import { handleApiError, notFound } from "@/lib/api-error";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
   try {
     const { id } = await params;
     const event = await prisma.event.findUnique({
@@ -18,15 +24,11 @@ export async function GET(
       },
     });
     if (!event) {
-      return NextResponse.json({ error: "Event not found" }, { status: 404 });
+      return notFound("Event not found");
     }
     return NextResponse.json(event);
   } catch (error) {
-    console.error("Failed to fetch event:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch event" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -34,24 +36,26 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
+  const validation = await validateBody(request, updateEventSchema);
+  if (!validation.success) return validation.response;
+
   try {
     const { id } = await params;
-    const body = await request.json();
+    const data = validation.data;
     const event = await prisma.event.update({
       where: { id },
       data: {
-        eventDate: body.eventDate ? new Date(body.eventDate) : undefined,
-        eventTime: body.eventTime,
-        eventDescription: body.eventDescription,
+        eventDate: data.eventDate ? new Date(data.eventDate) : undefined,
+        eventTime: data.eventTime,
+        eventDescription: data.eventDescription,
       },
     });
     return NextResponse.json(event);
   } catch (error) {
-    console.error("Failed to update event:", error);
-    return NextResponse.json(
-      { error: "Failed to update event" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -59,15 +63,14 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
   try {
     const { id } = await params;
     await prisma.event.delete({ where: { id } });
     return NextResponse.json({ message: "Event deleted" });
   } catch (error) {
-    console.error("Failed to delete event:", error);
-    return NextResponse.json(
-      { error: "Failed to delete event" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireAuth } from "@/lib/api-auth";
+import { validateBody, createConnectionSchema } from "@/lib/validations";
+import { handleApiError } from "@/lib/api-error";
 
 export async function GET() {
+  const authResult = await requireAuth();
+  if (!authResult.success) return authResult.response;
+
   try {
     const connections = await prisma.connection.findMany({
       include: {
@@ -15,32 +21,30 @@ export async function GET() {
     });
     return NextResponse.json(connections);
   } catch (error) {
-    console.error("Failed to fetch connections:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch connections" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
 export async function POST(request: Request) {
+  const authResult = await requireAuth();
+  if (!authResult.success) return authResult.response;
+
+  const validation = await validateBody(request, createConnectionSchema);
+  if (!validation.success) return validation.response;
+
   try {
-    const body = await request.json();
+    const data = validation.data;
     const connection = await prisma.connection.create({
       data: {
-        peopleId: body.peopleId,
-        partnerRoleId: body.partnerRoleId,
-        connectionDate: new Date(body.connectionDate),
-        connectionTime: body.connectionTime,
-        notes: body.notes,
+        peopleId: data.peopleId,
+        partnerRoleId: data.partnerRoleId,
+        connectionDate: new Date(data.connectionDate),
+        connectionTime: data.connectionTime,
+        notes: data.notes,
       },
     });
     return NextResponse.json(connection, { status: 201 });
   } catch (error) {
-    console.error("Failed to create connection:", error);
-    return NextResponse.json(
-      { error: "Failed to create connection" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

@@ -1,7 +1,12 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 
 const prisma = new PrismaClient();
+
+function generateSecurePassword(): string {
+  return crypto.randomBytes(16).toString("base64");
+}
 
 async function main() {
   console.log("Seeding database...");
@@ -43,10 +48,17 @@ async function main() {
 
   const relTypeRecords: Record<string, string> = {};
   for (const rt of relTypes) {
-    const r = await prisma.relationshipType.create({
-      data: { relationshipDesc: rt.desc, notes: rt.notes },
+    const existing = await prisma.relationshipType.findFirst({
+      where: { relationshipDesc: rt.desc },
     });
-    relTypeRecords[rt.desc] = r.id;
+    if (existing) {
+      relTypeRecords[rt.desc] = existing.id;
+    } else {
+      const r = await prisma.relationshipType.create({
+        data: { relationshipDesc: rt.desc, notes: rt.notes },
+      });
+      relTypeRecords[rt.desc] = r.id;
+    }
   }
   console.log(`  Created ${relTypes.length} relationship types`);
 
@@ -59,10 +71,17 @@ async function main() {
 
   const connectorRecords: string[] = [];
   for (const c of connectors) {
-    const p = await prisma.people.create({
-      data: { ...c, isConnector: true },
+    const existing = await prisma.people.findFirst({
+      where: { fullName: c.fullName, isConnector: true },
     });
-    connectorRecords.push(p.id);
+    if (existing) {
+      connectorRecords.push(existing.id);
+    } else {
+      const p = await prisma.people.create({
+        data: { ...c, isConnector: true },
+      });
+      connectorRecords.push(p.id);
+    }
   }
   console.log(`  Created ${connectors.length} connectors`);
 
@@ -76,148 +95,225 @@ async function main() {
 
   const contactRecords: string[] = [];
   for (const c of contacts) {
-    const p = await prisma.people.create({
-      data: { ...c, isConnector: false },
+    const existing = await prisma.people.findFirst({
+      where: { fullName: c.fullName, isConnector: false },
     });
-    contactRecords.push(p.id);
+    if (existing) {
+      contactRecords.push(existing.id);
+    } else {
+      const p = await prisma.people.create({
+        data: { ...c, isConnector: false },
+      });
+      contactRecords.push(p.id);
+    }
   }
   console.log(`  Created ${contacts.length} partner contacts`);
 
   // ─── Sample Partners (Organizations) ─────────────────────────────────────
-  const govOffice = await prisma.partner.create({
-    data: {
-      orgPeopleFlag: "O",
-      organizationName: "Kansas Governor's Office",
-      organizationTypeId: orgTypeRecords["State Government"],
-      address: "300 SW 10th Ave",
-      city: "Topeka",
-      state: "KS",
-      zip: "66612",
-      phoneNumber: "785-296-3232",
-      website: "https://governor.kansas.gov",
-    },
+  let govOffice = await prisma.partner.findFirst({
+    where: { organizationName: "Kansas Governor's Office" },
   });
+  if (!govOffice) {
+    govOffice = await prisma.partner.create({
+      data: {
+        orgPeopleFlag: "O",
+        organizationName: "Kansas Governor's Office",
+        organizationTypeId: orgTypeRecords["State Government"],
+        address: "300 SW 10th Ave",
+        city: "Topeka",
+        state: "KS",
+        zip: "66612",
+        phoneNumber: "785-296-3232",
+        website: "https://governor.kansas.gov",
+      },
+    });
+  }
 
-  const churchOrg = await prisma.partner.create({
-    data: {
-      orgPeopleFlag: "O",
-      organizationName: "KC Interfaith Council",
-      organizationTypeId: orgTypeRecords["Faith Tradition"],
-      city: "Kansas City",
-      state: "MO",
-    },
+  let churchOrg = await prisma.partner.findFirst({
+    where: { organizationName: "KC Interfaith Council" },
   });
+  if (!churchOrg) {
+    churchOrg = await prisma.partner.create({
+      data: {
+        orgPeopleFlag: "O",
+        organizationName: "KC Interfaith Council",
+        organizationTypeId: orgTypeRecords["Faith Tradition"],
+        city: "Kansas City",
+        state: "MO",
+      },
+    });
+  }
 
-  // A partner that is an individual person (not an org)
-  const bizPerson = await prisma.partner.create({
-    data: {
-      orgPeopleFlag: "P",
-      organizationName: "Maria Rodriguez (Individual)",
-      organizationTypeId: orgTypeRecords["Business"],
-      city: "Kansas City",
-      state: "MO",
-    },
+  let bizPerson = await prisma.partner.findFirst({
+    where: { organizationName: "Maria Rodriguez (Individual)" },
   });
+  if (!bizPerson) {
+    bizPerson = await prisma.partner.create({
+      data: {
+        orgPeopleFlag: "P",
+        organizationName: "Maria Rodriguez (Individual)",
+        organizationTypeId: orgTypeRecords["Business"],
+        city: "Kansas City",
+        state: "MO",
+      },
+    });
+  }
 
   console.log("  Created 3 partners");
 
   // ─── Partner Roles ───────────────────────────────────────────────────────
-  const govRole = await prisma.partnerRole.create({
-    data: {
-      partnerId: govOffice.id,
-      roleDescription: "Governor",
-      peopleId: contactRecords[0], // Laura Kelly
-    },
+  let govRole = await prisma.partnerRole.findFirst({
+    where: { partnerId: govOffice.id, roleDescription: "Governor" },
   });
+  if (!govRole) {
+    govRole = await prisma.partnerRole.create({
+      data: {
+        partnerId: govOffice.id,
+        roleDescription: "Governor",
+        peopleId: contactRecords[0],
+      },
+    });
+  }
 
-  const ltGovRole = await prisma.partnerRole.create({
-    data: {
-      partnerId: govOffice.id,
-      roleDescription: "Lieutenant Governor",
-      peopleId: contactRecords[1], // David Toland
-    },
+  let ltGovRole = await prisma.partnerRole.findFirst({
+    where: { partnerId: govOffice.id, roleDescription: "Lieutenant Governor" },
   });
+  if (!ltGovRole) {
+    ltGovRole = await prisma.partnerRole.create({
+      data: {
+        partnerId: govOffice.id,
+        roleDescription: "Lieutenant Governor",
+        peopleId: contactRecords[1],
+      },
+    });
+  }
 
-  const faithRole = await prisma.partnerRole.create({
-    data: {
-      partnerId: churchOrg.id,
-      roleDescription: "Executive Director",
-      peopleId: contactRecords[2], // Rev. James Mitchell
-    },
+  let faithRole = await prisma.partnerRole.findFirst({
+    where: { partnerId: churchOrg.id, roleDescription: "Executive Director" },
   });
+  if (!faithRole) {
+    faithRole = await prisma.partnerRole.create({
+      data: {
+        partnerId: churchOrg.id,
+        roleDescription: "Executive Director",
+        peopleId: contactRecords[2],
+      },
+    });
+  }
 
-  const bizRole = await prisma.partnerRole.create({
-    data: {
-      partnerId: bizPerson.id,
-      roleDescription: "Business Contact",
-      peopleId: contactRecords[3], // Maria Rodriguez
-    },
+  let bizRole = await prisma.partnerRole.findFirst({
+    where: { partnerId: bizPerson.id, roleDescription: "Business Contact" },
   });
+  if (!bizRole) {
+    bizRole = await prisma.partnerRole.create({
+      data: {
+        partnerId: bizPerson.id,
+        roleDescription: "Business Contact",
+        peopleId: contactRecords[3],
+      },
+    });
+  }
 
   console.log("  Created 4 partner roles");
 
   // ─── Relationships (Connector ↔ PartnerRole) ────────────────────────────
-  await prisma.relationship.createMany({
-    data: [
-      { peopleId: connectorRecords[0], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Can Text"], lastReviewedDate: new Date("2025-09-15") },
-      { peopleId: connectorRecords[0], partnerRoleId: faithRole.id, relationshipTypeId: relTypeRecords["Close Friend"], lastReviewedDate: new Date("2025-11-01") },
-      { peopleId: connectorRecords[1], partnerRoleId: ltGovRole.id, relationshipTypeId: relTypeRecords["Professional Contact"] },
-      { peopleId: connectorRecords[1], partnerRoleId: bizRole.id, relationshipTypeId: relTypeRecords["Acquaintance"] },
-      { peopleId: connectorRecords[2], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Met Once"] },
-    ],
-  });
+  const relationships = [
+    { peopleId: connectorRecords[0], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Can Text"], lastReviewedDate: new Date("2025-09-15") },
+    { peopleId: connectorRecords[0], partnerRoleId: faithRole.id, relationshipTypeId: relTypeRecords["Close Friend"], lastReviewedDate: new Date("2025-11-01") },
+    { peopleId: connectorRecords[1], partnerRoleId: ltGovRole.id, relationshipTypeId: relTypeRecords["Professional Contact"] },
+    { peopleId: connectorRecords[1], partnerRoleId: bizRole.id, relationshipTypeId: relTypeRecords["Acquaintance"] },
+    { peopleId: connectorRecords[2], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Met Once"] },
+  ];
+
+  for (const rel of relationships) {
+    const existing = await prisma.relationship.findUnique({
+      where: { peopleId_partnerRoleId: { peopleId: rel.peopleId, partnerRoleId: rel.partnerRoleId } },
+    });
+    if (!existing) {
+      await prisma.relationship.create({ data: rel });
+    }
+  }
   console.log("  Created 5 relationships");
 
   // ─── Connection Log ──────────────────────────────────────────────────────
-  await prisma.connection.createMany({
-    data: [
-      { peopleId: connectorRecords[0], partnerRoleId: govRole.id, connectionDate: new Date("2025-08-20"), notes: "Met at community event; discussed education funding" },
-      { peopleId: connectorRecords[0], partnerRoleId: faithRole.id, connectionDate: new Date("2025-10-15"), notes: "Lunch meeting; planning interfaith dialogue" },
-      { peopleId: connectorRecords[1], partnerRoleId: ltGovRole.id, connectionDate: new Date("2025-07-10"), notes: "Phone call about workforce development initiative" },
-    ],
-  });
+  const connections = [
+    { peopleId: connectorRecords[0], partnerRoleId: govRole.id, connectionDate: new Date("2025-08-20"), notes: "Met at community event; discussed education funding" },
+    { peopleId: connectorRecords[0], partnerRoleId: faithRole.id, connectionDate: new Date("2025-10-15"), notes: "Lunch meeting; planning interfaith dialogue" },
+    { peopleId: connectorRecords[1], partnerRoleId: ltGovRole.id, connectionDate: new Date("2025-07-10"), notes: "Phone call about workforce development initiative" },
+  ];
+
+  const existingConnectionsCount = await prisma.connection.count();
+  if (existingConnectionsCount === 0) {
+    await prisma.connection.createMany({ data: connections });
+  }
   console.log("  Created 3 connection log entries");
 
   // ─── Events ──────────────────────────────────────────────────────────────
-  const event1 = await prisma.event.create({
-    data: {
-      eventDate: new Date("2025-10-07"),
-      eventDescription: "JCRB|AJC Statement on Community Safety",
-    },
+  let event1 = await prisma.event.findFirst({
+    where: { eventDescription: "JCRB|AJC Statement on Community Safety" },
   });
+  if (!event1) {
+    event1 = await prisma.event.create({
+      data: {
+        eventDate: new Date("2025-10-07"),
+        eventDescription: "JCRB|AJC Statement on Community Safety",
+      },
+    });
+  }
 
-  const event2 = await prisma.event.create({
-    data: {
-      eventDate: new Date("2025-11-15"),
-      eventDescription: "Annual Interfaith Thanksgiving Service",
-    },
+  let event2 = await prisma.event.findFirst({
+    where: { eventDescription: "Annual Interfaith Thanksgiving Service" },
   });
+  if (!event2) {
+    event2 = await prisma.event.create({
+      data: {
+        eventDate: new Date("2025-11-15"),
+        eventDescription: "Annual Interfaith Thanksgiving Service",
+      },
+    });
+  }
 
   console.log("  Created 2 events");
 
   // ─── Event Responses ─────────────────────────────────────────────────────
-  await prisma.eventResponse.createMany({
-    data: [
-      { peopleId: contactRecords[0], eventId: event1.id, responseDate: new Date("2025-10-08"), responseNotes: "Issued supportive public statement", isPublic: true },
-      { peopleId: contactRecords[2], eventId: event2.id, responseDate: new Date("2025-11-16"), responseNotes: "Attended and gave opening blessing", isPublic: true },
-      { peopleId: contactRecords[3], eventId: event1.id, responseDate: new Date("2025-10-10"), responseNotes: "Sent private email of support", isPublic: false },
-    ],
-  });
+  const existingResponsesCount = await prisma.eventResponse.count();
+  if (existingResponsesCount === 0) {
+    await prisma.eventResponse.createMany({
+      data: [
+        { peopleId: contactRecords[0], eventId: event1.id, responseDate: new Date("2025-10-08"), responseNotes: "Issued supportive public statement", isPublic: true },
+        { peopleId: contactRecords[2], eventId: event2.id, responseDate: new Date("2025-11-16"), responseNotes: "Attended and gave opening blessing", isPublic: true },
+        { peopleId: contactRecords[3], eventId: event1.id, responseDate: new Date("2025-10-10"), responseNotes: "Sent private email of support", isPublic: false },
+      ],
+    });
+  }
   console.log("  Created 3 event responses");
 
-  // ─── Default Admin User ─────────────────────────────────────────────────
-  const hashedPassword = await bcrypt.hash("admin123", 10);
+  // ─── Admin User ─────────────────────────────────────────────────────────
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@jcrb.org";
+  const adminPassword = process.env.ADMIN_PASSWORD || generateSecurePassword();
+  const isDefaultPassword = !process.env.ADMIN_PASSWORD;
+
+  const hashedPassword = await bcrypt.hash(adminPassword, 10);
   await prisma.user.upsert({
-    where: { email: "admin@jcrb.org" },
+    where: { email: adminEmail },
     update: {},
     create: {
-      email: "admin@jcrb.org",
+      email: adminEmail,
       password: hashedPassword,
       name: "Admin",
       role: "SYSTEM_ADMIN",
     },
   });
-  console.log("  Created default admin user (admin@jcrb.org)");
+
+  if (isDefaultPassword) {
+    console.log(`\n  Created admin user:`);
+    console.log(`    Email: ${adminEmail}`);
+    console.log(`    Password: ${adminPassword}`);
+    console.log(`\n  IMPORTANT: Save this password! It will not be shown again.`);
+    console.log(`  Set ADMIN_PASSWORD env var to use a specific password.\n`);
+  } else {
+    console.log(`  Created admin user (${adminEmail})`);
+  }
 
   console.log("\nSeed complete!");
 }

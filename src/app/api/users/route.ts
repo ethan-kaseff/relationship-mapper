@@ -1,53 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { auth } from "@/lib/auth";
-
-const prisma = new PrismaClient();
+import { requireSystemAdmin } from "@/lib/api-auth";
+import { validateBody, createUserSchema } from "@/lib/validations";
+import { handleApiError, conflict } from "@/lib/api-error";
 
 // GET /api/users — list all users (SYSTEM_ADMIN only)
 export async function GET() {
-  const session = await auth();
-  if (!session || session.user.role !== "SYSTEM_ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const authResult = await requireSystemAdmin();
+  if (!authResult.success) return authResult.response;
+
+  try {
+    const users = await prisma.user.findMany({
+      select: { id: true, email: true, name: true, role: true },
+      orderBy: { name: "asc" },
+    });
+    return NextResponse.json(users);
+  } catch (error) {
+    return handleApiError(error);
   }
-
-  const users = await prisma.user.findMany({
-    select: { id: true, email: true, name: true, role: true },
-    orderBy: { name: "asc" },
-  });
-
-  return NextResponse.json(users);
 }
 
 // POST /api/users — create a new user (SYSTEM_ADMIN only)
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session || session.user.role !== "SYSTEM_ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const authResult = await requireSystemAdmin();
+  if (!authResult.success) return authResult.response;
+
+  const validation = await validateBody(request, createUserSchema);
+  if (!validation.success) return validation.response;
+
+  try {
+    const data = validation.data;
+
+    const existing = await prisma.user.findUnique({ where: { email: data.email } });
+    if (existing) {
+      return conflict("A user with this email already exists");
+    }
+
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const user = await prisma.user.create({
+      data: {
+        email: data.email,
+        password: hashedPassword,
+        name: data.name,
+        role: data.role || "OFFICE_ADMIN",
+      },
+      select: { id: true, email: true, name: true, role: true },
+    });
+
+    return NextResponse.json(user, { status: 201 });
+  } catch (error) {
+    return handleApiError(error);
   }
-
-  const body = await request.json();
-  const { email, password, name, role } = body;
-
-  if (!email || !password || !name) {
-    return NextResponse.json({ error: "Email, password, and name are required" }, { status: 400 });
-  }
-
-  if (role && !["SYSTEM_ADMIN", "OFFICE_ADMIN", "OFFICE_USER", "CONNECTOR"].includes(role)) {
-    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
-  }
-
-  const existing = await prisma.user.findUnique({ where: { email } });
-  if (existing) {
-    return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
-  }
-
-  const hashedPassword = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: { email, password: hashedPassword, name, role: role || "OFFICE_ADMIN" },
-    select: { id: true, email: true, name: true, role: true },
-  });
-
-  return NextResponse.json(user, { status: 201 });
 }

@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireNonConnector } from "@/lib/api-auth";
+import { validateBody, createRelationshipSchema } from "@/lib/validations";
+import { handleApiError } from "@/lib/api-error";
 
 export async function GET() {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
   try {
     const relationships = await prisma.relationship.findMany({
       include: {
@@ -16,33 +22,31 @@ export async function GET() {
     });
     return NextResponse.json(relationships);
   } catch (error) {
-    console.error("Failed to fetch relationships:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch relationships" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
 export async function POST(request: Request) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
+  const validation = await validateBody(request, createRelationshipSchema);
+  if (!validation.success) return validation.response;
+
   try {
-    const body = await request.json();
+    const data = validation.data;
     const relationship = await prisma.relationship.create({
       data: {
-        peopleId: body.peopleId,
-        partnerRoleId: body.partnerRoleId,
-        relationshipTypeId: body.relationshipTypeId,
-        lastReviewedDate: body.lastReviewedDate
-          ? new Date(body.lastReviewedDate)
+        peopleId: data.peopleId,
+        partnerRoleId: data.partnerRoleId,
+        relationshipTypeId: data.relationshipTypeId,
+        lastReviewedDate: data.lastReviewedDate
+          ? new Date(data.lastReviewedDate)
           : null,
       },
     });
     return NextResponse.json(relationship, { status: 201 });
   } catch (error) {
-    console.error("Failed to create relationship:", error);
-    return NextResponse.json(
-      { error: "Failed to create relationship" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

@@ -1,9 +1,7 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -40,26 +38,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login" },
   callbacks: {
-    authorized({ auth, request }) {
-      const isLoggedIn = !!auth?.user;
-      const pathname = request.nextUrl.pathname;
-      if (pathname === "/login") return true;
-      if (!isLoggedIn) return false;
-
-      const role = (auth?.user as { role?: string })?.role;
-
-      // Settings page: SYSTEM_ADMIN and OFFICE_ADMIN only
-      if (pathname.startsWith("/settings")) {
-        return role === "SYSTEM_ADMIN" || role === "OFFICE_ADMIN";
-      }
-
-      // CONNECTOR can only access /interactions and API routes for interactions
-      if (role === "CONNECTOR") {
-        return pathname === "/" || pathname.startsWith("/interactions") || pathname.startsWith("/api/");
-      }
-
-      return true;
-    },
     jwt({ token, user }) {
       if (user) {
         token.role = (user as { role: string }).role;

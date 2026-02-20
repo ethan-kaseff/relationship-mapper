@@ -1,6 +1,6 @@
 "use client";
 
-import { utils, writeFileXLSX } from "xlsx";
+import ExcelJS from "exceljs";
 
 interface Partner {
   id: string;
@@ -13,24 +13,52 @@ interface Partner {
 }
 
 export default function ExportPartnersButton({ partners }: { partners: Partner[] }) {
-  function handleExport() {
-    const rows = partners.map((p) => ({
-      "Partner Name": p.organizationName ?? "",
-      "Organization Type": p.organizationType?.typeName ?? "",
-      City: p.city ?? "",
-      State: p.state ?? "",
-      Phone: p.phoneNumber ?? "",
-      Email: p.email ?? "",
-    }));
+  async function handleExport() {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet("Partners Without Relationships");
 
-    const ws = utils.json_to_sheet(rows);
-    const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, "Partners Without Relationships");
+    // Define columns
+    worksheet.columns = [
+      { header: "Partner Name", key: "name", width: 30 },
+      { header: "Organization Type", key: "type", width: 25 },
+      { header: "City", key: "city", width: 20 },
+      { header: "State", key: "state", width: 15 },
+      { header: "Phone", key: "phone", width: 20 },
+      { header: "Email", key: "email", width: 30 },
+    ];
 
-    // Auto-size columns
-    ws["!cols"] = Object.keys(rows[0] || {}).map(() => ({ wch: 25 }));
+    // Style the header row
+    const headerRow = worksheet.getRow(1);
+    headerRow.font = { bold: true };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFE0E0E0" },
+    };
 
-    writeFileXLSX(wb, "partners-without-relationships.xlsx");
+    // Add data rows
+    partners.forEach((p) => {
+      worksheet.addRow({
+        name: p.organizationName ?? "",
+        type: p.organizationType?.typeName ?? "",
+        city: p.city ?? "",
+        state: p.state ?? "",
+        phone: p.phoneNumber ?? "",
+        email: p.email ?? "",
+      });
+    });
+
+    // Generate file and download
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "partners-without-relationships.xlsx";
+    link.click();
+    URL.revokeObjectURL(url);
   }
 
   if (partners.length === 0) return null;

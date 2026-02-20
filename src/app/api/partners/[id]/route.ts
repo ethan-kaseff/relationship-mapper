@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireNonConnector } from "@/lib/api-auth";
+import { validateBody, updatePartnerSchema } from "@/lib/validations";
+import { handleApiError, notFound } from "@/lib/api-error";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
   try {
     const { id } = await params;
     const partner = await prisma.partner.findUnique({
@@ -21,18 +27,11 @@ export async function GET(
       },
     });
     if (!partner) {
-      return NextResponse.json(
-        { error: "Partner not found" },
-        { status: 404 }
-      );
+      return notFound("Partner not found");
     }
     return NextResponse.json(partner);
   } catch (error) {
-    console.error("Failed to fetch partner:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch partner" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -40,31 +39,33 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
+  const validation = await validateBody(request, updatePartnerSchema);
+  if (!validation.success) return validation.response;
+
   try {
     const { id } = await params;
-    const body = await request.json();
+    const data = validation.data;
     const partner = await prisma.partner.update({
       where: { id },
       data: {
-        orgPeopleFlag: body.orgPeopleFlag,
-        organizationName: body.organizationName,
-        organizationTypeId: body.organizationTypeId,
-        address: body.address,
-        city: body.city,
-        state: body.state,
-        zip: body.zip,
-        phoneNumber: body.phoneNumber,
-        email: body.email,
-        website: body.website,
+        orgPeopleFlag: data.orgPeopleFlag,
+        organizationName: data.organizationName,
+        organizationTypeId: data.organizationTypeId,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        zip: data.zip,
+        phoneNumber: data.phoneNumber,
+        email: data.email || null,
+        website: data.website || null,
       },
     });
     return NextResponse.json(partner);
   } catch (error) {
-    console.error("Failed to update partner:", error);
-    return NextResponse.json(
-      { error: "Failed to update partner" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -72,15 +73,14 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
   try {
     const { id } = await params;
     await prisma.partner.delete({ where: { id } });
     return NextResponse.json({ message: "Partner deleted" });
   } catch (error) {
-    console.error("Failed to delete partner:", error);
-    return NextResponse.json(
-      { error: "Failed to delete partner" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireNonConnector } from "@/lib/api-auth";
+import { validateBody, createEventResponseSchema } from "@/lib/validations";
+import { handleApiError } from "@/lib/api-error";
 
 export async function GET() {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
   try {
     const eventResponses = await prisma.eventResponse.findMany({
       include: {
@@ -11,33 +17,31 @@ export async function GET() {
     });
     return NextResponse.json(eventResponses);
   } catch (error) {
-    console.error("Failed to fetch event responses:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch event responses" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
 export async function POST(request: Request) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
+  const validation = await validateBody(request, createEventResponseSchema);
+  if (!validation.success) return validation.response;
+
   try {
-    const body = await request.json();
+    const data = validation.data;
     const eventResponse = await prisma.eventResponse.create({
       data: {
-        peopleId: body.peopleId,
-        eventId: body.eventId,
-        responseDate: body.responseDate ? new Date(body.responseDate) : null,
-        responseTime: body.responseTime,
-        responseNotes: body.responseNotes,
-        isPublic: body.isPublic ?? true,
+        peopleId: data.peopleId,
+        eventId: data.eventId,
+        responseDate: data.responseDate ? new Date(data.responseDate) : null,
+        responseTime: data.responseTime,
+        responseNotes: data.responseNotes,
+        isPublic: data.isPublic ?? true,
       },
     });
     return NextResponse.json(eventResponse, { status: 201 });
   } catch (error) {
-    console.error("Failed to create event response:", error);
-    return NextResponse.json(
-      { error: "Failed to create event response" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

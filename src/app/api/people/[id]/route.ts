@@ -1,10 +1,16 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireNonConnector } from "@/lib/api-auth";
+import { validateBody, updatePeopleSchema } from "@/lib/validations";
+import { handleApiError, notFound } from "@/lib/api-error";
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
   try {
     const { id } = await params;
     const person = await prisma.people.findUnique({
@@ -42,15 +48,11 @@ export async function GET(
       },
     });
     if (!person) {
-      return NextResponse.json({ error: "Person not found" }, { status: 404 });
+      return notFound("Person not found");
     }
     return NextResponse.json(person);
   } catch (error) {
-    console.error("Failed to fetch person:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch person" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -58,29 +60,31 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
+  const validation = await validateBody(request, updatePeopleSchema);
+  if (!validation.success) return validation.response;
+
   try {
     const { id } = await params;
-    const body = await request.json();
+    const data = validation.data;
     const person = await prisma.people.update({
       where: { id },
       data: {
-        fullName: body.fullName,
-        address: body.address,
-        city: body.city,
-        state: body.state,
-        zip: body.zip,
-        phoneNumber: body.phoneNumber,
-        personalEmail: body.personalEmail,
-        isConnector: body.isConnector,
+        fullName: data.fullName,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        zip: data.zip,
+        phoneNumber: data.phoneNumber,
+        personalEmail: data.personalEmail || null,
+        isConnector: data.isConnector,
       },
     });
     return NextResponse.json(person);
   } catch (error) {
-    console.error("Failed to update person:", error);
-    return NextResponse.json(
-      { error: "Failed to update person" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
@@ -88,15 +92,14 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
   try {
     const { id } = await params;
     await prisma.people.delete({ where: { id } });
     return NextResponse.json({ message: "Person deleted" });
   } catch (error) {
-    console.error("Failed to delete person:", error);
-    return NextResponse.json(
-      { error: "Failed to delete person" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

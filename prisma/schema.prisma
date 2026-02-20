@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── Auth ────────────────────────────────────────────────────────────────────
@@ -14,7 +15,7 @@ model User {
   email    String @unique
   password String
   name     String
-  role     String @default("OFFICE_ADMIN") // "SYSTEM_ADMIN" or "OFFICE_ADMIN"
+  role     String @default("OFFICE_ADMIN") // "SYSTEM_ADMIN", "OFFICE_ADMIN", "OFFICE_USER", or "CONNECTOR"
 
   @@map("user")
 }
@@ -139,16 +140,16 @@ model Event {
 }
 
 model EventResponse {
-  id            String   @id @default(uuid())
-  peopleId      String   @map("people_id")
-  person        People   @relation(fields: [peopleId], references: [id])
-  eventId       String   @map("event_id")
-  event         Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  id            String    @id @default(uuid())
+  peopleId      String    @map("people_id")
+  person        People    @relation(fields: [peopleId], references: [id])
+  eventId       String    @map("event_id")
+  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
   responseDate  DateTime? @map("response_date")
-  responseTime  String?  @map("response_time")
-  responseNotes String?  @map("response_notes")
-  isPublic      Boolean  @default(true) @map("is_public")
-  createdAt     DateTime @default(now()) @map("created_at")
+  responseTime  String?   @map("response_time")
+  responseNotes String?   @map("response_notes")
+  isPublic      Boolean   @default(true) @map("is_public")
+  createdAt     DateTime  @default(now()) @map("created_at")
 
   @@map("event_response")
 }
