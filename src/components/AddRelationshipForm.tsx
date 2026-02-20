@@ -115,6 +115,7 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
             onChange={setPartnerRoleId}
             placeholder="Search people..."
             required
+            autoFocus
           />
         </div>
         <div className="w-48">

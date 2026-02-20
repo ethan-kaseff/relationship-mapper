@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 
 interface RelationshipType {
@@ -27,7 +27,7 @@ interface User {
 }
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const role = session?.user?.role;
   const isSystemAdmin = role === "SYSTEM_ADMIN";
 
@@ -64,6 +64,13 @@ export default function SettingsPage() {
   const [userSubmitting, setUserSubmitting] = useState(false);
   const [userError, setUserError] = useState("");
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editUserFirstName, setEditUserFirstName] = useState("");
+  const [editUserLastName, setEditUserLastName] = useState("");
+  const [editUserEmail, setEditUserEmail] = useState("");
+  const [editUserRole, setEditUserRole] = useState("");
+  const [editUserOfficeId, setEditUserOfficeId] = useState("");
+  const [editUserPassword, setEditUserPassword] = useState("");
 
   // Office management state
   const [offices, setOffices] = useState<Office[]>([]);
@@ -78,6 +85,11 @@ export default function SettingsPage() {
 
   // Office dropdown for user form
   const [userOfficeId, setUserOfficeId] = useState("");
+
+  // Auto-focus refs
+  const relTypeInputRef = useRef<HTMLInputElement>(null);
+  const userFirstNameRef = useRef<HTMLInputElement>(null);
+  const officeNameRef = useRef<HTMLInputElement>(null);
 
   function fetchTypes() {
     fetch("/api/lookup/relationship-types")
@@ -110,6 +122,18 @@ export default function SettingsPage() {
       })
       .catch(() => setOfficesLoading(false));
   }
+
+  useEffect(() => {
+    if (showForm && relTypeInputRef.current) relTypeInputRef.current.focus();
+  }, [showForm]);
+
+  useEffect(() => {
+    if (showUserForm && userFirstNameRef.current) userFirstNameRef.current.focus();
+  }, [showUserForm]);
+
+  useEffect(() => {
+    if (showOfficeForm && officeNameRef.current) officeNameRef.current.focus();
+  }, [showOfficeForm]);
 
   useEffect(() => {
     fetchTypes();
@@ -282,6 +306,51 @@ export default function SettingsPage() {
     }
   }
 
+  function startEditUser(user: User) {
+    setEditingUserId(user.id);
+    setEditUserFirstName(user.firstName);
+    setEditUserLastName(user.lastName);
+    setEditUserEmail(user.email);
+    setEditUserRole(user.role);
+    setEditUserOfficeId(user.officeId);
+    setEditUserPassword("");
+    setDeletingUserId(null);
+  }
+
+  async function handleUpdateUser(id: string) {
+    setUserSubmitting(true);
+    setUserError("");
+
+    try {
+      const body: Record<string, string> = {
+        firstName: editUserFirstName,
+        lastName: editUserLastName,
+        email: editUserEmail,
+        role: editUserRole,
+        officeId: editUserOfficeId,
+      };
+      if (editUserPassword) body.password = editUserPassword;
+
+      const res = await fetch(`/api/users/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update user");
+      }
+
+      setEditingUserId(null);
+      fetchUsers();
+    } catch (err: unknown) {
+      setUserError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setUserSubmitting(false);
+    }
+  }
+
   async function handleCreateOffice(e: React.FormEvent) {
     e.preventDefault();
     setOfficeSubmitting(true);
@@ -352,6 +421,15 @@ export default function SettingsPage() {
     }
   }
 
+  if (sessionStatus === "loading") {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold text-navy mb-6">Settings</h1>
+        <p className="text-gray-400 text-sm">Loading...</p>
+      </div>
+    );
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-navy mb-6">Settings</h1>
@@ -386,6 +464,7 @@ export default function SettingsPage() {
                   Description <span className="text-red-500">*</span>
                 </label>
                 <input
+                  ref={relTypeInputRef}
                   type="text"
                   required
                   value={newDesc}
@@ -614,6 +693,7 @@ export default function SettingsPage() {
                       First Name <span className="text-red-500">*</span>
                     </label>
                     <input
+                      ref={userFirstNameRef}
                       type="text"
                       required
                       value={userFirstName}
@@ -730,45 +810,133 @@ export default function SettingsPage() {
               <tbody className="divide-y divide-gray-100">
                 {users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{user.lastName}, {user.firstName}</td>
-                    <td className="px-4 py-3 text-gray-600">{user.email}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
-                        user.role === "SYSTEM_ADMIN"
-                          ? "bg-navy text-white"
-                          : "bg-gray-100 text-gray-700"
-                      }`}>
-                        {{ SYSTEM_ADMIN: "System Admin", OFFICE_ADMIN: "Office Admin", OFFICE_USER: "Office User", CONNECTOR: "Connector" }[user.role] || user.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{user.office?.name ?? "—"}</td>
-                    <td className="px-4 py-3 text-right">
-                      {user.id === session?.user?.id ? (
-                        <span className="text-gray-400 text-xs">You</span>
-                      ) : deletingUserId === user.id ? (
-                        <span className="flex items-center gap-2 justify-end">
-                          <button
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="text-red-600 hover:underline text-xs font-medium"
+                    {editingUserId === user.id ? (
+                      <>
+                        <td className="px-4 py-2">
+                          <div className="flex gap-1">
+                            <input
+                              type="text"
+                              value={editUserFirstName}
+                              onChange={(e) => setEditUserFirstName(e.target.value)}
+                              placeholder="First"
+                              className="w-1/2 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                            />
+                            <input
+                              type="text"
+                              value={editUserLastName}
+                              onChange={(e) => setEditUserLastName(e.target.value)}
+                              placeholder="Last"
+                              className="w-1/2 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            type="email"
+                            value={editUserEmail}
+                            onChange={(e) => setEditUserEmail(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <select
+                            value={editUserRole}
+                            onChange={(e) => setEditUserRole(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
                           >
-                            Confirm
-                          </button>
-                          <button
-                            onClick={() => setDeletingUserId(null)}
-                            className="text-gray-500 hover:text-gray-700 text-xs"
+                            <option value="OFFICE_ADMIN">Office Admin</option>
+                            <option value="OFFICE_USER">Office User</option>
+                            <option value="CONNECTOR">Connector</option>
+                            <option value="SYSTEM_ADMIN">System Admin</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-2">
+                          <select
+                            value={editUserOfficeId}
+                            onChange={(e) => setEditUserOfficeId(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
                           >
-                            Cancel
-                          </button>
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => setDeletingUserId(user.id)}
-                          className="text-red-600 hover:underline text-xs"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </td>
+                            {offices.map((o) => (
+                              <option key={o.id} value={o.id}>{o.name}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="password"
+                            value={editUserPassword}
+                            onChange={(e) => setEditUserPassword(e.target.value)}
+                            placeholder="New password (leave blank to keep)"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm mt-1 focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => handleUpdateUser(user.id)}
+                              disabled={userSubmitting}
+                              className="text-[#2E75B6] hover:underline text-xs disabled:opacity-50"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingUserId(null)}
+                              className="text-gray-500 hover:text-gray-700 text-xs"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-4 py-3 font-medium">{user.lastName}, {user.firstName}</td>
+                        <td className="px-4 py-3 text-gray-600">{user.email}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
+                            user.role === "SYSTEM_ADMIN"
+                              ? "bg-navy text-white"
+                              : "bg-gray-100 text-gray-700"
+                          }`}>
+                            {{ SYSTEM_ADMIN: "System Admin", OFFICE_ADMIN: "Office Admin", OFFICE_USER: "Office User", CONNECTOR: "Connector" }[user.role] || user.role}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">{user.office?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-right">
+                          {user.id === session?.user?.id ? (
+                            <span className="text-gray-400 text-xs">You</span>
+                          ) : deletingUserId === user.id ? (
+                            <span className="flex items-center gap-2 justify-end">
+                              <button
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="text-red-600 hover:underline text-xs font-medium"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setDeletingUserId(null)}
+                                className="text-gray-500 hover:text-gray-700 text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <div className="flex gap-3 justify-end">
+                              <button
+                                onClick={() => startEditUser(user)}
+                                className="text-[#2E75B6] hover:underline text-xs"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => setDeletingUserId(user.id)}
+                                className="text-red-600 hover:underline text-xs"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
                 {users.length === 0 && (
@@ -814,6 +982,7 @@ export default function SettingsPage() {
                     Office Name <span className="text-red-500">*</span>
                   </label>
                   <input
+                    ref={officeNameRef}
                     type="text"
                     required
                     value={officeName}

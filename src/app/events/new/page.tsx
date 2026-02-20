@@ -76,6 +76,7 @@ export default function NewEventPage() {
                 type="date"
                 name="eventDate"
                 required
+                autoFocus
                 value={form.eventDate}
                 onChange={handleChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"

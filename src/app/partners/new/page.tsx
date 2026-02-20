@@ -120,6 +120,7 @@ export default function NewPartnerPage() {
               name="orgPeopleFlag"
               value={form.orgPeopleFlag}
               onChange={handleChange}
+              autoFocus
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
             >
               <option value="O">Organization</option>

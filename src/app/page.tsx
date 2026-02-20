@@ -22,12 +22,12 @@ export default async function Dashboard() {
     where: {
       ...officeFilter,
       partnerRoles: {
-        none: {
-          relationships: { some: {} },
+        some: {
+          relationships: { none: {} },
         },
       },
     },
-    include: { organizationType: true, partnerRoles: true },
+    include: { organizationType: true, partnerRoles: { include: { _count: { select: { relationships: true } } } } },
     orderBy: { organizationName: "asc" },
   });
 
@@ -95,9 +95,12 @@ export default async function Dashboard() {
                     </Link>
                   </td>
                   <td className="py-2 text-gray-600">
-                    {p.partnerRoles.length > 0
-                      ? p.partnerRoles.map((r) => r.roleDescription).join(", ")
-                      : "—"}
+                    {(() => {
+                      const rolesWithout = p.partnerRoles.filter((r) => r._count.relationships === 0);
+                      return rolesWithout.length > 0
+                        ? rolesWithout.map((r) => r.roleDescription).join(", ")
+                        : "—";
+                    })()}
                   </td>
                   <td className="py-2 text-gray-600">{p.organizationType?.typeName || "—"}</td>
                   <td className="py-2 text-gray-600">{p.city || "—"}</td>

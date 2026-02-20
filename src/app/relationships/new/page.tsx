@@ -116,6 +116,7 @@ export default function NewRelationshipPage() {
               onChange={(val) => setForm((prev) => ({ ...prev, peopleId: val }))}
               placeholder="Search people..."
               required
+              autoFocus
             />
           </div>
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 
@@ -19,6 +19,13 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
 
   const [roleDescription, setRoleDescription] = useState("");
   const [peopleId, setPeopleId] = useState("");
+  const roleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open && roleInputRef.current) {
+      roleInputRef.current.focus();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -91,6 +98,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
             Role Description <span className="text-red-500">*</span>
           </label>
           <input
+            ref={roleInputRef}
             type="text"
             required
             value={roleDescription}
