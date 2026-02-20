@@ -1,13 +1,18 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getOfficeFilter } from "@/lib/office-filter";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function RelationshipsPage() {
+  const officeFilter = await getOfficeFilter();
+  const personFilter = officeFilter.officeId ? { person: { officeId: officeFilter.officeId } } : {};
   const relationships = await prisma.relationship.findMany({
+    where: personFilter,
     include: {
       person: true,
+      targetPerson: true,
       partnerRole: {
         include: { partner: true },
       },
@@ -33,8 +38,8 @@ export default async function RelationshipsPage() {
           <thead className="bg-gray-50 border-b">
             <tr>
               <th className="text-left px-4 py-3 font-semibold text-navy">Connector</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Partner</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Role</th>
+              <th className="text-left px-4 py-3 font-semibold text-navy">Person</th>
+              <th className="text-left px-4 py-3 font-semibold text-navy">Partner / Role</th>
               <th className="text-left px-4 py-3 font-semibold text-navy">Relationship Type</th>
               <th className="text-left px-4 py-3 font-semibold text-navy">Last Reviewed</th>
             </tr>
@@ -47,19 +52,28 @@ export default async function RelationshipsPage() {
                     href={`/people/${rel.person.id}`}
                     className="text-[#2E75B6] hover:underline font-medium"
                   >
-                    {rel.person.fullName}
+                    {rel.person.firstName} {rel.person.lastName}
                   </Link>
                 </td>
                 <td className="px-4 py-3">
                   <Link
-                    href={`/partners/${rel.partnerRole.partner.id}`}
-                    className="text-[#2E75B6] hover:underline"
+                    href={`/people/${rel.targetPerson.id}`}
+                    className="text-[#2E75B6] hover:underline font-medium"
                   >
-                    {rel.partnerRole.partner.organizationName ?? "—"}
+                    {rel.targetPerson.firstName} {rel.targetPerson.lastName}
                   </Link>
                 </td>
                 <td className="px-4 py-3 text-gray-600">
-                  {rel.partnerRole.roleDescription}
+                  {rel.partnerRole ? (
+                    <Link
+                      href={`/partners/${rel.partnerRole.partner.id}`}
+                      className="text-[#2E75B6] hover:underline"
+                    >
+                      {rel.partnerRole.partner.organizationName ?? "—"} — {rel.partnerRole.roleDescription}
+                    </Link>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {rel.relationshipType.relationshipDesc}

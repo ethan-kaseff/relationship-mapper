@@ -8,6 +8,7 @@ interface PartnerRole {
   id: string;
   roleDescription: string;
   partner: { organizationName: string | null };
+  person: { id: string; firstName: string; lastName: string } | null;
 }
 
 interface RelationshipType {
@@ -82,9 +83,12 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
     );
   }
 
-  const partnerRoleOptions = partnerRoles.map((pr) => ({
+  // Only show roles that have a person assigned (skip vacant roles)
+  const filledRoles = partnerRoles.filter((pr) => pr.person !== null);
+
+  const partnerRoleOptions = filledRoles.map((pr) => ({
     value: pr.id,
-    label: `${pr.partner.organizationName ?? "Unknown"} — ${pr.roleDescription}`,
+    label: `${pr.person!.lastName}, ${pr.person!.firstName} — ${pr.roleDescription} at ${pr.partner.organizationName ?? "Unknown"}`,
   }));
 
   const relTypeOptions = relationshipTypes.map((rt) => ({
@@ -101,16 +105,17 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
         </div>
       )}
       <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-end">
-        <div className="w-64">
+        <div className="w-80">
           <label className="block text-xs font-medium text-gray-700 mb-1">
-            Partner Role <span className="text-red-500">*</span>
+            Person <span className="text-red-500">*</span>
           </label>
           <SearchableSelect
             options={partnerRoleOptions}
             value={partnerRoleId}
             onChange={setPartnerRoleId}
-            placeholder="Search partner roles..."
+            placeholder="Search people..."
             required
+            autoFocus
           />
         </div>
         <div className="w-48">

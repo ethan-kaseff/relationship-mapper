@@ -2,7 +2,8 @@ import { z } from "zod";
 
 export const createRelationshipSchema = z.object({
   peopleId: z.string().uuid("Invalid people ID"),
-  partnerRoleId: z.string().uuid("Invalid partner role ID"),
+  targetPersonId: z.string().uuid("Invalid target person ID").optional(), // Can be derived from partnerRole
+  partnerRoleId: z.string().uuid("Invalid partner role ID").optional().nullable(),
   relationshipTypeId: z.string().uuid("Invalid relationship type ID"),
   lastReviewedDate: z.string().datetime().optional().nullable(),
 });

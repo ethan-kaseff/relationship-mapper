@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { getOfficeFilter } from "@/lib/office-filter";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function PartnersPage() {
+  const officeFilter = await getOfficeFilter();
   const partners = await prisma.partner.findMany({
+    where: officeFilter,
     include: {
       organizationType: true,
       _count: { select: { partnerRoles: true } },

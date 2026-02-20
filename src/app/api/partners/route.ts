@@ -3,13 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
 import { validateBody, createPartnerSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/api-error";
+import { getOfficeFilterFromRequest } from "@/lib/office-filter";
 
-export async function GET() {
+export async function GET(request: Request) {
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
   try {
+    const officeFilter = await getOfficeFilterFromRequest(request);
     const partners = await prisma.partner.findMany({
+      where: officeFilter,
       include: {
         organizationType: true,
         partnerRoles: {
@@ -34,6 +37,13 @@ export async function POST(request: Request) {
 
   try {
     const data = validation.data;
+
+    // System admins can specify officeId; others get their own
+    const officeId =
+      authResult.session.user.role === "SYSTEM_ADMIN" && data.officeId
+        ? data.officeId
+        : authResult.session.user.officeId;
+
     const partner = await prisma.partner.create({
       data: {
         orgPeopleFlag: data.orgPeopleFlag,
@@ -46,14 +56,19 @@ export async function POST(request: Request) {
         phoneNumber: data.phoneNumber,
         email: data.email || null,
         website: data.website || null,
+        officeId,
       },
     });
 
     // For individual partners, create a People record and a PartnerRole
     if (data.orgPeopleFlag === "P" && data.organizationName) {
+      const nameParts = data.organizationName.trim().split(/\s+/);
+      const firstName = nameParts[0] || "";
+      const lastName = nameParts.slice(1).join(" ") || "";
       const person = await prisma.people.create({
         data: {
-          fullName: data.organizationName,
+          firstName,
+          lastName,
           address: data.address,
           city: data.city,
           state: data.state,
@@ -61,6 +76,7 @@ export async function POST(request: Request) {
           phoneNumber: data.phoneNumber,
           personalEmail: data.email || null,
           isConnector: false,
+          officeId,
         },
       });
 

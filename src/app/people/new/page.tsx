@@ -1,16 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import Link from "next/link";
+
+interface Office {
+  id: string;
+  name: string;
+}
 
 export default function NewPersonPage() {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isSystemAdmin = session?.user?.role === "SYSTEM_ADMIN";
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [offices, setOffices] = useState<Office[]>([]);
+  const [selectedOfficeId, setSelectedOfficeId] = useState("");
+
+  useEffect(() => {
+    if (isSystemAdmin) {
+      fetch("/api/offices")
+        .then((res) => res.json())
+        .then((data) => setOffices(data))
+        .catch(() => {});
+    }
+  }, [isSystemAdmin]);
 
   const [form, setForm] = useState({
-    fullName: "",
+    firstName: "",
+    lastName: "",
     address: "",
     city: "",
     state: "",
@@ -37,7 +57,7 @@ export default function NewPersonPage() {
       const res = await fetch("/api/people", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, ...(isSystemAdmin && selectedOfficeId ? { officeId: selectedOfficeId } : {}) }),
       });
 
       if (!res.ok) {
@@ -70,18 +90,34 @@ export default function NewPersonPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Full Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              name="fullName"
-              required
-              value={form.fullName}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                First Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="firstName"
+                required
+                autoFocus
+                value={form.firstName}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Last Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                name="lastName"
+                required
+                value={form.lastName}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              />
+            </div>
           </div>
 
           <div>
@@ -164,6 +200,24 @@ export default function NewPersonPage() {
               Is Connector
             </label>
           </div>
+
+          {isSystemAdmin && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Office
+              </label>
+              <select
+                value={selectedOfficeId}
+                onChange={(e) => setSelectedOfficeId(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              >
+                <option value="">— Default (your office) —</option>
+                {offices.map((o) => (
+                  <option key={o.id} value={o.id}>{o.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="pt-4">
             <button

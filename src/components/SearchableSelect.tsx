@@ -13,6 +13,7 @@ interface SearchableSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   required?: boolean;
+  autoFocus?: boolean;
 }
 
 export default function SearchableSelect({
@@ -21,6 +22,7 @@ export default function SearchableSelect({
   onChange,
   placeholder = "— Select —",
   required = false,
+  autoFocus = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -57,6 +59,12 @@ export default function SearchableSelect({
       inputRef.current.focus();
     }
   }, [open]);
+
+  useEffect(() => {
+    if (autoFocus) {
+      setOpen(true);
+    }
+  }, [autoFocus]);
 
   // Scroll highlighted item into view
   useEffect(() => {

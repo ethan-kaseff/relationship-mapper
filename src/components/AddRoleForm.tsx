@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
 
 interface Person {
   id: string;
-  fullName: string;
+  firstName: string;
+  lastName: string;
 }
 
 export default function AddRoleForm({ partnerId }: { partnerId: string }) {
@@ -18,6 +19,13 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
 
   const [roleDescription, setRoleDescription] = useState("");
   const [peopleId, setPeopleId] = useState("");
+  const roleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (open && roleInputRef.current) {
+      roleInputRef.current.focus();
+    }
+  }, [open]);
 
   useEffect(() => {
     if (open) {
@@ -73,7 +81,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
 
   const personOptions = people.map((p) => ({
     value: p.id,
-    label: p.fullName,
+    label: `${p.lastName}, ${p.firstName}`,
   }));
 
   return (
@@ -90,6 +98,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
             Role Description <span className="text-red-500">*</span>
           </label>
           <input
+            ref={roleInputRef}
             type="text"
             required
             value={roleDescription}

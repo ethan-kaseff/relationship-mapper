@@ -3,13 +3,19 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api-auth";
 import { validateBody, createConnectionSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/api-error";
+import { getOfficeFilterFromRequest } from "@/lib/office-filter";
 
-export async function GET() {
+export async function GET(request: Request) {
   const authResult = await requireAuth();
   if (!authResult.success) return authResult.response;
 
   try {
+    const officeFilter = await getOfficeFilterFromRequest(request);
+    const personFilter = officeFilter.officeId
+      ? { person: { officeId: officeFilter.officeId } }
+      : {};
     const connections = await prisma.connection.findMany({
+      where: personFilter,
       include: {
         person: true,
         partnerRole: {

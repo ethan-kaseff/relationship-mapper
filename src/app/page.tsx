@@ -1,32 +1,38 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import ExportPartnersButton from "@/components/ExportPartnersButton";
+import { getOfficeFilter } from "@/lib/office-filter";
 
 export const dynamic = "force-dynamic";
 
 export default async function Dashboard() {
+  const officeFilter = await getOfficeFilter();
+  const personFilter = officeFilter.officeId ? { person: { officeId: officeFilter.officeId } } : {};
+
   const [peopleCount, partnerCount, relationshipCount, connectionCount, eventCount] =
     await Promise.all([
-      prisma.people.count(),
-      prisma.partner.count(),
-      prisma.relationship.count(),
-      prisma.connection.count(),
+      prisma.people.count({ where: officeFilter }),
+      prisma.partner.count({ where: officeFilter }),
+      prisma.relationship.count({ where: personFilter }),
+      prisma.connection.count({ where: personFilter }),
       prisma.event.count(),
     ]);
 
   const partnersWithoutRelationships = await prisma.partner.findMany({
     where: {
+      ...officeFilter,
       partnerRoles: {
-        none: {
-          relationships: { some: {} },
+        some: {
+          relationships: { none: {} },
         },
       },
     },
-    include: { organizationType: true },
+    include: { organizationType: true, partnerRoles: { include: { _count: { select: { relationships: true } } } } },
     orderBy: { organizationName: "asc" },
   });
 
   const recentConnections = await prisma.connection.findMany({
+    where: personFilter,
     take: 5,
     orderBy: { connectionDate: "desc" },
     include: {
@@ -74,6 +80,7 @@ export default async function Dashboard() {
             <thead>
               <tr className="text-left border-b text-gray-500">
                 <th className="pb-2">Partner</th>
+                <th className="pb-2">Role(s)</th>
                 <th className="pb-2">Type</th>
                 <th className="pb-2">City</th>
                 <th className="pb-2">State</th>
@@ -86,6 +93,14 @@ export default async function Dashboard() {
                     <Link href={`/partners/${p.id}`} className="text-[#2E75B6] hover:underline font-medium">
                       {p.organizationName || "—"}
                     </Link>
+                  </td>
+                  <td className="py-2 text-gray-600">
+                    {(() => {
+                      const rolesWithout = p.partnerRoles.filter((r) => r._count.relationships === 0);
+                      return rolesWithout.length > 0
+                        ? rolesWithout.map((r) => r.roleDescription).join(", ")
+                        : "—";
+                    })()}
                   </td>
                   <td className="py-2 text-gray-600">{p.organizationType?.typeName || "—"}</td>
                   <td className="py-2 text-gray-600">{p.city || "—"}</td>
@@ -115,7 +130,7 @@ export default async function Dashboard() {
               {recentConnections.map((c) => (
                 <tr key={c.id} className="border-b last:border-0">
                   <td className="py-2">{new Date(c.connectionDate).toLocaleDateString()}</td>
-                  <td className="py-2">{c.person.fullName}</td>
+                  <td className="py-2">{c.person.firstName} {c.person.lastName}</td>
                   <td className="py-2">
                     {c.partnerRole.partner.organizationName} ({c.partnerRole.roleDescription})
                   </td>

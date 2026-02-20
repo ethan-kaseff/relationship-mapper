@@ -3,13 +3,16 @@ import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
 import { validateBody, createPeopleSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/api-error";
+import { getOfficeFilterFromRequest } from "@/lib/office-filter";
 
-export async function GET() {
+export async function GET(request: Request) {
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
   try {
+    const officeFilter = await getOfficeFilterFromRequest(request);
     const people = await prisma.people.findMany({
+      where: officeFilter,
       include: {
         partnerRoles: {
           include: {
@@ -35,9 +38,17 @@ export async function POST(request: Request) {
 
   try {
     const data = validation.data;
+
+    // System admins can specify officeId; others get their own
+    const officeId =
+      authResult.session.user.role === "SYSTEM_ADMIN" && data.officeId
+        ? data.officeId
+        : authResult.session.user.officeId;
+
     const person = await prisma.people.create({
       data: {
-        fullName: data.fullName,
+        firstName: data.firstName,
+        lastName: data.lastName,
         address: data.address,
         city: data.city,
         state: data.state,
@@ -45,6 +56,7 @@ export async function POST(request: Request) {
         phoneNumber: data.phoneNumber,
         personalEmail: data.personalEmail || null,
         isConnector: data.isConnector ?? false,
+        officeId,
       },
     });
     return NextResponse.json(person, { status: 201 });

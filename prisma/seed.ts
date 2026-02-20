@@ -11,6 +11,14 @@ function generateSecurePassword(): string {
 async function main() {
   console.log("Seeding database...");
 
+  // ─── Default Office ────────────────────────────────────────────────────
+  const mainOffice = await prisma.office.upsert({
+    where: { name: "Main Office" },
+    update: {},
+    create: { name: "Main Office" },
+  });
+  console.log("  Created default office (Main Office)");
+
   // ─── Organization Types ──────────────────────────────────────────────────
   const orgTypes = [
     "Federal Government",
@@ -64,21 +72,21 @@ async function main() {
 
   // ─── Sample People (Connectors) ─────────────────────────────────────────
   const connectors = [
-    { fullName: "Sarah Cohen", city: "Overland Park", state: "KS", personalEmail: "sarah.cohen@example.com", phoneNumber: "913-555-0101" },
-    { fullName: "David Goldberg", city: "Kansas City", state: "MO", personalEmail: "david.g@example.com", phoneNumber: "816-555-0202" },
-    { fullName: "Rachel Weiss", city: "Leawood", state: "KS", personalEmail: "rachel.w@example.com", phoneNumber: "913-555-0303" },
+    { firstName: "Sarah", lastName: "Cohen", city: "Overland Park", state: "KS", personalEmail: "sarah.cohen@example.com", phoneNumber: "913-555-0101" },
+    { firstName: "David", lastName: "Goldberg", city: "Kansas City", state: "MO", personalEmail: "david.g@example.com", phoneNumber: "816-555-0202" },
+    { firstName: "Rachel", lastName: "Weiss", city: "Leawood", state: "KS", personalEmail: "rachel.w@example.com", phoneNumber: "913-555-0303" },
   ];
 
   const connectorRecords: string[] = [];
   for (const c of connectors) {
     const existing = await prisma.people.findFirst({
-      where: { fullName: c.fullName, isConnector: true },
+      where: { firstName: c.firstName, lastName: c.lastName, isConnector: true },
     });
     if (existing) {
       connectorRecords.push(existing.id);
     } else {
       const p = await prisma.people.create({
-        data: { ...c, isConnector: true },
+        data: { ...c, isConnector: true, officeId: mainOffice.id },
       });
       connectorRecords.push(p.id);
     }
@@ -87,22 +95,22 @@ async function main() {
 
   // ─── Sample People (Partner Contacts) ────────────────────────────────────
   const contacts = [
-    { fullName: "Laura Kelly", city: "Topeka", state: "KS", personalEmail: "governor@ks.gov" },
-    { fullName: "David Toland", city: "Topeka", state: "KS" },
-    { fullName: "Rev. James Mitchell", city: "Kansas City", state: "MO", personalEmail: "jmitchell@faithorg.com" },
-    { fullName: "Maria Rodriguez", city: "Kansas City", state: "MO", personalEmail: "maria.r@kcbusiness.com" },
+    { firstName: "Laura", lastName: "Kelly", city: "Topeka", state: "KS", personalEmail: "governor@ks.gov" },
+    { firstName: "David", lastName: "Toland", city: "Topeka", state: "KS" },
+    { firstName: "James", lastName: "Mitchell", city: "Kansas City", state: "MO", personalEmail: "jmitchell@faithorg.com" },
+    { firstName: "Maria", lastName: "Rodriguez", city: "Kansas City", state: "MO", personalEmail: "maria.r@kcbusiness.com" },
   ];
 
   const contactRecords: string[] = [];
   for (const c of contacts) {
     const existing = await prisma.people.findFirst({
-      where: { fullName: c.fullName, isConnector: false },
+      where: { firstName: c.firstName, lastName: c.lastName, isConnector: false },
     });
     if (existing) {
       contactRecords.push(existing.id);
     } else {
       const p = await prisma.people.create({
-        data: { ...c, isConnector: false },
+        data: { ...c, isConnector: false, officeId: mainOffice.id },
       });
       contactRecords.push(p.id);
     }
@@ -125,6 +133,7 @@ async function main() {
         zip: "66612",
         phoneNumber: "785-296-3232",
         website: "https://governor.kansas.gov",
+        officeId: mainOffice.id,
       },
     });
   }
@@ -140,10 +149,12 @@ async function main() {
         organizationTypeId: orgTypeRecords["Faith Tradition"],
         city: "Kansas City",
         state: "MO",
+        officeId: mainOffice.id,
       },
     });
   }
 
+  // A partner that is an individual person (not an org)
   let bizPerson = await prisma.partner.findFirst({
     where: { organizationName: "Maria Rodriguez (Individual)" },
   });
@@ -155,6 +166,7 @@ async function main() {
         organizationTypeId: orgTypeRecords["Business"],
         city: "Kansas City",
         state: "MO",
+        officeId: mainOffice.id,
       },
     });
   }
@@ -216,18 +228,18 @@ async function main() {
 
   console.log("  Created 4 partner roles");
 
-  // ─── Relationships (Connector ↔ PartnerRole) ────────────────────────────
+  // ─── Relationships (Connector ↔ Person via PartnerRole) ─────────────────
   const relationships = [
-    { peopleId: connectorRecords[0], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Can Text"], lastReviewedDate: new Date("2025-09-15") },
-    { peopleId: connectorRecords[0], partnerRoleId: faithRole.id, relationshipTypeId: relTypeRecords["Close Friend"], lastReviewedDate: new Date("2025-11-01") },
-    { peopleId: connectorRecords[1], partnerRoleId: ltGovRole.id, relationshipTypeId: relTypeRecords["Professional Contact"] },
-    { peopleId: connectorRecords[1], partnerRoleId: bizRole.id, relationshipTypeId: relTypeRecords["Acquaintance"] },
-    { peopleId: connectorRecords[2], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Met Once"] },
+    { peopleId: connectorRecords[0], targetPersonId: contactRecords[0], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Can Text"], lastReviewedDate: new Date("2025-09-15") },
+    { peopleId: connectorRecords[0], targetPersonId: contactRecords[2], partnerRoleId: faithRole.id, relationshipTypeId: relTypeRecords["Close Friend"], lastReviewedDate: new Date("2025-11-01") },
+    { peopleId: connectorRecords[1], targetPersonId: contactRecords[1], partnerRoleId: ltGovRole.id, relationshipTypeId: relTypeRecords["Professional Contact"] },
+    { peopleId: connectorRecords[1], targetPersonId: contactRecords[3], partnerRoleId: bizRole.id, relationshipTypeId: relTypeRecords["Acquaintance"] },
+    { peopleId: connectorRecords[2], targetPersonId: contactRecords[0], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Met Once"] },
   ];
 
   for (const rel of relationships) {
     const existing = await prisma.relationship.findUnique({
-      where: { peopleId_partnerRoleId: { peopleId: rel.peopleId, partnerRoleId: rel.partnerRoleId } },
+      where: { peopleId_targetPersonId: { peopleId: rel.peopleId, targetPersonId: rel.targetPersonId } },
     });
     if (!existing) {
       await prisma.relationship.create({ data: rel });
@@ -300,8 +312,10 @@ async function main() {
     create: {
       email: adminEmail,
       password: hashedPassword,
-      name: "Admin",
+      firstName: "System",
+      lastName: "Admin",
       role: "SYSTEM_ADMIN",
+      officeId: mainOffice.id,
     },
   });
 

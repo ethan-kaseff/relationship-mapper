@@ -12,8 +12,16 @@ export async function GET() {
 
   try {
     const users = await prisma.user.findMany({
-      select: { id: true, email: true, name: true, role: true },
-      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        officeId: true,
+        office: { select: { name: true } },
+      },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
     });
     return NextResponse.json(users);
   } catch (error) {
@@ -42,10 +50,20 @@ export async function POST(request: NextRequest) {
       data: {
         email: data.email,
         password: hashedPassword,
-        name: data.name,
+        firstName: data.firstName,
+        lastName: data.lastName,
         role: data.role || "OFFICE_ADMIN",
+        officeId: data.officeId,
       },
-      select: { id: true, email: true, name: true, role: true },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        officeId: true,
+        office: { select: { name: true } },
+      },
     });
 
     return NextResponse.json(user, { status: 201 });

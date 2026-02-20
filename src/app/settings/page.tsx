@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 
 interface RelationshipType {
@@ -10,15 +10,24 @@ interface RelationshipType {
   _count?: { relationships: number };
 }
 
+interface Office {
+  id: string;
+  name: string;
+  _count?: { users: number; people: number; partners: number };
+}
+
 interface User {
   id: string;
   email: string;
-  name: string;
+  firstName: string;
+  lastName: string;
   role: string;
+  officeId: string;
+  office?: { name: string };
 }
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const role = session?.user?.role;
   const isSystemAdmin = role === "SYSTEM_ADMIN";
 
@@ -47,13 +56,40 @@ export default function SettingsPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [usersLoading, setUsersLoading] = useState(true);
   const [showUserForm, setShowUserForm] = useState(false);
-  const [userName, setUserName] = useState("");
+  const [userFirstName, setUserFirstName] = useState("");
+  const [userLastName, setUserLastName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [userPassword, setUserPassword] = useState("");
   const [userRole, setUserRole] = useState("OFFICE_ADMIN");
   const [userSubmitting, setUserSubmitting] = useState(false);
   const [userError, setUserError] = useState("");
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editUserFirstName, setEditUserFirstName] = useState("");
+  const [editUserLastName, setEditUserLastName] = useState("");
+  const [editUserEmail, setEditUserEmail] = useState("");
+  const [editUserRole, setEditUserRole] = useState("");
+  const [editUserOfficeId, setEditUserOfficeId] = useState("");
+  const [editUserPassword, setEditUserPassword] = useState("");
+
+  // Office management state
+  const [offices, setOffices] = useState<Office[]>([]);
+  const [officesLoading, setOfficesLoading] = useState(true);
+  const [showOfficeForm, setShowOfficeForm] = useState(false);
+  const [officeName, setOfficeName] = useState("");
+  const [officeSubmitting, setOfficeSubmitting] = useState(false);
+  const [officeError, setOfficeError] = useState("");
+  const [editingOfficeId, setEditingOfficeId] = useState<string | null>(null);
+  const [editOfficeName, setEditOfficeName] = useState("");
+  const [deletingOfficeId, setDeletingOfficeId] = useState<string | null>(null);
+
+  // Office dropdown for user form
+  const [userOfficeId, setUserOfficeId] = useState("");
+
+  // Auto-focus refs
+  const relTypeInputRef = useRef<HTMLInputElement>(null);
+  const userFirstNameRef = useRef<HTMLInputElement>(null);
+  const officeNameRef = useRef<HTMLInputElement>(null);
 
   function fetchTypes() {
     fetch("/api/lookup/relationship-types")
@@ -76,12 +112,38 @@ export default function SettingsPage() {
       .catch(() => setUsersLoading(false));
   }
 
+  function fetchOffices() {
+    if (!isSystemAdmin) return;
+    fetch("/api/offices")
+      .then((res) => res.json())
+      .then((data) => {
+        setOffices(data);
+        setOfficesLoading(false);
+      })
+      .catch(() => setOfficesLoading(false));
+  }
+
+  useEffect(() => {
+    if (showForm && relTypeInputRef.current) relTypeInputRef.current.focus();
+  }, [showForm]);
+
+  useEffect(() => {
+    if (showUserForm && userFirstNameRef.current) userFirstNameRef.current.focus();
+  }, [showUserForm]);
+
+  useEffect(() => {
+    if (showOfficeForm && officeNameRef.current) officeNameRef.current.focus();
+  }, [showOfficeForm]);
+
   useEffect(() => {
     fetchTypes();
   }, []);
 
   useEffect(() => {
-    if (isSystemAdmin) fetchUsers();
+    if (isSystemAdmin) {
+      fetchUsers();
+      fetchOffices();
+    }
   }, [isSystemAdmin]);
 
   async function handleCreate(e: React.FormEvent) {
@@ -205,7 +267,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: userName, email: userEmail, password: userPassword, role: userRole }),
+        body: JSON.stringify({ firstName: userFirstName, lastName: userLastName, email: userEmail, password: userPassword, role: userRole, officeId: userOfficeId }),
       });
 
       if (!res.ok) {
@@ -213,10 +275,12 @@ export default function SettingsPage() {
         throw new Error(data.error || "Failed to create user");
       }
 
-      setUserName("");
+      setUserFirstName("");
+      setUserLastName("");
       setUserEmail("");
       setUserPassword("");
       setUserRole("OFFICE_ADMIN");
+      setUserOfficeId("");
       setShowUserForm(false);
       fetchUsers();
     } catch (err: unknown) {
@@ -240,6 +304,130 @@ export default function SettingsPage() {
     } catch (err: unknown) {
       setUserError(err instanceof Error ? err.message : "An error occurred");
     }
+  }
+
+  function startEditUser(user: User) {
+    setEditingUserId(user.id);
+    setEditUserFirstName(user.firstName);
+    setEditUserLastName(user.lastName);
+    setEditUserEmail(user.email);
+    setEditUserRole(user.role);
+    setEditUserOfficeId(user.officeId);
+    setEditUserPassword("");
+    setDeletingUserId(null);
+  }
+
+  async function handleUpdateUser(id: string) {
+    setUserSubmitting(true);
+    setUserError("");
+
+    try {
+      const body: Record<string, string> = {
+        firstName: editUserFirstName,
+        lastName: editUserLastName,
+        email: editUserEmail,
+        role: editUserRole,
+        officeId: editUserOfficeId,
+      };
+      if (editUserPassword) body.password = editUserPassword;
+
+      const res = await fetch(`/api/users/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update user");
+      }
+
+      setEditingUserId(null);
+      fetchUsers();
+    } catch (err: unknown) {
+      setUserError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setUserSubmitting(false);
+    }
+  }
+
+  async function handleCreateOffice(e: React.FormEvent) {
+    e.preventDefault();
+    setOfficeSubmitting(true);
+    setOfficeError("");
+
+    try {
+      const res = await fetch("/api/offices", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: officeName }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create office");
+      }
+
+      setOfficeName("");
+      setShowOfficeForm(false);
+      fetchOffices();
+    } catch (err: unknown) {
+      setOfficeError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setOfficeSubmitting(false);
+    }
+  }
+
+  async function handleUpdateOffice(id: string) {
+    setOfficeSubmitting(true);
+    setOfficeError("");
+
+    try {
+      const res = await fetch(`/api/offices/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editOfficeName }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update office");
+      }
+
+      setEditingOfficeId(null);
+      fetchOffices();
+    } catch (err: unknown) {
+      setOfficeError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setOfficeSubmitting(false);
+    }
+  }
+
+  async function handleDeleteOffice(id: string) {
+    setOfficeError("");
+
+    try {
+      const res = await fetch(`/api/offices/${id}`, { method: "DELETE" });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete office");
+      }
+
+      setDeletingOfficeId(null);
+      fetchOffices();
+    } catch (err: unknown) {
+      setOfficeError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  if (sessionStatus === "loading") {
+    return (
+      <div>
+        <h1 className="text-2xl font-bold text-navy mb-6">Settings</h1>
+        <p className="text-gray-400 text-sm">Loading...</p>
+      </div>
+    );
   }
 
   return (
@@ -276,6 +464,7 @@ export default function SettingsPage() {
                   Description <span className="text-red-500">*</span>
                 </label>
                 <input
+                  ref={relTypeInputRef}
                   type="text"
                   required
                   value={newDesc}
@@ -501,14 +690,28 @@ export default function SettingsPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
-                      Name <span className="text-red-500">*</span>
+                      First Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      ref={userFirstNameRef}
+                      type="text"
+                      required
+                      value={userFirstName}
+                      onChange={(e) => setUserFirstName(e.target.value)}
+                      placeholder="First name"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Last Name <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
-                      value={userName}
-                      onChange={(e) => setUserName(e.target.value)}
-                      placeholder="Full name"
+                      value={userLastName}
+                      onChange={(e) => setUserLastName(e.target.value)}
+                      placeholder="Last name"
                       className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
                     />
                   </div>
@@ -553,6 +756,22 @@ export default function SettingsPage() {
                       <option value="SYSTEM_ADMIN">System Admin</option>
                     </select>
                   </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Office <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={userOfficeId}
+                      onChange={(e) => setUserOfficeId(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                    >
+                      <option value="">— Select Office —</option>
+                      {offices.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -584,56 +803,305 @@ export default function SettingsPage() {
                   <th className="text-left px-4 py-3 font-semibold text-navy">Name</th>
                   <th className="text-left px-4 py-3 font-semibold text-navy">Email</th>
                   <th className="text-left px-4 py-3 font-semibold text-navy">Role</th>
+                  <th className="text-left px-4 py-3 font-semibold text-navy">Office</th>
                   <th className="text-right px-4 py-3 font-semibold text-navy">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {users.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 font-medium">{user.name}</td>
-                    <td className="px-4 py-3 text-gray-600">{user.email}</td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
-                        user.role === "SYSTEM_ADMIN"
-                          ? "bg-navy text-white"
-                          : "bg-gray-100 text-gray-700"
-                      }`}>
-                        {{ SYSTEM_ADMIN: "System Admin", OFFICE_ADMIN: "Office Admin", OFFICE_USER: "Office User", CONNECTOR: "Connector" }[user.role] || user.role}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      {user.id === session?.user?.id ? (
-                        <span className="text-gray-400 text-xs">You</span>
-                      ) : deletingUserId === user.id ? (
-                        <span className="flex items-center gap-2 justify-end">
-                          <button
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="text-red-600 hover:underline text-xs font-medium"
+                    {editingUserId === user.id ? (
+                      <>
+                        <td className="px-4 py-2">
+                          <div className="flex gap-1">
+                            <input
+                              type="text"
+                              value={editUserFirstName}
+                              onChange={(e) => setEditUserFirstName(e.target.value)}
+                              placeholder="First"
+                              className="w-1/2 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                            />
+                            <input
+                              type="text"
+                              value={editUserLastName}
+                              onChange={(e) => setEditUserLastName(e.target.value)}
+                              placeholder="Last"
+                              className="w-1/2 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                            />
+                          </div>
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            type="email"
+                            value={editUserEmail}
+                            onChange={(e) => setEditUserEmail(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                          />
+                        </td>
+                        <td className="px-4 py-2">
+                          <select
+                            value={editUserRole}
+                            onChange={(e) => setEditUserRole(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
                           >
-                            Confirm
-                          </button>
-                          <button
-                            onClick={() => setDeletingUserId(null)}
-                            className="text-gray-500 hover:text-gray-700 text-xs"
+                            <option value="OFFICE_ADMIN">Office Admin</option>
+                            <option value="OFFICE_USER">Office User</option>
+                            <option value="CONNECTOR">Connector</option>
+                            <option value="SYSTEM_ADMIN">System Admin</option>
+                          </select>
+                        </td>
+                        <td className="px-4 py-2">
+                          <select
+                            value={editUserOfficeId}
+                            onChange={(e) => setEditUserOfficeId(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
                           >
-                            Cancel
-                          </button>
-                        </span>
-                      ) : (
-                        <button
-                          onClick={() => setDeletingUserId(user.id)}
-                          className="text-red-600 hover:underline text-xs"
-                        >
-                          Delete
-                        </button>
-                      )}
-                    </td>
+                            {offices.map((o) => (
+                              <option key={o.id} value={o.id}>{o.name}</option>
+                            ))}
+                          </select>
+                          <input
+                            type="password"
+                            value={editUserPassword}
+                            onChange={(e) => setEditUserPassword(e.target.value)}
+                            placeholder="New password (leave blank to keep)"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm mt-1 focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => handleUpdateUser(user.id)}
+                              disabled={userSubmitting}
+                              className="text-[#2E75B6] hover:underline text-xs disabled:opacity-50"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingUserId(null)}
+                              className="text-gray-500 hover:text-gray-700 text-xs"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-4 py-3 font-medium">{user.lastName}, {user.firstName}</td>
+                        <td className="px-4 py-3 text-gray-600">{user.email}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
+                            user.role === "SYSTEM_ADMIN"
+                              ? "bg-navy text-white"
+                              : "bg-gray-100 text-gray-700"
+                          }`}>
+                            {{ SYSTEM_ADMIN: "System Admin", OFFICE_ADMIN: "Office Admin", OFFICE_USER: "Office User", CONNECTOR: "Connector" }[user.role] || user.role}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-gray-600">{user.office?.name ?? "—"}</td>
+                        <td className="px-4 py-3 text-right">
+                          {user.id === session?.user?.id ? (
+                            <span className="text-gray-400 text-xs">You</span>
+                          ) : deletingUserId === user.id ? (
+                            <span className="flex items-center gap-2 justify-end">
+                              <button
+                                onClick={() => handleDeleteUser(user.id)}
+                                className="text-red-600 hover:underline text-xs font-medium"
+                              >
+                                Confirm
+                              </button>
+                              <button
+                                onClick={() => setDeletingUserId(null)}
+                                className="text-gray-500 hover:text-gray-700 text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </span>
+                          ) : (
+                            <div className="flex gap-3 justify-end">
+                              <button
+                                onClick={() => startEditUser(user)}
+                                className="text-[#2E75B6] hover:underline text-xs"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => setDeletingUserId(user.id)}
+                                className="text-red-600 hover:underline text-xs"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
                 {users.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
                       No users found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* Office Management — SYSTEM_ADMIN only */}
+      {isSystemAdmin && (
+        <div className="bg-white rounded-lg shadow p-6 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-navy">Offices</h2>
+            {!showOfficeForm && (
+              <button
+                onClick={() => setShowOfficeForm(true)}
+                className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors text-sm"
+              >
+                Add Office
+              </button>
+            )}
+          </div>
+
+          {officeError && (
+            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
+              {officeError}
+            </div>
+          )}
+
+          {showOfficeForm && (
+            <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
+              <h3 className="font-semibold text-navy mb-3 text-sm">New Office</h3>
+              <form onSubmit={handleCreateOffice} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Office Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    ref={officeNameRef}
+                    type="text"
+                    required
+                    value={officeName}
+                    onChange={(e) => setOfficeName(e.target.value)}
+                    placeholder="e.g. Kansas City Office"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={officeSubmitting}
+                    className="bg-[#2E75B6] text-white px-4 py-1.5 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+                  >
+                    {officeSubmitting ? "Creating..." : "Create Office"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowOfficeForm(false); setOfficeError(""); }}
+                    className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {officesLoading ? (
+            <p className="text-gray-400 text-sm">Loading...</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-navy">Name</th>
+                  <th className="text-left px-4 py-3 font-semibold text-navy">Users</th>
+                  <th className="text-left px-4 py-3 font-semibold text-navy">People</th>
+                  <th className="text-left px-4 py-3 font-semibold text-navy">Partners</th>
+                  <th className="text-right px-4 py-3 font-semibold text-navy">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {offices.map((office) => (
+                  <tr key={office.id} className="hover:bg-gray-50">
+                    {editingOfficeId === office.id ? (
+                      <>
+                        <td className="px-4 py-2" colSpan={4}>
+                          <input
+                            type="text"
+                            value={editOfficeName}
+                            onChange={(e) => setEditOfficeName(e.target.value)}
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <div className="flex gap-2 justify-end">
+                            <button
+                              onClick={() => handleUpdateOffice(office.id)}
+                              disabled={officeSubmitting}
+                              className="text-[#2E75B6] hover:underline text-xs disabled:opacity-50"
+                            >
+                              Save
+                            </button>
+                            <button
+                              onClick={() => setEditingOfficeId(null)}
+                              className="text-gray-500 hover:text-gray-700 text-xs"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-4 py-3 font-medium">{office.name}</td>
+                        <td className="px-4 py-3 text-gray-600">{office._count?.users ?? 0}</td>
+                        <td className="px-4 py-3 text-gray-600">{office._count?.people ?? 0}</td>
+                        <td className="px-4 py-3 text-gray-600">{office._count?.partners ?? 0}</td>
+                        <td className="px-4 py-3 text-right">
+                          <div className="flex gap-3 justify-end">
+                            <button
+                              onClick={() => { setEditingOfficeId(office.id); setEditOfficeName(office.name); }}
+                              className="text-[#2E75B6] hover:underline text-xs"
+                            >
+                              Edit
+                            </button>
+                            {deletingOfficeId === office.id ? (
+                              <span className="flex items-center gap-2">
+                                <button
+                                  onClick={() => handleDeleteOffice(office.id)}
+                                  className="text-red-600 hover:underline text-xs font-medium"
+                                >
+                                  Confirm
+                                </button>
+                                <button
+                                  onClick={() => setDeletingOfficeId(null)}
+                                  className="text-gray-500 hover:text-gray-700 text-xs"
+                                >
+                                  Cancel
+                                </button>
+                              </span>
+                            ) : (
+                              <button
+                                onClick={() => setDeletingOfficeId(office.id)}
+                                className="text-red-600 hover:underline text-xs"
+                              >
+                                Delete
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                ))}
+                {offices.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                      No offices found.
                     </td>
                   </tr>
                 )}
