@@ -5,6 +5,7 @@ declare module "next-auth" {
   interface User {
     role?: string;
     officeId?: string;
+    isSiloed?: boolean;
   }
 
   interface Session {
@@ -14,6 +15,7 @@ declare module "next-auth" {
       name: string;
       role: string;
       officeId: string;
+      isSiloed: boolean;
     };
   }
 }
@@ -23,5 +25,6 @@ declare module "next-auth/jwt" {
     role?: string;
     id?: string;
     officeId?: string;
+    isSiloed?: boolean;
   }
 }

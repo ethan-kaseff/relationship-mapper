@@ -23,6 +23,10 @@ export default async function PartnerDetailPage({
       partnerRoles: {
         include: {
           person: true,
+          roleAssignments: {
+            include: { person: true },
+            orderBy: { createdAt: "desc" },
+          },
           relationships: {
             include: {
               person: true,
@@ -144,10 +148,14 @@ export default async function PartnerDetailPage({
                       <RemoveRolePersonButton
                         roleId={role.id}
                         personName={`${role.person.firstName} ${role.person.lastName}`}
+                        personId={role.person.id}
+                        personOfficeId={role.person.officeId}
                       />
                       <AssignRolePersonButton
                         roleId={role.id}
                         currentPersonId={role.person.id}
+                        currentPersonName={`${role.person.firstName} ${role.person.lastName}`}
+                        currentOfficeId={role.person.officeId}
                       />
                     </span>
                   ) : (
@@ -207,6 +215,47 @@ export default async function PartnerDetailPage({
                 {role.relationships.length === 0 && (
                   <p className="text-gray-400 text-xs">No relationships for this role.</p>
                 )}
+
+                {partner.orgPeopleFlag === "O" && (() => {
+                  const pastAssignments = role.roleAssignments.filter(
+                    (a) => a.endDate !== null
+                  );
+                  if (pastAssignments.length === 0) return null;
+                  return (
+                    <div className="mt-3 border-t border-gray-100 pt-3">
+                      <h4 className="text-xs font-semibold text-gray-500 mb-2">Role History</h4>
+                      <table className="w-full text-xs">
+                        <thead className="bg-gray-50 border-b">
+                          <tr>
+                            <th className="text-left px-3 py-1.5 font-semibold text-navy">Person</th>
+                            <th className="text-left px-3 py-1.5 font-semibold text-navy">Start Date</th>
+                            <th className="text-left px-3 py-1.5 font-semibold text-navy">End Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {pastAssignments.map((a) => (
+                            <tr key={a.id} className="hover:bg-gray-50">
+                              <td className="px-3 py-1.5">
+                                <Link
+                                  href={`/people/${a.person.id}`}
+                                  className="text-[#2E75B6] hover:underline"
+                                >
+                                  {a.person.firstName} {a.person.lastName}
+                                </Link>
+                              </td>
+                              <td className="px-3 py-1.5 text-gray-600">
+                                {a.startDate ? new Date(a.startDate).toLocaleDateString() : "—"}
+                              </td>
+                              <td className="px-3 py-1.5 text-gray-600">
+                                {a.endDate ? new Date(a.endDate).toLocaleDateString() : "—"}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
               </div>
             ))}
           </div>

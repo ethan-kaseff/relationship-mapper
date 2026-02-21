@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json();
-  const { name } = body;
+  const { name, isSiloed } = body;
 
   if (!name || !name.trim()) {
     return NextResponse.json({ error: "Office name is required" }, { status: 400 });
@@ -38,8 +38,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "An office with this name already exists" }, { status: 409 });
   }
 
+  const data: { name: string; isSiloed?: boolean } = { name: name.trim() };
+  if (typeof isSiloed === "boolean") data.isSiloed = isSiloed;
+
   const office = await prisma.office.create({
-    data: { name: name.trim() },
+    data,
   });
 
   return NextResponse.json(office, { status: 201 });

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import SearchableSelect from "@/components/SearchableSelect";
+import OfficeDataToggle from "@/components/OfficeDataToggle";
 
 interface Person {
   id: string;
@@ -37,7 +38,7 @@ export default function NewRelationshipPage() {
     relationshipTypeId: "",
   });
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     fetch("/api/people")
       .then((res) => res.json())
       .then((data) => setPeople(data))
@@ -51,6 +52,10 @@ export default function NewRelationshipPage() {
       .then((data) => setRelTypes(data))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,7 +97,10 @@ export default function NewRelationshipPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-navy">Add Relationship</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-navy">Add Relationship</h1>
+          <OfficeDataToggle onToggle={() => fetchData()} />
+        </div>
         <Link href="/relationships" className="text-[#2E75B6] hover:underline text-sm">
           Back to Relationships
         </Link>

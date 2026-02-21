@@ -14,15 +14,18 @@ export async function PUT(
 
   const { id } = await params;
   const body = await request.json();
-  const { name } = body;
+  const { name, isSiloed } = body;
 
   if (!name || !name.trim()) {
     return NextResponse.json({ error: "Office name is required" }, { status: 400 });
   }
 
+  const data: { name: string; isSiloed?: boolean } = { name: name.trim() };
+  if (typeof isSiloed === "boolean") data.isSiloed = isSiloed;
+
   const office = await prisma.office.update({
     where: { id },
-    data: { name: name.trim() },
+    data,
   });
 
   return NextResponse.json(office);

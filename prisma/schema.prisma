@@ -13,6 +13,7 @@ datasource db {
 model Office {
   id       String    @id @default(uuid())
   name     String    @unique
+  isSiloed Boolean   @default(false) @map("is_siloed")
   users    User[]
   people   People[]
   partners Partner[]
@@ -66,13 +67,15 @@ model People {
   zip           String?
   phoneNumber   String?  @map("phone_number")
   personalEmail String?  @map("personal_email")
-  isConnector   Boolean  @default(false) @map("is_connector")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  isConnector    Boolean  @default(false) @map("is_connector")
+  connectorToken String?  @unique @map("connector_token")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
   officeId      String   @map("office_id")
   office        Office   @relation(fields: [officeId], references: [id])
 
   partnerRoles            PartnerRole[]
+  roleAssignments         RoleAssignment[]
   relationships           Relationship[]  @relation("ConnectorRelationships")
   targetOfRelationships   Relationship[]  @relation("TargetRelationships")
   connections             Connection[]
@@ -112,8 +115,9 @@ model PartnerRole {
   peopleId        String? @map("people_id")
   person          People? @relation(fields: [peopleId], references: [id])
 
-  relationships Relationship[]
-  connections   Connection[]
+  roleAssignments RoleAssignment[]
+  relationships   Relationship[]
+  connections     Connection[]
 
   @@map("partner_role")
 }
@@ -175,4 +179,17 @@ model EventResponse {
   createdAt     DateTime  @default(now()) @map("created_at")
 
   @@map("event_response")
+}
+
+model RoleAssignment {
+  id            String      @id @default(uuid())
+  partnerRoleId String      @map("partner_role_id")
+  partnerRole   PartnerRole @relation(fields: [partnerRoleId], references: [id], onDelete: Cascade)
+  peopleId      String      @map("people_id")
+  person        People      @relation(fields: [peopleId], references: [id])
+  startDate     DateTime?   @map("start_date")
+  endDate       DateTime?   @map("end_date")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@map("role_assignment")
 }

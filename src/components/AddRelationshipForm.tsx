@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
+import OfficeDataToggle from "@/components/OfficeDataToggle";
 
 interface PartnerRole {
   id: string;
@@ -27,18 +28,20 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
   const [partnerRoleId, setPartnerRoleId] = useState("");
   const [relationshipTypeId, setRelationshipTypeId] = useState("");
 
+  const fetchData = useCallback(() => {
+    fetch("/api/partner-roles")
+      .then((res) => res.json())
+      .then((data) => setPartnerRoles(data))
+      .catch(() => {});
+    fetch("/api/lookup/relationship-types")
+      .then((res) => res.json())
+      .then((data) => setRelationshipTypes(data))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
-    if (open) {
-      fetch("/api/partner-roles")
-        .then((res) => res.json())
-        .then((data) => setPartnerRoles(data))
-        .catch(() => {});
-      fetch("/api/lookup/relationship-types")
-        .then((res) => res.json())
-        .then((data) => setRelationshipTypes(data))
-        .catch(() => {});
-    }
-  }, [open]);
+    if (open) fetchData();
+  }, [open, fetchData]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -98,7 +101,10 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
 
   return (
     <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mt-4">
-      <h3 className="font-semibold text-navy mb-3 text-sm">Add New Relationship</h3>
+      <div className="flex items-center gap-3 mb-3">
+        <h3 className="font-semibold text-navy text-sm">Add New Relationship</h3>
+        <OfficeDataToggle onToggle={() => fetchData()} />
+      </div>
       {error && (
         <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-2 mb-3 text-xs">
           {error}

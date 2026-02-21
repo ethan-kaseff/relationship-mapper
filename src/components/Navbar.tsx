@@ -37,18 +37,21 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
 
-  // Read viewAllOffices cookie
+  const [mounted, setMounted] = useState(false);
   const [viewAll, setViewAll] = useState(false);
+
   useEffect(() => {
     const match = document.cookie.match(/(?:^|; )viewAllOffices=([^;]*)/);
     setViewAll(match?.[1] === "true");
+    setMounted(true);
   }, []);
 
-  if (pathname === "/login" || status !== "authenticated") return null;
+  if (!mounted || pathname === "/login" || status !== "authenticated") return null;
 
   const role = session.user.role;
   const navLinks = getNavLinks(role);
-  const showToggle = role !== "SYSTEM_ADMIN";
+  const isSiloed = (session.user as { isSiloed?: boolean }).isSiloed;
+  const showToggle = role !== "SYSTEM_ADMIN" && !isSiloed;
 
   function toggleViewAll() {
     const next = !viewAll;
@@ -64,15 +67,25 @@ export default function Navbar() {
           JCRB Relationship Map
         </Link>
         <div className="flex gap-4 text-sm">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="hover:text-blue-200 transition-colors"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {navLinks.map((link) => {
+            const isActive =
+              link.href === "/"
+                ? pathname === "/"
+                : pathname.startsWith(link.href);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`transition-colors ${
+                  isActive
+                    ? "text-white font-semibold border-b-2 border-white pb-0.5"
+                    : "text-blue-200 hover:text-white"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </div>
         <div className="ml-auto flex items-center gap-4 text-sm">
           {showToggle && (

@@ -25,6 +25,29 @@ export async function PATCH(
           data: { partnerRoleId: null },
         });
         await prisma.connection.deleteMany({ where: { partnerRoleId: id } });
+
+        // Close the active RoleAssignment for the outgoing person
+        const activeAssignment = await prisma.roleAssignment.findFirst({
+          where: { partnerRoleId: id, peopleId: oldPersonId, endDate: null },
+          orderBy: { createdAt: "desc" },
+        });
+        if (activeAssignment) {
+          await prisma.roleAssignment.update({
+            where: { id: activeAssignment.id },
+            data: { endDate: body.endDate ? new Date(body.endDate) : new Date() },
+          });
+        }
+      }
+
+      // Create a new RoleAssignment for the incoming person
+      if (newPersonId && newPersonId !== oldPersonId) {
+        await prisma.roleAssignment.create({
+          data: {
+            partnerRoleId: id,
+            peopleId: newPersonId,
+            startDate: body.startDate ? new Date(body.startDate) : null,
+          },
+        });
       }
     }
 

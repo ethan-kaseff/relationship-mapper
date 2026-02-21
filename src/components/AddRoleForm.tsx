@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import SearchableSelect from "@/components/SearchableSelect";
+import OfficeDataToggle from "@/components/OfficeDataToggle";
 
 interface Person {
   id: string;
@@ -19,6 +20,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
 
   const [roleDescription, setRoleDescription] = useState("");
   const [peopleId, setPeopleId] = useState("");
+  const [startDate, setStartDate] = useState("");
   const roleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -27,14 +29,16 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
     }
   }, [open]);
 
+  const fetchPeople = useCallback(() => {
+    fetch("/api/people")
+      .then((res) => res.json())
+      .then((data) => setPeople(data))
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
-    if (open) {
-      fetch("/api/people")
-        .then((res) => res.json())
-        .then((data) => setPeople(data))
-        .catch(() => {});
-    }
-  }, [open]);
+    if (open) fetchPeople();
+  }, [open, fetchPeople]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -49,6 +53,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
           partnerId,
           roleDescription,
           peopleId: peopleId || null,
+          startDate: peopleId && startDate ? startDate : null,
         }),
       });
 
@@ -59,6 +64,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
 
       setRoleDescription("");
       setPeopleId("");
+      setStartDate("");
       setOpen(false);
       router.refresh();
     } catch (err: unknown) {
@@ -86,7 +92,10 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
 
   return (
     <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
-      <h3 className="font-semibold text-navy mb-3 text-sm">Add New Role</h3>
+      <div className="flex items-center gap-3 mb-3">
+        <h3 className="font-semibold text-navy text-sm">Add New Role</h3>
+        <OfficeDataToggle onToggle={() => fetchPeople()} />
+      </div>
       {error && (
         <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-2 mb-3 text-xs">
           {error}
@@ -118,6 +127,19 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
             placeholder="Search people..."
           />
         </div>
+        {peopleId && (
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">
+              Start Date (optional)
+            </label>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+            />
+          </div>
+        )}
         <div className="flex gap-2">
           <button
             type="submit"

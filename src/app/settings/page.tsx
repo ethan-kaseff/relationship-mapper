@@ -13,6 +13,7 @@ interface RelationshipType {
 interface Office {
   id: string;
   name: string;
+  isSiloed: boolean;
   _count?: { users: number; people: number; partners: number };
 }
 
@@ -30,6 +31,8 @@ export default function SettingsPage() {
   const { data: session, status: sessionStatus } = useSession();
   const role = session?.user?.role;
   const isSystemAdmin = role === "SYSTEM_ADMIN";
+  const isOfficeAdmin = role === "OFFICE_ADMIN";
+  const canManageUsers = isSystemAdmin || isOfficeAdmin;
 
   const [relTypes, setRelTypes] = useState<RelationshipType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +84,7 @@ export default function SettingsPage() {
   const [officeError, setOfficeError] = useState("");
   const [editingOfficeId, setEditingOfficeId] = useState<string | null>(null);
   const [editOfficeName, setEditOfficeName] = useState("");
+  const [editOfficeSiloed, setEditOfficeSiloed] = useState(false);
   const [deletingOfficeId, setDeletingOfficeId] = useState<string | null>(null);
 
   // Office dropdown for user form
@@ -102,7 +106,7 @@ export default function SettingsPage() {
   }
 
   function fetchUsers() {
-    if (!isSystemAdmin) return;
+    if (!canManageUsers) return;
     fetch("/api/users")
       .then((res) => res.json())
       .then((data) => {
@@ -113,7 +117,7 @@ export default function SettingsPage() {
   }
 
   function fetchOffices() {
-    if (!isSystemAdmin) return;
+    if (!canManageUsers) return;
     fetch("/api/offices")
       .then((res) => res.json())
       .then((data) => {
@@ -136,15 +140,15 @@ export default function SettingsPage() {
   }, [showOfficeForm]);
 
   useEffect(() => {
-    fetchTypes();
-  }, []);
+    if (isSystemAdmin) fetchTypes();
+  }, [isSystemAdmin]);
 
   useEffect(() => {
-    if (isSystemAdmin) {
+    if (canManageUsers) {
       fetchUsers();
       fetchOffices();
     }
-  }, [isSystemAdmin]);
+  }, [canManageUsers]);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -386,7 +390,7 @@ export default function SettingsPage() {
       const res = await fetch(`/api/offices/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editOfficeName }),
+        body: JSON.stringify({ name: editOfficeName, isSiloed: editOfficeSiloed }),
       });
 
       if (!res.ok) {
@@ -434,8 +438,8 @@ export default function SettingsPage() {
     <div>
       <h1 className="text-2xl font-bold text-navy mb-6">Settings</h1>
 
-      {/* Relationship Types */}
-      <div className="bg-white rounded-lg shadow p-6">
+      {/* Relationship Types — SYSTEM_ADMIN only */}
+      {isSystemAdmin && <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-navy">Relationship Types</h2>
           {!showForm && (
@@ -659,10 +663,10 @@ export default function SettingsPage() {
             </tbody>
           </table>
         )}
-      </div>
+      </div>}
 
-      {/* User Management — SYSTEM_ADMIN only */}
-      {isSystemAdmin && (
+      {/* User Management — SYSTEM_ADMIN and OFFICE_ADMIN */}
+      {canManageUsers && (
         <div className="bg-white rounded-lg shadow p-6 mt-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-navy">User Management</h2>
@@ -753,9 +757,10 @@ export default function SettingsPage() {
                       <option value="OFFICE_ADMIN">Office Admin</option>
                       <option value="OFFICE_USER">Office User</option>
                       <option value="CONNECTOR">Connector</option>
-                      <option value="SYSTEM_ADMIN">System Admin</option>
+                      {isSystemAdmin && <option value="SYSTEM_ADMIN">System Admin</option>}
                     </select>
                   </div>
+                  {isSystemAdmin && (
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Office <span className="text-red-500">*</span>
@@ -772,6 +777,7 @@ export default function SettingsPage() {
                       ))}
                     </select>
                   </div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button
@@ -847,10 +853,11 @@ export default function SettingsPage() {
                             <option value="OFFICE_ADMIN">Office Admin</option>
                             <option value="OFFICE_USER">Office User</option>
                             <option value="CONNECTOR">Connector</option>
-                            <option value="SYSTEM_ADMIN">System Admin</option>
+                            {isSystemAdmin && <option value="SYSTEM_ADMIN">System Admin</option>}
                           </select>
                         </td>
                         <td className="px-4 py-2">
+                          {isSystemAdmin && (
                           <select
                             value={editUserOfficeId}
                             onChange={(e) => setEditUserOfficeId(e.target.value)}
@@ -860,6 +867,7 @@ export default function SettingsPage() {
                               <option key={o.id} value={o.id}>{o.name}</option>
                             ))}
                           </select>
+                          )}
                           <input
                             type="password"
                             value={editUserPassword}
@@ -1018,6 +1026,7 @@ export default function SettingsPage() {
               <thead className="bg-gray-50 border-b">
                 <tr>
                   <th className="text-left px-4 py-3 font-semibold text-navy">Name</th>
+                  <th className="text-left px-4 py-3 font-semibold text-navy">Siloed</th>
                   <th className="text-left px-4 py-3 font-semibold text-navy">Users</th>
                   <th className="text-left px-4 py-3 font-semibold text-navy">People</th>
                   <th className="text-left px-4 py-3 font-semibold text-navy">Partners</th>
@@ -1029,13 +1038,24 @@ export default function SettingsPage() {
                   <tr key={office.id} className="hover:bg-gray-50">
                     {editingOfficeId === office.id ? (
                       <>
-                        <td className="px-4 py-2" colSpan={4}>
+                        <td className="px-4 py-2" colSpan={2}>
                           <input
                             type="text"
                             value={editOfficeName}
                             onChange={(e) => setEditOfficeName(e.target.value)}
                             className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
                           />
+                        </td>
+                        <td className="px-4 py-2" colSpan={3}>
+                          <label className="flex items-center gap-2 text-sm">
+                            <input
+                              type="checkbox"
+                              checked={editOfficeSiloed}
+                              onChange={(e) => setEditOfficeSiloed(e.target.checked)}
+                              className="rounded border-gray-300 text-[#2E75B6] focus:ring-[#2E75B6]"
+                            />
+                            Data Siloed
+                          </label>
                         </td>
                         <td className="px-4 py-2 text-right">
                           <div className="flex gap-2 justify-end">
@@ -1058,13 +1078,22 @@ export default function SettingsPage() {
                     ) : (
                       <>
                         <td className="px-4 py-3 font-medium">{office.name}</td>
+                        <td className="px-4 py-3">
+                          {office.isSiloed ? (
+                            <span className="inline-block bg-amber-100 text-amber-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                              Siloed
+                            </span>
+                          ) : (
+                            <span className="text-gray-400 text-xs">No</span>
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-gray-600">{office._count?.users ?? 0}</td>
                         <td className="px-4 py-3 text-gray-600">{office._count?.people ?? 0}</td>
                         <td className="px-4 py-3 text-gray-600">{office._count?.partners ?? 0}</td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex gap-3 justify-end">
                             <button
-                              onClick={() => { setEditingOfficeId(office.id); setEditOfficeName(office.name); }}
+                              onClick={() => { setEditingOfficeId(office.id); setEditOfficeName(office.name); setEditOfficeSiloed(office.isSiloed); }}
                               className="text-[#2E75B6] hover:underline text-xs"
                             >
                               Edit
@@ -1100,7 +1129,7 @@ export default function SettingsPage() {
                 ))}
                 {offices.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                    <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                       No offices found.
                     </td>
                   </tr>

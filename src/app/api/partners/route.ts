@@ -60,31 +60,40 @@ export async function POST(request: Request) {
       },
     });
 
-    // For individual partners, create a People record and a PartnerRole
+    // For individual partners, create a PartnerRole linking to existing or new People
     if (data.orgPeopleFlag === "P" && data.organizationName) {
-      const nameParts = data.organizationName.trim().split(/\s+/);
-      const firstName = nameParts[0] || "";
-      const lastName = nameParts.slice(1).join(" ") || "";
-      const person = await prisma.people.create({
-        data: {
-          firstName,
-          lastName,
-          address: data.address,
-          city: data.city,
-          state: data.state,
-          zip: data.zip,
-          phoneNumber: data.phoneNumber,
-          personalEmail: data.email || null,
-          isConnector: false,
-          officeId,
-        },
-      });
+      let personId: string;
+
+      if (data.existingPeopleId) {
+        // Link to an existing People record (e.g. when auto-creating from role removal)
+        personId = data.existingPeopleId;
+      } else {
+        // Create a new People record
+        const nameParts = data.organizationName.trim().split(/\s+/);
+        const firstName = nameParts[0] || "";
+        const lastName = nameParts.slice(1).join(" ") || "";
+        const person = await prisma.people.create({
+          data: {
+            firstName,
+            lastName,
+            address: data.address,
+            city: data.city,
+            state: data.state,
+            zip: data.zip,
+            phoneNumber: data.phoneNumber,
+            personalEmail: data.email || null,
+            isConnector: false,
+            officeId,
+          },
+        });
+        personId = person.id;
+      }
 
       await prisma.partnerRole.create({
         data: {
           partnerId: partner.id,
           roleDescription: "Primary Contact",
-          peopleId: person.id,
+          peopleId: personId,
         },
       });
     }

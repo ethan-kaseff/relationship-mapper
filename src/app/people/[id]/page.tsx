@@ -6,6 +6,7 @@ import AddRelationshipForm from "@/components/AddRelationshipForm";
 import DeletePersonButton from "@/components/DeletePersonButton";
 import EditPersonButton from "@/components/EditPersonName";
 import RemoveRolePersonButton from "@/components/RemoveRolePersonButton";
+import ConnectorLinkSection from "@/components/ConnectorLinkSection";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -20,6 +21,12 @@ export default async function PersonDetailPage({
   const person = await prisma.people.findUnique({
     where: { id },
     include: {
+      roleAssignments: {
+        include: {
+          partnerRole: { include: { partner: true } },
+        },
+        orderBy: { createdAt: "desc" },
+      },
       partnerRoles: {
         include: {
           partner: true,
@@ -200,6 +207,8 @@ export default async function PersonDetailPage({
                       <RemoveRolePersonButton
                         roleId={pr.id}
                         personName={`${person.firstName} ${person.lastName}`}
+                        personId={person.id}
+                        personOfficeId={person.officeId}
                       />
                     </td>
                   )}
@@ -209,6 +218,44 @@ export default async function PersonDetailPage({
           </table>
         )}
       </div>
+
+      {/* Role Assignment History */}
+      {person.roleAssignments.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-semibold text-navy mb-4">Role Assignment History</h2>
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-2 font-semibold text-navy">Partner</th>
+                <th className="text-left px-4 py-2 font-semibold text-navy">Role</th>
+                <th className="text-left px-4 py-2 font-semibold text-navy">Start Date</th>
+                <th className="text-left px-4 py-2 font-semibold text-navy">End Date</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {person.roleAssignments.map((ra) => (
+                <tr key={ra.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2">
+                    <Link
+                      href={`/partners/${ra.partnerRole.partner.id}`}
+                      className="text-[#2E75B6] hover:underline"
+                    >
+                      {ra.partnerRole.partner.organizationName ?? "—"}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2 text-gray-600">{ra.partnerRole.roleDescription}</td>
+                  <td className="px-4 py-2 text-gray-600">
+                    {ra.startDate ? new Date(ra.startDate).toLocaleDateString() : "—"}
+                  </td>
+                  <td className="px-4 py-2 text-gray-600">
+                    {ra.endDate ? new Date(ra.endDate).toLocaleDateString() : "Current"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       {/* Relationships (as connector) */}
       {person.relationships.length > 0 && (
@@ -446,6 +493,14 @@ export default async function PersonDetailPage({
           </table>
         )}
       </div>
+
+      {/* Connector Link — admin only, connectors only */}
+      {person.isConnector && canEdit && (
+        <ConnectorLinkSection
+          personId={person.id}
+          initialToken={person.connectorToken}
+        />
+      )}
     </div>
   );
 }

@@ -1,18 +1,30 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { requireSystemAdmin } from "@/lib/api-auth";
-import { handleApiError, badRequest } from "@/lib/api-error";
+import { auth } from "@/lib/auth";
+import { handleApiError } from "@/lib/api-error";
 
-// PUT /api/users/:id — update a user (SYSTEM_ADMIN only)
+// PUT /api/users/:id — update a user (SYSTEM_ADMIN: any, OFFICE_ADMIN: own office only)
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireSystemAdmin();
-  if (!authResult.success) return authResult.response;
+  const session = await auth();
+  if (!session || (session.user.role !== "SYSTEM_ADMIN" && session.user.role !== "OFFICE_ADMIN")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const { id } = await params;
+  const isOfficeAdmin = session.user.role === "OFFICE_ADMIN";
+
+  // Office admins can only edit users in their own office
+  if (isOfficeAdmin) {
+    const targetUser = await prisma.user.findUnique({ where: { id }, select: { officeId: true } });
+    if (!targetUser || targetUser.officeId !== session.user.officeId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
+
   const body = await request.json();
 
   try {
@@ -20,8 +32,20 @@ export async function PUT(
     if (body.firstName !== undefined) data.firstName = body.firstName;
     if (body.lastName !== undefined) data.lastName = body.lastName;
     if (body.email !== undefined) data.email = body.email;
-    if (body.role !== undefined) data.role = body.role;
-    if (body.officeId !== undefined) data.officeId = body.officeId;
+    if (body.role !== undefined) {
+      // Office admins cannot assign SYSTEM_ADMIN role
+      if (isOfficeAdmin && body.role === "SYSTEM_ADMIN") {
+        return NextResponse.json({ error: "Cannot assign System Admin role" }, { status: 403 });
+      }
+      data.role = body.role;
+    }
+    // Office admins cannot move users to a different office
+    if (body.officeId !== undefined) {
+      if (isOfficeAdmin && body.officeId !== session.user.officeId) {
+        return NextResponse.json({ error: "Cannot move user to another office" }, { status: 403 });
+      }
+      data.officeId = body.officeId;
+    }
     if (body.password) data.password = await bcrypt.hash(body.password, 10);
 
     const user = await prisma.user.update({
@@ -36,22 +60,32 @@ export async function PUT(
   }
 }
 
-// DELETE /api/users/:id — delete a user (SYSTEM_ADMIN only)
+// DELETE /api/users/:id — delete a user (SYSTEM_ADMIN: any, OFFICE_ADMIN: own office only)
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireSystemAdmin();
-  if (!authResult.success) return authResult.response;
+  const session = await auth();
+  if (!session || (session.user.role !== "SYSTEM_ADMIN" && session.user.role !== "OFFICE_ADMIN")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const { id } = await params;
+
+  // Prevent deleting yourself
+  if (id === session.user.id) {
+    return NextResponse.json({ error: "Cannot delete your own account" }, { status: 400 });
+  }
+
+  // Office admins can only delete users in their own office
+  if (session.user.role === "OFFICE_ADMIN") {
+    const targetUser = await prisma.user.findUnique({ where: { id }, select: { officeId: true } });
+    if (!targetUser || targetUser.officeId !== session.user.officeId) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+  }
 
   try {
-    const { id } = await params;
-
-    // Prevent deleting yourself
-    if (id === authResult.session.user.id) {
-      return badRequest("Cannot delete your own account");
-    }
-
     await prisma.user.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
