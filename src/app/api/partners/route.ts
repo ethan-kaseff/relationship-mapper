@@ -56,6 +56,7 @@ export async function POST(request: Request) {
         phoneNumber: data.phoneNumber,
         email: data.email || null,
         website: data.website || null,
+        priority: data.priority ?? null,
         officeId,
       },
     });

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import ExportPartnersButton from "@/components/ExportPartnersButton";
+import PartnersWithoutRelationships from "@/components/PartnersWithoutRelationships";
 import { getOfficeFilter } from "@/lib/office-filter";
 
 export const dynamic = "force-dynamic";
@@ -68,49 +68,7 @@ export default async function Dashboard() {
         ))}
       </div>
 
-      <div className="bg-white rounded-lg shadow p-6 mb-8">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-navy">Partners Without Relationships</h2>
-          <ExportPartnersButton partners={JSON.parse(JSON.stringify(partnersWithoutRelationships))} />
-        </div>
-        {partnersWithoutRelationships.length === 0 ? (
-          <p className="text-gray-500">All partners have at least one relationship.</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left border-b text-gray-500">
-                <th className="pb-2">Partner</th>
-                <th className="pb-2">Role(s)</th>
-                <th className="pb-2">Type</th>
-                <th className="pb-2">City</th>
-                <th className="pb-2">State</th>
-              </tr>
-            </thead>
-            <tbody>
-              {partnersWithoutRelationships.map((p) => (
-                <tr key={p.id} className="border-b last:border-0">
-                  <td className="py-2">
-                    <Link href={`/partners/${p.id}`} className="text-[#2E75B6] hover:underline font-medium">
-                      {p.organizationName || "—"}
-                    </Link>
-                  </td>
-                  <td className="py-2 text-gray-600">
-                    {(() => {
-                      const rolesWithout = p.partnerRoles.filter((r) => r._count.relationships === 0);
-                      return rolesWithout.length > 0
-                        ? rolesWithout.map((r) => r.roleDescription).join(", ")
-                        : "—";
-                    })()}
-                  </td>
-                  <td className="py-2 text-gray-600">{p.organizationType?.typeName || "—"}</td>
-                  <td className="py-2 text-gray-600">{p.city || "—"}</td>
-                  <td className="py-2 text-gray-600">{p.state || "—"}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      <PartnersWithoutRelationships partners={JSON.parse(JSON.stringify(partnersWithoutRelationships))} />
 
       <div className="bg-white rounded-lg shadow p-6">
         <h2 className="text-lg font-semibold text-navy mb-4">Recent Interactions</h2>

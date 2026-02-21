@@ -39,12 +39,12 @@ export async function POST(request: Request) {
     });
 
     // Create a RoleAssignment record when a person is assigned during role creation
-    if (body.peopleId) {
+    if (data.peopleId) {
       await prisma.roleAssignment.create({
         data: {
           partnerRoleId: partnerRole.id,
-          peopleId: body.peopleId,
-          startDate: body.startDate ? new Date(body.startDate) : null,
+          peopleId: data.peopleId,
+          startDate: data.startDate ? new Date(data.startDate) : null,
         },
       });
     }

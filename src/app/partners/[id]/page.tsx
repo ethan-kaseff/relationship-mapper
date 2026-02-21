@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import AddRoleForm from "@/components/AddRoleForm";
 import DeletePartnerButton from "@/components/DeletePartnerButton";
+import EditPartnerInfo from "@/components/EditPartnerInfo";
 import RemoveRolePersonButton from "@/components/RemoveRolePersonButton";
 import AssignRolePersonButton from "@/components/AssignRolePersonButton";
 
@@ -59,68 +60,23 @@ export default async function PartnerDetailPage({
       </div>
 
       {/* Basic Info */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-navy mb-4">Partner Information</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="font-medium text-gray-500">Type:</span>{" "}
-            <span
-              className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
-                partner.orgPeopleFlag === "O"
-                  ? "bg-purple-100 text-purple-800"
-                  : "bg-orange-100 text-orange-800"
-              }`}
-            >
-              {partner.orgPeopleFlag === "O" ? "Organization" : "Person"}
-            </span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Organization Type:</span>{" "}
-            <span className="text-gray-800">
-              {partner.organizationType?.typeName ?? "—"}
-            </span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Address:</span>{" "}
-            <span className="text-gray-800">{partner.address ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">City:</span>{" "}
-            <span className="text-gray-800">{partner.city ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">State:</span>{" "}
-            <span className="text-gray-800">{partner.state ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Zip:</span>{" "}
-            <span className="text-gray-800">{partner.zip ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Phone:</span>{" "}
-            <span className="text-gray-800">{partner.phoneNumber ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Email:</span>{" "}
-            <span className="text-gray-800">{partner.email ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Website:</span>{" "}
-            {partner.website ? (
-              <a
-                href={partner.website}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#2E75B6] hover:underline"
-              >
-                {partner.website}
-              </a>
-            ) : (
-              <span className="text-gray-800">—</span>
-            )}
-          </div>
-        </div>
-      </div>
+      <EditPartnerInfo
+        partnerId={partner.id}
+        partner={{
+          orgPeopleFlag: partner.orgPeopleFlag,
+          organizationName: partner.organizationName,
+          organizationTypeId: partner.organizationTypeId,
+          organizationType: partner.organizationType,
+          address: partner.address,
+          city: partner.city,
+          state: partner.state,
+          zip: partner.zip,
+          phoneNumber: partner.phoneNumber,
+          email: partner.email,
+          website: partner.website,
+          priority: partner.priority,
+        }}
+      />
 
       {/* Roles & Relationships */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">

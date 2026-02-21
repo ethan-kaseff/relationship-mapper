@@ -3,9 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
 }
 
 // ─── Office ──────────────────────────────────────────────────────────────────
@@ -97,6 +96,7 @@ model Partner {
   phoneNumber        String?           @map("phone_number")
   email              String?
   website            String?
+  priority           Int?
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
   officeId           String            @map("office_id")

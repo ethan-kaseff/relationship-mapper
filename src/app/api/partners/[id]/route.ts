@@ -53,7 +53,9 @@ export async function PUT(
       data: {
         orgPeopleFlag: data.orgPeopleFlag,
         organizationName: data.organizationName,
-        organizationTypeId: data.organizationTypeId,
+        organizationType: data.organizationTypeId
+          ? { connect: { id: data.organizationTypeId } }
+          : { disconnect: true },
         address: data.address,
         city: data.city,
         state: data.state,
@@ -61,6 +63,7 @@ export async function PUT(
         phoneNumber: data.phoneNumber,
         email: data.email || null,
         website: data.website || null,
+        ...(data.priority !== undefined ? { priority: data.priority ?? null } : {}),
       },
     });
     return NextResponse.json(partner);

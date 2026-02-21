@@ -36,6 +36,7 @@ export default function NewPartnerPage() {
     phoneNumber: "",
     email: "",
     website: "",
+    priority: "",
   });
 
   useEffect(() => {
@@ -78,6 +79,7 @@ export default function NewPartnerPage() {
         body: JSON.stringify({
           ...form,
           organizationTypeId: form.organizationTypeId || null,
+          priority: form.priority ? parseInt(form.priority) : null,
           ...(isSystemAdmin && selectedOfficeId ? { officeId: selectedOfficeId } : {}),
         }),
       });
@@ -239,6 +241,23 @@ export default function NewPartnerPage() {
               onChange={handleChange}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
             />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+            <select
+              name="priority"
+              value={form.priority}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+            >
+              <option value="">— None —</option>
+              <option value="1">1 — Highest</option>
+              <option value="2">2 — High</option>
+              <option value="3">3 — Medium</option>
+              <option value="4">4 — Low</option>
+              <option value="5">5 — Lowest</option>
+            </select>
           </div>
 
           {isSystemAdmin && (
