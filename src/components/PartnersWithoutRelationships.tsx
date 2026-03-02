@@ -16,6 +16,8 @@ interface Partner {
   organizationType: { typeName: string } | null;
   city: string | null;
   state: string | null;
+  phoneNumber: string | null;
+  email: string | null;
   partnerRoles: PartnerRole[];
 }
 

@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { auth } from "@/lib/auth";
-import { handleApiError } from "@/lib/api-error";
+import { requireAdmin } from "@/lib/api-auth";
+import { handleApiError, badRequest, conflict } from "@/lib/api-error";
 
 // GET /api/users — list users (SYSTEM_ADMIN: all, OFFICE_ADMIN: own office)
 export async function GET() {
-  const session = await auth();
-  if (!session || (session.user.role !== "SYSTEM_ADMIN" && session.user.role !== "OFFICE_ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authResult = await requireAdmin();
+  if (!authResult.success) return authResult.response;
+
+  const { session } = authResult;
 
   try {
     const where = session.user.role === "OFFICE_ADMIN"
@@ -37,16 +37,15 @@ export async function GET() {
 
 // POST /api/users — create a new user (SYSTEM_ADMIN: any office, OFFICE_ADMIN: own office)
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session || (session.user.role !== "SYSTEM_ADMIN" && session.user.role !== "OFFICE_ADMIN")) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const authResult = await requireAdmin();
+  if (!authResult.success) return authResult.response;
 
+  const { session } = authResult;
   const body = await request.json();
   const { email, password, firstName, lastName, role, officeId } = body;
 
   if (!email || !password || !firstName || !lastName) {
-    return NextResponse.json({ error: "Email, password, first name, and last name are required" }, { status: 400 });
+    return badRequest("Email, password, first name, and last name are required");
   }
 
   const isOfficeAdmin = session.user.role === "OFFICE_ADMIN";
@@ -54,7 +53,7 @@ export async function POST(request: NextRequest) {
   // Office admins can only create users in their own office
   const targetOfficeId = isOfficeAdmin ? session.user.officeId : officeId;
   if (!targetOfficeId) {
-    return NextResponse.json({ error: "Office is required" }, { status: 400 });
+    return badRequest("Office is required");
   }
 
   // Office admins cannot create system admins
@@ -63,13 +62,13 @@ export async function POST(request: NextRequest) {
     : ["SYSTEM_ADMIN", "OFFICE_ADMIN", "OFFICE_USER", "CONNECTOR"];
 
   if (role && !allowedRoles.includes(role)) {
-    return NextResponse.json({ error: "Invalid role" }, { status: 400 });
+    return badRequest("Invalid role");
   }
 
   try {
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
-      return NextResponse.json({ error: "A user with this email already exists" }, { status: 409 });
+      return conflict("A user with this email already exists");
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
