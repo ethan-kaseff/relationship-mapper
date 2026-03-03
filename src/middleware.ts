@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { getToken } from "next-auth/jwt";
+import { decode } from "next-auth/jwt";
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
@@ -10,11 +10,26 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for session token
-  const token = await getToken({
-    req: request,
-    secret: process.env.AUTH_SECRET,
-  });
+  // Read session cookie and decode directly (getToken has issues in next-auth v5 beta)
+  const isSecure = request.url.startsWith("https://");
+  const cookieName = isSecure
+    ? "__Secure-authjs.session-token"
+    : "authjs.session-token";
+
+  const sessionCookie = request.cookies.get(cookieName)?.value;
+
+  let token = null;
+  if (sessionCookie) {
+    try {
+      token = await decode({
+        token: sessionCookie,
+        secret: process.env.AUTH_SECRET!,
+        salt: cookieName,
+      });
+    } catch {
+      // Invalid token — treat as unauthenticated
+    }
+  }
 
   // Redirect to login if not authenticated
   if (!token) {
