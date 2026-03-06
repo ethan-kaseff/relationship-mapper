@@ -6,7 +6,7 @@ import { useSession, signOut } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 
 const allNavLinks = [
-  { href: "/", label: "Dashboard" },
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/people", label: "People" },
   { href: "/partners", label: "Partners" },
   { href: "/relationships", label: "Relationships" },
@@ -24,7 +24,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 function getNavLinks(role: string) {
   if (role === "CONNECTOR") {
-    return allNavLinks.filter((l) => l.href === "/" || l.href === "/interactions");
+    return allNavLinks.filter((l) => l.href === "/dashboard" || l.href === "/interactions");
   }
   if (role === "OFFICE_USER") {
     return allNavLinks.filter((l) => l.href !== "/settings");
@@ -46,7 +46,7 @@ export default function Navbar() {
     setMounted(true);
   }, []);
 
-  if (!mounted || pathname === "/login" || status !== "authenticated") return null;
+  if (!mounted || pathname === "/" || pathname === "/login" || status !== "authenticated") return null;
 
   const role = session.user.role;
   const navLinks = getNavLinks(role);
@@ -63,15 +63,12 @@ export default function Navbar() {
   return (
     <nav className="bg-navy text-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-8">
-        <Link href="/" className="text-lg font-bold tracking-wide">
+        <Link href="/dashboard" className="text-lg font-bold tracking-wide">
           JCRB Relationship Map
         </Link>
         <div className="flex gap-4 text-sm">
           {navLinks.map((link) => {
-            const isActive =
-              link.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(link.href);
+            const isActive = pathname.startsWith(link.href);
             return (
               <Link
                 key={link.href}

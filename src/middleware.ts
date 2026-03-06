@@ -6,7 +6,7 @@ export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
   // Allow public routes
-  if (pathname === "/login") {
+  if (pathname === "/" || pathname === "/login") {
     return NextResponse.next();
   }
 
@@ -42,16 +42,16 @@ export async function middleware(request: NextRequest) {
   // Settings page: SYSTEM_ADMIN and OFFICE_ADMIN only
   if (pathname.startsWith("/settings")) {
     if (role !== "SYSTEM_ADMIN" && role !== "OFFICE_ADMIN") {
-      return NextResponse.redirect(new URL("/", request.url));
+      return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }
 
   // CONNECTOR role restrictions
   if (role === "CONNECTOR") {
-    // UI pages: only home and interactions
+    // UI pages: only dashboard and interactions
     if (!pathname.startsWith("/api/")) {
-      if (pathname !== "/" && !pathname.startsWith("/interactions")) {
-        return NextResponse.redirect(new URL("/", request.url));
+      if (pathname !== "/dashboard" && !pathname.startsWith("/interactions")) {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
       }
     }
     // API routes: only auth, connections, and lookup endpoints
