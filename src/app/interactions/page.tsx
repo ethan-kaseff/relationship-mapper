@@ -24,12 +24,12 @@ export default async function InteractionsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-navy">Interactions</h1>
+          <h1 className="text-2xl font-bold text-indigo-900">Interactions</h1>
           <OfficeDataToggle />
         </div>
         <Link
           href="/interactions/new"
-          className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors"
+          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
         >
           Add Interaction
         </Link>
@@ -39,11 +39,11 @@ export default async function InteractionsPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Date</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Connector</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Partner</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Role</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Notes</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Date</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Connector</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Partner</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Role</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Notes</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -55,7 +55,7 @@ export default async function InteractionsPage() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/people/${conn.person.id}`}
-                    className="text-[#2E75B6] hover:underline font-medium"
+                    className="text-indigo-600 hover:underline font-medium"
                   >
                     {conn.person.firstName} {conn.person.lastName}
                   </Link>
@@ -63,7 +63,7 @@ export default async function InteractionsPage() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/partners/${conn.partnerRole.partner.id}`}
-                    className="text-[#2E75B6] hover:underline"
+                    className="text-indigo-600 hover:underline"
                   >
                     {conn.partnerRole.partner.organizationName ?? "—"}
                   </Link>

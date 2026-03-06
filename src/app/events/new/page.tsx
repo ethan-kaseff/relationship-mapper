@@ -53,8 +53,8 @@ export default function NewEventPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-navy">Add Event</h1>
-        <Link href="/events" className="text-[#2E75B6] hover:underline text-sm">
+        <h1 className="text-2xl font-bold text-indigo-900">Add Event</h1>
+        <Link href="/events" className="text-indigo-600 hover:underline text-sm">
           Back to Events
         </Link>
       </div>
@@ -79,7 +79,7 @@ export default function NewEventPage() {
                 autoFocus
                 value={form.eventDate}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
             <div>
@@ -89,7 +89,7 @@ export default function NewEventPage() {
                 name="eventTime"
                 value={form.eventTime}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -104,7 +104,7 @@ export default function NewEventPage() {
               rows={4}
               value={form.eventDescription}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
 
@@ -112,7 +112,7 @@ export default function NewEventPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="bg-[#2E75B6] text-white px-6 py-2 rounded-md hover:bg-[#245d91] transition-colors disabled:opacity-50"
+              className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
               {submitting ? "Saving..." : "Create Event"}
             </button>

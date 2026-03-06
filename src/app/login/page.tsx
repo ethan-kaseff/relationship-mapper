@@ -44,7 +44,7 @@ export default function LoginPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-navy border-r-transparent mb-4" />
+          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-900 border-r-transparent mb-4" />
           <p className="text-gray-600 text-sm">Loading dashboard...</p>
         </div>
       </div>
@@ -55,7 +55,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="w-full max-w-sm">
         <div className="bg-white rounded-lg shadow-md p-8">
-          <h1 className="text-2xl font-bold text-navy text-center mb-6">
+          <h1 className="text-2xl font-bold text-indigo-900 text-center mb-6">
             JCRB Relationship Map
           </h1>
 
@@ -77,7 +77,7 @@ export default function LoginPage() {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   placeholder="admin@jcrb.org"
                   autoFocus
                 />
@@ -94,7 +94,7 @@ export default function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full border border-gray-300 rounded px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full border border-gray-300 rounded px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                   />
                   <button
                     type="button"
@@ -110,7 +110,7 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-navy text-white py-2 rounded font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50"
+                className="w-full bg-indigo-900 text-white py-2 rounded font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50"
               >
                 {loading ? "Signing in..." : "Sign In"}
               </button>

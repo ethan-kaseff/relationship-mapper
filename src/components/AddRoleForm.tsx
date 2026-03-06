@@ -78,7 +78,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors text-sm"
+        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
       >
         Add Role
       </button>
@@ -93,7 +93,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
   return (
     <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
       <div className="flex items-center gap-3 mb-3">
-        <h3 className="font-semibold text-navy text-sm">Add New Role</h3>
+        <h3 className="font-semibold text-indigo-900 text-sm">Add New Role</h3>
         <OfficeDataToggle onToggle={() => fetchPeople()} />
       </div>
       {error && (
@@ -113,7 +113,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
             value={roleDescription}
             onChange={(e) => setRoleDescription(e.target.value)}
             placeholder="e.g. Executive Director"
-            className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+            className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
         </div>
         <div className="w-56">
@@ -136,7 +136,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
         )}
@@ -144,7 +144,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
           <button
             type="submit"
             disabled={submitting}
-            className="bg-[#2E75B6] text-white px-4 py-1.5 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+            className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
           >
             {submitting ? "Saving..." : "Save"}
           </button>

@@ -138,7 +138,7 @@ export default function SearchableSelect({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-left focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent bg-white flex items-center justify-between"
+        className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm text-left focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-white flex items-center justify-between"
       >
         <span className={value ? "text-gray-900" : "text-gray-400"}>
           {selectedLabel || placeholder}
@@ -168,7 +168,7 @@ export default function SearchableSelect({
               onChange={(e) => setSearch(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Search..."
-              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+              className="w-full border border-gray-200 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
             />
           </div>
           <ul ref={listRef} className="overflow-y-auto max-h-48">
@@ -181,10 +181,10 @@ export default function SearchableSelect({
                   onClick={() => handleSelect(o.value)}
                   className={`px-3 py-2 text-sm cursor-pointer ${
                     i === highlightIndex
-                      ? "bg-[#2E75B6] text-white"
+                      ? "bg-indigo-600 text-white"
                       : o.value === value
-                      ? "bg-blue-50 text-[#2E75B6] font-medium"
-                      : "text-gray-700 hover:bg-blue-50"
+                      ? "bg-indigo-50 text-indigo-600 font-medium"
+                      : "text-gray-700 hover:bg-indigo-50"
                   }`}
                 >
                   {o.label}

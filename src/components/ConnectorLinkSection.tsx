@@ -64,7 +64,7 @@ export default function ConnectorLinkSection({
 
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-6">
-      <h2 className="text-lg font-semibold text-navy mb-4">Connector Link</h2>
+      <h2 className="text-lg font-semibold text-indigo-900 mb-4">Connector Link</h2>
 
       {!token ? (
         <div>
@@ -75,7 +75,7 @@ export default function ConnectorLinkSection({
           <button
             onClick={handleGenerate}
             disabled={loading}
-            className="bg-[#2E75B6] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#245d92] disabled:opacity-50"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
           >
             {loading ? "Generating..." : "Generate Link"}
           </button>
@@ -91,7 +91,7 @@ export default function ConnectorLinkSection({
             />
             <button
               onClick={handleCopy}
-              className="bg-[#2E75B6] text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-[#245d92] whitespace-nowrap"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-indigo-700 whitespace-nowrap"
             >
               {copied ? "Copied!" : "Copy"}
             </button>

@@ -76,8 +76,8 @@ export default function NewPersonPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-navy">Add Person</h1>
-        <Link href="/people" className="text-[#2E75B6] hover:underline text-sm">
+        <h1 className="text-2xl font-bold text-indigo-900">Add Person</h1>
+        <Link href="/people" className="text-indigo-600 hover:underline text-sm">
           Back to People
         </Link>
       </div>
@@ -102,7 +102,7 @@ export default function NewPersonPage() {
                 autoFocus
                 value={form.firstName}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
             <div>
@@ -115,7 +115,7 @@ export default function NewPersonPage() {
                 required
                 value={form.lastName}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -127,7 +127,7 @@ export default function NewPersonPage() {
               name="address"
               value={form.address}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
 
@@ -139,7 +139,7 @@ export default function NewPersonPage() {
                 name="city"
                 value={form.city}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
             <div>
@@ -149,7 +149,7 @@ export default function NewPersonPage() {
                 name="state"
                 value={form.state}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
             <div>
@@ -159,7 +159,7 @@ export default function NewPersonPage() {
                 name="zip"
                 value={form.zip}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -172,7 +172,7 @@ export default function NewPersonPage() {
                 name="phoneNumber"
                 value={form.phoneNumber}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
             <div>
@@ -182,7 +182,7 @@ export default function NewPersonPage() {
                 name="personalEmail"
                 value={form.personalEmail}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -194,7 +194,7 @@ export default function NewPersonPage() {
               id="isConnector"
               checked={form.isConnector}
               onChange={handleChange}
-              className="h-4 w-4 text-[#2E75B6] border-gray-300 rounded focus:ring-[#2E75B6]"
+              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
             />
             <label htmlFor="isConnector" className="text-sm font-medium text-gray-700">
               Is Connector
@@ -209,7 +209,7 @@ export default function NewPersonPage() {
               <select
                 value={selectedOfficeId}
                 onChange={(e) => setSelectedOfficeId(e.target.value)}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
                 <option value="">— Default (your office) —</option>
                 {offices.map((o) => (
@@ -223,7 +223,7 @@ export default function NewPersonPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="bg-[#2E75B6] text-white px-6 py-2 rounded-md hover:bg-[#245d91] transition-colors disabled:opacity-50"
+              className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
               {submitting ? "Saving..." : "Create Person"}
             </button>

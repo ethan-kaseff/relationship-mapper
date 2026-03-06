@@ -104,12 +104,12 @@ export default async function PersonDetailPage({
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-navy">{person.firstName} {person.lastName}</h1>
+        <h1 className="text-2xl font-bold text-indigo-900">{person.firstName} {person.lastName}</h1>
         <div className="flex items-center gap-4">
           <DeletePersonButton personId={person.id} />
           <Link
             href="/people"
-            className="text-[#2E75B6] hover:underline text-sm"
+            className="text-indigo-600 hover:underline text-sm"
           >
             Back to People
           </Link>
@@ -134,7 +134,7 @@ export default async function PersonDetailPage({
         />
       ) : (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold text-navy mb-4">Contact Information</h2>
+          <h2 className="text-lg font-semibold text-indigo-900 mb-4">Contact Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div>
               <span className="font-medium text-gray-500">Address:</span>{" "}
@@ -176,17 +176,17 @@ export default async function PersonDetailPage({
 
       {/* Partner Roles */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-navy mb-4">Partner Roles</h2>
+        <h2 className="text-lg font-semibold text-indigo-900 mb-4">Partner Roles</h2>
         {person.partnerRoles.length === 0 ? (
           <p className="text-gray-400 text-sm">No partner roles assigned.</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Partner</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Role</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Partner</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Role</th>
                 {canEdit && (
-                  <th className="text-right px-4 py-2 font-semibold text-navy">Actions</th>
+                  <th className="text-right px-4 py-2 font-semibold text-indigo-900">Actions</th>
                 )}
               </tr>
             </thead>
@@ -196,7 +196,7 @@ export default async function PersonDetailPage({
                   <td className="px-4 py-2">
                     <Link
                       href={`/partners/${pr.partner.id}`}
-                      className="text-[#2E75B6] hover:underline"
+                      className="text-indigo-600 hover:underline"
                     >
                       {pr.partner.organizationName ?? "—"}
                     </Link>
@@ -222,14 +222,14 @@ export default async function PersonDetailPage({
       {/* Role Assignment History */}
       {person.roleAssignments.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold text-navy mb-4">Role Assignment History</h2>
+          <h2 className="text-lg font-semibold text-indigo-900 mb-4">Role Assignment History</h2>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Partner</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Role</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Start Date</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">End Date</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Partner</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Role</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Start Date</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">End Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -238,7 +238,7 @@ export default async function PersonDetailPage({
                   <td className="px-4 py-2">
                     <Link
                       href={`/partners/${ra.partnerRole.partner.id}`}
-                      className="text-[#2E75B6] hover:underline"
+                      className="text-indigo-600 hover:underline"
                     >
                       {ra.partnerRole.partner.organizationName ?? "—"}
                     </Link>
@@ -261,16 +261,16 @@ export default async function PersonDetailPage({
       {person.relationships.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-navy">Relationships (as Connector)</h2>
+            <h2 className="text-lg font-semibold text-indigo-900">Relationships (as Connector)</h2>
             <AddRelationshipForm personId={person.id} />
           </div>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Person</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Partner / Role</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Type</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Last Reviewed</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Person</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Partner / Role</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Type</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Last Reviewed</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -279,7 +279,7 @@ export default async function PersonDetailPage({
                   <td className="px-4 py-2">
                     <Link
                       href={`/people/${rel.targetPerson.id}`}
-                      className="text-[#2E75B6] hover:underline font-medium"
+                      className="text-indigo-600 hover:underline font-medium"
                     >
                       {rel.targetPerson.firstName} {rel.targetPerson.lastName}
                     </Link>
@@ -288,7 +288,7 @@ export default async function PersonDetailPage({
                     {rel.partnerRole ? (
                       <Link
                         href={`/partners/${rel.partnerRole.partner.id}`}
-                        className="text-[#2E75B6] hover:underline"
+                        className="text-indigo-600 hover:underline"
                       >
                         {rel.partnerRole.partner.organizationName ?? "—"} — {rel.partnerRole.roleDescription}
                       </Link>
@@ -312,27 +312,27 @@ export default async function PersonDetailPage({
       {/* Relationships where others connect to this person */}
       {targetRelationships.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold text-navy mb-4">Relationships (Others Connecting to Me)</h2>
+          <h2 className="text-lg font-semibold text-indigo-900 mb-4">Relationships (Others Connecting to Me)</h2>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Connector</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Partner / Role</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Type</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Last Reviewed</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Connector</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Partner / Role</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Type</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Last Reviewed</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {targetRelationships.map((rel) => (
                 <tr key={rel.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2">
-                    <Link href={`/people/${rel.connectorId}`} className="text-[#2E75B6] hover:underline font-medium">
+                    <Link href={`/people/${rel.connectorId}`} className="text-indigo-600 hover:underline font-medium">
                       {rel.connectorName}
                     </Link>
                   </td>
                   <td className="px-4 py-2 text-gray-600">
                     {rel.hasPartnerRole && rel.partnerId ? (
-                      <Link href={`/partners/${rel.partnerId}`} className="text-[#2E75B6] hover:underline">
+                      <Link href={`/partners/${rel.partnerId}`} className="text-indigo-600 hover:underline">
                         {rel.partner} — {rel.role}
                       </Link>
                     ) : (
@@ -354,7 +354,7 @@ export default async function PersonDetailPage({
       {person.relationships.length === 0 && targetRelationships.length === 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-navy">Relationships</h2>
+            <h2 className="text-lg font-semibold text-indigo-900">Relationships</h2>
             <AddRelationshipForm personId={person.id} />
           </div>
           <p className="text-gray-400 text-sm">No relationships recorded.</p>
@@ -364,14 +364,14 @@ export default async function PersonDetailPage({
       {/* Interactions (as connector) */}
       {person.connections.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold text-navy mb-4">Interactions (as Connector)</h2>
+          <h2 className="text-lg font-semibold text-indigo-900 mb-4">Interactions (as Connector)</h2>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Date</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Partner</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Role</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Notes</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Date</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Partner</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Role</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Notes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -383,7 +383,7 @@ export default async function PersonDetailPage({
                   <td className="px-4 py-2">
                     <Link
                       href={`/partners/${conn.partnerRole.partner.id}`}
-                      className="text-[#2E75B6] hover:underline"
+                      className="text-indigo-600 hover:underline"
                     >
                       {conn.partnerRole.partner.organizationName ?? "—"}
                     </Link>
@@ -400,15 +400,15 @@ export default async function PersonDetailPage({
       {/* Interactions (via partner role) */}
       {roleConnections.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold text-navy mb-4">Interactions (via Partner Role)</h2>
+          <h2 className="text-lg font-semibold text-indigo-900 mb-4">Interactions (via Partner Role)</h2>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Date</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Connector</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Partner</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Role</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Notes</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Date</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Connector</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Partner</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Role</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Notes</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -418,12 +418,12 @@ export default async function PersonDetailPage({
                     {new Date(conn.date).toLocaleDateString()}
                   </td>
                   <td className="px-4 py-2">
-                    <Link href={`/people/${conn.connectorId}`} className="text-[#2E75B6] hover:underline">
+                    <Link href={`/people/${conn.connectorId}`} className="text-indigo-600 hover:underline">
                       {conn.connectorName}
                     </Link>
                   </td>
                   <td className="px-4 py-2">
-                    <Link href={`/partners/${conn.partnerId}`} className="text-[#2E75B6] hover:underline">
+                    <Link href={`/partners/${conn.partnerId}`} className="text-indigo-600 hover:underline">
                       {conn.partner}
                     </Link>
                   </td>
@@ -439,24 +439,24 @@ export default async function PersonDetailPage({
       {/* No interactions at all */}
       {person.connections.length === 0 && roleConnections.length === 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold text-navy mb-4">Interactions</h2>
+          <h2 className="text-lg font-semibold text-indigo-900 mb-4">Interactions</h2>
           <p className="text-gray-400 text-sm">No interactions recorded.</p>
         </div>
       )}
 
       {/* Event Responses */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-navy mb-4">Event Responses</h2>
+        <h2 className="text-lg font-semibold text-indigo-900 mb-4">Event Responses</h2>
         {person.eventResponses.length === 0 ? (
           <p className="text-gray-400 text-sm">No event responses recorded.</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Event</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Date</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Notes</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Public</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Event</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Date</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Notes</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Public</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -465,7 +465,7 @@ export default async function PersonDetailPage({
                   <td className="px-4 py-2">
                     <Link
                       href={`/events/${er.event.id}`}
-                      className="text-[#2E75B6] hover:underline"
+                      className="text-indigo-600 hover:underline"
                     >
                       {er.event.eventDescription}
                     </Link>

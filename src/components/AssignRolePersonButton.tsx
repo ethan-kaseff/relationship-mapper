@@ -137,7 +137,7 @@ export default function AssignRolePersonButton({ roleId, currentPersonId, curren
         <button
           onClick={handleCreatePartner}
           disabled={creatingPartner}
-          className="text-[#2E75B6] hover:underline text-xs font-medium disabled:opacity-50"
+          className="text-indigo-600 hover:underline text-xs font-medium disabled:opacity-50"
         >
           {creatingPartner ? "Creating..." : "Yes"}
         </button>
@@ -176,7 +176,7 @@ export default function AssignRolePersonButton({ roleId, currentPersonId, curren
         <button
           onClick={handleConfirmAssign}
           disabled={saving}
-          className="text-[#2E75B6] hover:underline text-xs font-medium disabled:opacity-50"
+          className="text-indigo-600 hover:underline text-xs font-medium disabled:opacity-50"
         >
           {saving ? "Saving..." : "Confirm"}
         </button>
@@ -194,7 +194,7 @@ export default function AssignRolePersonButton({ roleId, currentPersonId, curren
     return (
       <button
         onClick={() => setOpen(true)}
-        className="text-[#2E75B6] hover:underline text-xs ml-2"
+        className="text-indigo-600 hover:underline text-xs ml-2"
       >
         {currentPersonId ? "Reassign" : "Assign Person"}
       </button>
@@ -222,7 +222,7 @@ export default function AssignRolePersonButton({ roleId, currentPersonId, curren
       <button
         onClick={handleSaveClick}
         disabled={!selectedId}
-        className="text-[#2E75B6] hover:underline text-xs font-medium disabled:opacity-50"
+        className="text-indigo-600 hover:underline text-xs font-medium disabled:opacity-50"
       >
         Save
       </button>

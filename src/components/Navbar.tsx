@@ -61,7 +61,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-navy text-white shadow-md">
+    <nav className="bg-indigo-900 text-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-8">
         <Link href="/" className="text-lg font-bold tracking-wide">
           JCRB Relationship Map
@@ -76,7 +76,7 @@ export default function Navbar() {
                 className={`transition-colors ${
                   isActive
                     ? "text-white font-semibold border-b-2 border-white pb-0.5"
-                    : "text-blue-200 hover:text-white"
+                    : "text-indigo-200 hover:text-white"
                 }`}
               >
                 {link.label}
@@ -90,8 +90,8 @@ export default function Navbar() {
               onClick={toggleViewAll}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 viewAll
-                  ? "bg-blue-200 text-navy"
-                  : "bg-navy-light border border-blue-300 text-blue-200"
+                  ? "bg-indigo-200 text-indigo-900"
+                  : "bg-indigo-800 border border-indigo-300 text-indigo-200"
               }`}
             >
               {viewAll ? "All Offices" : "My Office"}
@@ -99,11 +99,11 @@ export default function Navbar() {
           )}
           <span>
             {session.user.name}{" "}
-            <span className="text-blue-200 text-xs">({ROLE_LABELS[role] || role})</span>
+            <span className="text-indigo-200 text-xs">({ROLE_LABELS[role] || role})</span>
           </span>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="hover:text-blue-200 transition-colors"
+            className="hover:text-indigo-200 transition-colors"
           >
             Logout
           </button>

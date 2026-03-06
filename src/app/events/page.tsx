@@ -17,12 +17,12 @@ export default async function EventsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-navy">Events</h1>
+          <h1 className="text-2xl font-bold text-indigo-900">Events</h1>
           <OfficeDataToggle />
         </div>
         <Link
           href="/events/new"
-          className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors"
+          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
         >
           Add Event
         </Link>
@@ -32,10 +32,10 @@ export default async function EventsPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Date</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Time</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Description</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Responses</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Date</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Time</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Description</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Responses</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -48,7 +48,7 @@ export default async function EventsPage() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/events/${event.id}`}
-                    className="text-[#2E75B6] hover:underline font-medium"
+                    className="text-indigo-600 hover:underline font-medium"
                   >
                     {event.eventDescription}
                   </Link>

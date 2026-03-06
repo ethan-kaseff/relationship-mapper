@@ -45,14 +45,14 @@ export default async function PartnerDetailPage({
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-navy">
+        <h1 className="text-2xl font-bold text-indigo-900">
           {partner.organizationName ?? "Partner Detail"}
         </h1>
         <div className="flex items-center gap-4">
           <DeletePartnerButton partnerId={partner.id} />
           <Link
             href="/partners"
-            className="text-[#2E75B6] hover:underline text-sm"
+            className="text-indigo-600 hover:underline text-sm"
           >
             Back to Partners
           </Link>
@@ -81,7 +81,7 @@ export default async function PartnerDetailPage({
       {/* Roles & Relationships */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-navy">Roles</h2>
+          <h2 className="text-lg font-semibold text-indigo-900">Roles</h2>
           <AddRoleForm partnerId={partner.id} />
         </div>
         {partner.partnerRoles.length === 0 ? (
@@ -91,13 +91,13 @@ export default async function PartnerDetailPage({
             {partner.partnerRoles.map((role) => (
               <div key={role.id} className="border border-gray-200 rounded-md p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <h3 className="font-semibold text-navy">{role.roleDescription}</h3>
+                  <h3 className="font-semibold text-indigo-900">{role.roleDescription}</h3>
                   {role.person ? (
                     <span className="text-sm text-gray-500 flex items-center">
                       —{" "}
                       <Link
                         href={`/people/${role.person.id}`}
-                        className="text-[#2E75B6] hover:underline"
+                        className="text-indigo-600 hover:underline"
                       >
                         {role.person.firstName} {role.person.lastName}
                       </Link>
@@ -129,10 +129,10 @@ export default async function PartnerDetailPage({
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b">
                       <tr>
-                        <th className="text-left px-3 py-2 font-semibold text-navy">Connector</th>
-                        <th className="text-left px-3 py-2 font-semibold text-navy">Person</th>
-                        <th className="text-left px-3 py-2 font-semibold text-navy">Relationship Type</th>
-                        <th className="text-left px-3 py-2 font-semibold text-navy">Last Reviewed</th>
+                        <th className="text-left px-3 py-2 font-semibold text-indigo-900">Connector</th>
+                        <th className="text-left px-3 py-2 font-semibold text-indigo-900">Person</th>
+                        <th className="text-left px-3 py-2 font-semibold text-indigo-900">Relationship Type</th>
+                        <th className="text-left px-3 py-2 font-semibold text-indigo-900">Last Reviewed</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -141,7 +141,7 @@ export default async function PartnerDetailPage({
                           <td className="px-3 py-2">
                             <Link
                               href={`/people/${rel.person.id}`}
-                              className="text-[#2E75B6] hover:underline"
+                              className="text-indigo-600 hover:underline"
                             >
                               {rel.person.firstName} {rel.person.lastName}
                             </Link>
@@ -149,7 +149,7 @@ export default async function PartnerDetailPage({
                           <td className="px-3 py-2">
                             <Link
                               href={`/people/${rel.targetPerson.id}`}
-                              className="text-[#2E75B6] hover:underline"
+                              className="text-indigo-600 hover:underline"
                             >
                               {rel.targetPerson.firstName} {rel.targetPerson.lastName}
                             </Link>
@@ -183,9 +183,9 @@ export default async function PartnerDetailPage({
                       <table className="w-full text-xs">
                         <thead className="bg-gray-50 border-b">
                           <tr>
-                            <th className="text-left px-3 py-1.5 font-semibold text-navy">Person</th>
-                            <th className="text-left px-3 py-1.5 font-semibold text-navy">Start Date</th>
-                            <th className="text-left px-3 py-1.5 font-semibold text-navy">End Date</th>
+                            <th className="text-left px-3 py-1.5 font-semibold text-indigo-900">Person</th>
+                            <th className="text-left px-3 py-1.5 font-semibold text-indigo-900">Start Date</th>
+                            <th className="text-left px-3 py-1.5 font-semibold text-indigo-900">End Date</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
@@ -194,7 +194,7 @@ export default async function PartnerDetailPage({
                               <td className="px-3 py-1.5">
                                 <Link
                                   href={`/people/${a.person.id}`}
-                                  className="text-[#2E75B6] hover:underline"
+                                  className="text-indigo-600 hover:underline"
                                 >
                                   {a.person.firstName} {a.person.lastName}
                                 </Link>

@@ -27,10 +27,10 @@ export default async function EventDetailPage({
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-navy">{event.eventDescription}</h1>
+        <h1 className="text-2xl font-bold text-indigo-900">{event.eventDescription}</h1>
         <Link
           href="/events"
-          className="text-[#2E75B6] hover:underline text-sm"
+          className="text-indigo-600 hover:underline text-sm"
         >
           Back to Events
         </Link>
@@ -38,7 +38,7 @@ export default async function EventDetailPage({
 
       {/* Event Info */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-navy mb-4">Event Information</h2>
+        <h2 className="text-lg font-semibold text-indigo-900 mb-4">Event Information</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>
             <span className="font-medium text-gray-500">Date:</span>{" "}
@@ -59,7 +59,7 @@ export default async function EventDetailPage({
 
       {/* Responses */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-navy mb-4">
+        <h2 className="text-lg font-semibold text-indigo-900 mb-4">
           Responses ({event.responses.length})
         </h2>
         {event.responses.length === 0 ? (
@@ -68,10 +68,10 @@ export default async function EventDetailPage({
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Person</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Response Date</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Notes</th>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Visibility</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Person</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Response Date</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Notes</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Visibility</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -80,7 +80,7 @@ export default async function EventDetailPage({
                   <td className="px-4 py-2">
                     <Link
                       href={`/people/${resp.person.id}`}
-                      className="text-[#2E75B6] hover:underline"
+                      className="text-indigo-600 hover:underline"
                     >
                       {resp.person.firstName} {resp.person.lastName}
                     </Link>
