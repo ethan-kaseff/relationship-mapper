@@ -41,11 +41,11 @@ export default function PartnersWithoutRelationships({ partners }: { partners: P
     <div className="bg-white rounded-lg shadow p-6 mb-8">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-4">
-          <h2 className="text-lg font-semibold text-navy">Partners Without Relationships</h2>
+          <h2 className="text-lg font-semibold text-indigo-900">Partners Without Relationships</h2>
           <select
             value={maxPriority}
             onChange={(e) => setMaxPriority(e.target.value)}
-            className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+            className="border border-gray-300 rounded-md px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           >
             {PRIORITY_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -74,7 +74,7 @@ export default function PartnersWithoutRelationships({ partners }: { partners: P
             {filtered.map((p) => (
               <tr key={p.id} className="border-b last:border-0">
                 <td className="py-2">
-                  <Link href={`/partners/${p.id}`} className="text-[#2E75B6] hover:underline font-medium">
+                  <Link href={`/partners/${p.id}`} className="text-indigo-600 hover:underline font-medium">
                     {p.organizationName || "—"}
                   </Link>
                 </td>

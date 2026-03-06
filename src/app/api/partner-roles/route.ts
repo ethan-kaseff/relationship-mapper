@@ -3,13 +3,18 @@ import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
 import { validateBody, createPartnerRoleSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/api-error";
+import { getOfficeFilterFromRequest } from "@/lib/office-filter";
 
-export async function GET() {
+export async function GET(request: Request) {
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
   try {
+    const officeFilter = await getOfficeFilterFromRequest(request);
     const partnerRoles = await prisma.partnerRole.findMany({
+      where: {
+        partner: officeFilter,
+      },
       include: {
         partner: true,
         person: true,

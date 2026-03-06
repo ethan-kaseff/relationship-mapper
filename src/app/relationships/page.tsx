@@ -26,12 +26,12 @@ export default async function RelationshipsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-navy">Relationships</h1>
+          <h1 className="text-2xl font-bold text-indigo-900">Relationships</h1>
           <OfficeDataToggle />
         </div>
         <Link
           href="/relationships/new"
-          className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors"
+          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
         >
           Add Relationship
         </Link>
@@ -41,11 +41,11 @@ export default async function RelationshipsPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Connector</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Person</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Partner / Role</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Relationship Type</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Last Reviewed</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Connector</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Person</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Partner / Role</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Relationship Type</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Last Reviewed</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -54,7 +54,7 @@ export default async function RelationshipsPage() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/people/${rel.person.id}`}
-                    className="text-[#2E75B6] hover:underline font-medium"
+                    className="text-indigo-600 hover:underline font-medium"
                   >
                     {rel.person.firstName} {rel.person.lastName}
                   </Link>
@@ -62,7 +62,7 @@ export default async function RelationshipsPage() {
                 <td className="px-4 py-3">
                   <Link
                     href={`/people/${rel.targetPerson.id}`}
-                    className="text-[#2E75B6] hover:underline font-medium"
+                    className="text-indigo-600 hover:underline font-medium"
                   >
                     {rel.targetPerson.firstName} {rel.targetPerson.lastName}
                   </Link>
@@ -71,7 +71,7 @@ export default async function RelationshipsPage() {
                   {rel.partnerRole ? (
                     <Link
                       href={`/partners/${rel.partnerRole.partner.id}`}
-                      className="text-[#2E75B6] hover:underline"
+                      className="text-indigo-600 hover:underline"
                     >
                       {rel.partnerRole.partner.organizationName ?? "—"} — {rel.partnerRole.roleDescription}
                     </Link>

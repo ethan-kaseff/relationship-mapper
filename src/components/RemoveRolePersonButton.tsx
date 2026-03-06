@@ -90,7 +90,7 @@ export default function RemoveRolePersonButton({ roleId, personName, personId, p
         <button
           onClick={handleCreatePartner}
           disabled={creatingPartner}
-          className="text-[#2E75B6] hover:underline text-xs font-medium disabled:opacity-50"
+          className="text-indigo-600 hover:underline text-xs font-medium disabled:opacity-50"
         >
           {creatingPartner ? "Creating..." : "Yes"}
         </button>

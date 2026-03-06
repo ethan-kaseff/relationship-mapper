@@ -66,7 +66,8 @@ describe("Validation Schemas", () => {
   describe("createPeopleSchema", () => {
     it("should validate a valid person", () => {
       const data = {
-        fullName: "Jane Doe",
+        firstName: "Jane",
+        lastName: "Doe",
         city: "Kansas City",
         state: "MO",
         isConnector: true,
@@ -87,7 +88,8 @@ describe("Validation Schemas", () => {
 
     it("should default isConnector to false", () => {
       const data = {
-        fullName: "Jane Doe",
+        firstName: "Jane",
+        lastName: "Doe",
       };
 
       const result = createPeopleSchema.safeParse(data);
@@ -160,8 +162,10 @@ describe("Validation Schemas", () => {
       const data = {
         email: "user@example.com",
         password: "securepassword123",
-        name: "Test User",
+        firstName: "Test",
+        lastName: "User",
         role: "OFFICE_ADMIN",
+        officeId: "550e8400-e29b-41d4-a716-446655440000",
       };
 
       const result = createUserSchema.safeParse(data);
@@ -172,7 +176,9 @@ describe("Validation Schemas", () => {
       const data = {
         email: "user@example.com",
         password: "short",
-        name: "Test User",
+        firstName: "Test",
+        lastName: "User",
+        officeId: "550e8400-e29b-41d4-a716-446655440000",
       };
 
       const result = createUserSchema.safeParse(data);
@@ -183,7 +189,9 @@ describe("Validation Schemas", () => {
       const data = {
         email: "not-an-email",
         password: "securepassword123",
-        name: "Test User",
+        firstName: "Test",
+        lastName: "User",
+        officeId: "550e8400-e29b-41d4-a716-446655440000",
       };
 
       const result = createUserSchema.safeParse(data);
@@ -194,8 +202,10 @@ describe("Validation Schemas", () => {
       const data = {
         email: "user@example.com",
         password: "securepassword123",
-        name: "Test User",
+        firstName: "Test",
+        lastName: "User",
         role: "INVALID_ROLE",
+        officeId: "550e8400-e29b-41d4-a716-446655440000",
       };
 
       const result = createUserSchema.safeParse(data);

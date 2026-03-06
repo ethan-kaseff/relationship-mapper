@@ -3,7 +3,7 @@
 ## CRITICAL RULES (never break these)
 
 1. **Database is PostgreSQL.** The file `prisma/schema.prisma` MUST have `provider = "postgresql"`. If you ever see `provider = "sqlite"`, stop and fix it immediately. Never change the provider to sqlite.
-2. **Git email must be `barry@kaseff.com`.** Before any commit, run `git config user.email` and confirm it is `barry@kaseff.com`. If it shows something like `barrykaseff@barrys-mbp-2024.lan`, fix it with `git config user.email "barry@kaseff.com"`.
+2. **Do not change `git config user.email`.** Use whatever email is already configured.
 3. **Always pull before push.** Run `git pull origin main` before pushing to avoid overwriting Ethan's work.
 4. **Always build before push.** Run `npm run build` and confirm it succeeds before pushing. A broken build will break the live site on Vercel.
 5. **Never force-push.** Do not use `git push --force` or `git push -f`. If push fails, ask for help.
@@ -47,9 +47,6 @@ Barry has helper instruction files in `claude-helpers/`. When Barry asks to do o
 
 | Barry Says | File to Read |
 |------------|-------------|
-| "Save my work" / "commit" | `claude-helpers/Save My Progress.md` |
-| "Push" / "deploy" | `claude-helpers/Push My Changes.md` |
-| "What changed?" | `claude-helpers/See What Changed.md` |
-| "Is everything working?" | `claude-helpers/Check If Everything Is Working.md` |
-| "Fix my email" / "git email" | `claude-helpers/Fix My Git Email.md` |
-| "Start fresh" / "reset" | `claude-helpers/Start Fresh From GitHub.md` |
+| "Let's get started" / beginning of session | `claude-helpers/Before Starting Work.md` |
+| "Save" / "commit" | `claude-helpers/Save My Changes Locally.md` |
+| "Push" / "deploy" / "push to live" | `claude-helpers/Deploy Changes to Live Site.md` |

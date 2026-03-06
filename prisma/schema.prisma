@@ -33,6 +33,7 @@ model User {
   officeId  String @map("office_id")
   office    Office @relation(fields: [officeId], references: [id])
 
+  @@index([officeId])
   @@map("user")
 }
 
@@ -83,6 +84,7 @@ model People {
   connections             Connection[]
   happeningResponses HappeningResponse[]
 
+  @@index([officeId])
   @@map("people")
 }
 
@@ -107,6 +109,7 @@ model Partner {
 
   partnerRoles PartnerRole[]
 
+  @@index([officeId])
   @@map("partner")
 }
 

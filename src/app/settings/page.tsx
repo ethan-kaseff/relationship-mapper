@@ -499,7 +499,7 @@ export default function SettingsPage() {
   if (sessionStatus === "loading") {
     return (
       <div>
-        <h1 className="text-2xl font-bold text-navy mb-6">Settings</h1>
+        <h1 className="text-2xl font-bold text-indigo-900 mb-6">Settings</h1>
         <p className="text-gray-400 text-sm">Loading...</p>
       </div>
     );
@@ -507,16 +507,16 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-navy mb-6">Settings</h1>
+      <h1 className="text-2xl font-bold text-indigo-900 mb-6">Settings</h1>
 
       {/* Relationship Types — SYSTEM_ADMIN only */}
       {isSystemAdmin && <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-navy">Relationship Types</h2>
+          <h2 className="text-lg font-semibold text-indigo-900">Relationship Types</h2>
           {!showForm && (
             <button
               onClick={() => { setShowForm(true); setEditingId(null); }}
-              className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors text-sm"
+              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
             >
               Add Relationship Type
             </button>
@@ -532,7 +532,7 @@ export default function SettingsPage() {
         {/* Add form */}
         {showForm && (
           <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
-            <h3 className="font-semibold text-navy mb-3 text-sm">New Relationship Type</h3>
+            <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Relationship Type</h3>
             <form onSubmit={handleCreate} className="space-y-3">
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -545,7 +545,7 @@ export default function SettingsPage() {
                   value={newDesc}
                   onChange={(e) => setNewDesc(e.target.value)}
                   placeholder="e.g. Board Member"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
               <div>
@@ -557,14 +557,14 @@ export default function SettingsPage() {
                   value={newNotes}
                   onChange={(e) => setNewNotes(e.target.value)}
                   placeholder="Optional description of this relationship type"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
               <div className="flex gap-2">
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="bg-[#2E75B6] text-white px-4 py-1.5 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+                  className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
                 >
                   {submitting ? "Saving..." : "Create"}
                 </button>
@@ -587,10 +587,10 @@ export default function SettingsPage() {
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-3 font-semibold text-navy">Description</th>
-                <th className="text-left px-4 py-3 font-semibold text-navy">Notes</th>
-                <th className="text-left px-4 py-3 font-semibold text-navy">In Use</th>
-                <th className="text-right px-4 py-3 font-semibold text-navy">Actions</th>
+                <th className="text-left px-4 py-3 font-semibold text-indigo-900">Description</th>
+                <th className="text-left px-4 py-3 font-semibold text-indigo-900">Notes</th>
+                <th className="text-left px-4 py-3 font-semibold text-indigo-900">In Use</th>
+                <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -603,7 +603,7 @@ export default function SettingsPage() {
                           type="text"
                           value={editDesc}
                           onChange={(e) => setEditDesc(e.target.value)}
-                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </td>
                       <td className="px-4 py-2">
@@ -611,7 +611,7 @@ export default function SettingsPage() {
                           type="text"
                           value={editNotes}
                           onChange={(e) => setEditNotes(e.target.value)}
-                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                         />
                       </td>
                       <td className="px-4 py-2 text-gray-600">
@@ -622,7 +622,7 @@ export default function SettingsPage() {
                           <button
                             onClick={() => handleUpdate(rt.id)}
                             disabled={submitting}
-                            className="text-[#2E75B6] hover:underline text-xs disabled:opacity-50"
+                            className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
                           >
                             Save
                           </button>
@@ -648,7 +648,7 @@ export default function SettingsPage() {
                         <div className="flex gap-3 justify-end">
                           <button
                             onClick={() => startEdit(rt)}
-                            className="text-[#2E75B6] hover:underline text-xs"
+                            className="text-indigo-600 hover:underline text-xs"
                           >
                             Edit
                           </button>
@@ -662,7 +662,7 @@ export default function SettingsPage() {
                                   <select
                                     value={reassignTo}
                                     onChange={(e) => setReassignTo(e.target.value)}
-                                    className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                                    className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
                                   >
                                     <option value="">Select type...</option>
                                     {relTypes
@@ -740,11 +740,11 @@ export default function SettingsPage() {
       {canManageUsers && (
         <div className="bg-white rounded-lg shadow p-6 mt-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-navy">User Management</h2>
+            <h2 className="text-lg font-semibold text-indigo-900">User Management</h2>
             {!showUserForm && (
               <button
                 onClick={() => setShowUserForm(true)}
-                className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors text-sm"
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
               >
                 Add User
               </button>
@@ -760,7 +760,7 @@ export default function SettingsPage() {
           {/* Add user form */}
           {showUserForm && (
             <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
-              <h3 className="font-semibold text-navy mb-3 text-sm">New User</h3>
+              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New User</h3>
               <form onSubmit={handleCreateUser} className="space-y-3">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -774,7 +774,7 @@ export default function SettingsPage() {
                       value={userFirstName}
                       onChange={(e) => setUserFirstName(e.target.value)}
                       placeholder="First name"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -787,7 +787,7 @@ export default function SettingsPage() {
                       value={userLastName}
                       onChange={(e) => setUserLastName(e.target.value)}
                       placeholder="Last name"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -800,7 +800,7 @@ export default function SettingsPage() {
                       value={userEmail}
                       onChange={(e) => setUserEmail(e.target.value)}
                       placeholder="user@jcrb.org"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -813,7 +813,7 @@ export default function SettingsPage() {
                       value={userPassword}
                       onChange={(e) => setUserPassword(e.target.value)}
                       placeholder="Temporary password"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -823,7 +823,7 @@ export default function SettingsPage() {
                     <select
                       value={userRole}
                       onChange={(e) => setUserRole(e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     >
                       <option value="OFFICE_ADMIN">Office Admin</option>
                       <option value="OFFICE_USER">Office User</option>
@@ -840,7 +840,7 @@ export default function SettingsPage() {
                       required
                       value={userOfficeId}
                       onChange={(e) => setUserOfficeId(e.target.value)}
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     >
                       <option value="">— Select Office —</option>
                       {offices.map((o) => (
@@ -854,7 +854,7 @@ export default function SettingsPage() {
                   <button
                     type="submit"
                     disabled={userSubmitting}
-                    className="bg-[#2E75B6] text-white px-4 py-1.5 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+                    className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
                   >
                     {userSubmitting ? "Creating..." : "Create User"}
                   </button>
@@ -877,11 +877,11 @@ export default function SettingsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-navy">Name</th>
-                  <th className="text-left px-4 py-3 font-semibold text-navy">Email</th>
-                  <th className="text-left px-4 py-3 font-semibold text-navy">Role</th>
-                  <th className="text-left px-4 py-3 font-semibold text-navy">Office</th>
-                  <th className="text-right px-4 py-3 font-semibold text-navy">Actions</th>
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">Name</th>
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">Email</th>
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">Role</th>
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">Office</th>
+                  <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -896,14 +896,14 @@ export default function SettingsPage() {
                               value={editUserFirstName}
                               onChange={(e) => setEditUserFirstName(e.target.value)}
                               placeholder="First"
-                              className="w-1/2 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                              className="w-1/2 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                             />
                             <input
                               type="text"
                               value={editUserLastName}
                               onChange={(e) => setEditUserLastName(e.target.value)}
                               placeholder="Last"
-                              className="w-1/2 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                              className="w-1/2 border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                             />
                           </div>
                         </td>
@@ -912,14 +912,14 @@ export default function SettingsPage() {
                             type="email"
                             value={editUserEmail}
                             onChange={(e) => setEditUserEmail(e.target.value)}
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           />
                         </td>
                         <td className="px-4 py-2">
                           <select
                             value={editUserRole}
                             onChange={(e) => setEditUserRole(e.target.value)}
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           >
                             <option value="OFFICE_ADMIN">Office Admin</option>
                             <option value="OFFICE_USER">Office User</option>
@@ -932,7 +932,7 @@ export default function SettingsPage() {
                           <select
                             value={editUserOfficeId}
                             onChange={(e) => setEditUserOfficeId(e.target.value)}
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           >
                             {offices.map((o) => (
                               <option key={o.id} value={o.id}>{o.name}</option>
@@ -944,7 +944,7 @@ export default function SettingsPage() {
                             value={editUserPassword}
                             onChange={(e) => setEditUserPassword(e.target.value)}
                             placeholder="New password (leave blank to keep)"
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm mt-1 focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm mt-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           />
                         </td>
                         <td className="px-4 py-2 text-right">
@@ -952,7 +952,7 @@ export default function SettingsPage() {
                             <button
                               onClick={() => handleUpdateUser(user.id)}
                               disabled={userSubmitting}
-                              className="text-[#2E75B6] hover:underline text-xs disabled:opacity-50"
+                              className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
                             >
                               Save
                             </button>
@@ -972,7 +972,7 @@ export default function SettingsPage() {
                         <td className="px-4 py-3">
                           <span className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
                             user.role === "SYSTEM_ADMIN"
-                              ? "bg-navy text-white"
+                              ? "bg-indigo-900 text-white"
                               : "bg-gray-100 text-gray-700"
                           }`}>
                             {{ SYSTEM_ADMIN: "System Admin", OFFICE_ADMIN: "Office Admin", OFFICE_USER: "Office User", CONNECTOR: "Connector" }[user.role] || user.role}
@@ -1001,7 +1001,7 @@ export default function SettingsPage() {
                             <div className="flex gap-3 justify-end">
                               <button
                                 onClick={() => startEditUser(user)}
-                                className="text-[#2E75B6] hover:underline text-xs"
+                                className="text-indigo-600 hover:underline text-xs"
                               >
                                 Edit
                               </button>
@@ -1162,11 +1162,11 @@ export default function SettingsPage() {
       {isSystemAdmin && (
         <div className="bg-white rounded-lg shadow p-6 mt-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-navy">Offices</h2>
+            <h2 className="text-lg font-semibold text-indigo-900">Offices</h2>
             {!showOfficeForm && (
               <button
                 onClick={() => setShowOfficeForm(true)}
-                className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors text-sm"
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
               >
                 Add Office
               </button>
@@ -1181,7 +1181,7 @@ export default function SettingsPage() {
 
           {showOfficeForm && (
             <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
-              <h3 className="font-semibold text-navy mb-3 text-sm">New Office</h3>
+              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Office</h3>
               <form onSubmit={handleCreateOffice} className="space-y-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -1194,14 +1194,14 @@ export default function SettingsPage() {
                     value={officeName}
                     onChange={(e) => setOfficeName(e.target.value)}
                     placeholder="e.g. Kansas City Office"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
                 <div className="flex gap-2">
                   <button
                     type="submit"
                     disabled={officeSubmitting}
-                    className="bg-[#2E75B6] text-white px-4 py-1.5 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+                    className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
                   >
                     {officeSubmitting ? "Creating..." : "Create Office"}
                   </button>
@@ -1223,12 +1223,12 @@ export default function SettingsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b">
                 <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-navy">Name</th>
-                  <th className="text-left px-4 py-3 font-semibold text-navy">Siloed</th>
-                  <th className="text-left px-4 py-3 font-semibold text-navy">Users</th>
-                  <th className="text-left px-4 py-3 font-semibold text-navy">People</th>
-                  <th className="text-left px-4 py-3 font-semibold text-navy">Partners</th>
-                  <th className="text-right px-4 py-3 font-semibold text-navy">Actions</th>
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">Name</th>
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">Siloed</th>
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">Users</th>
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">People</th>
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">Partners</th>
+                  <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -1241,7 +1241,7 @@ export default function SettingsPage() {
                             type="text"
                             value={editOfficeName}
                             onChange={(e) => setEditOfficeName(e.target.value)}
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-[#2E75B6]"
+                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                           />
                         </td>
                         <td className="px-4 py-2" colSpan={3}>
@@ -1250,7 +1250,7 @@ export default function SettingsPage() {
                               type="checkbox"
                               checked={editOfficeSiloed}
                               onChange={(e) => setEditOfficeSiloed(e.target.checked)}
-                              className="rounded border-gray-300 text-[#2E75B6] focus:ring-[#2E75B6]"
+                              className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
                             />
                             Data Siloed
                           </label>
@@ -1260,7 +1260,7 @@ export default function SettingsPage() {
                             <button
                               onClick={() => handleUpdateOffice(office.id)}
                               disabled={officeSubmitting}
-                              className="text-[#2E75B6] hover:underline text-xs disabled:opacity-50"
+                              className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
                             >
                               Save
                             </button>
@@ -1292,7 +1292,7 @@ export default function SettingsPage() {
                           <div className="flex gap-3 justify-end">
                             <button
                               onClick={() => { setEditingOfficeId(office.id); setEditOfficeName(office.name); setEditOfficeSiloed(office.isSiloed); }}
-                              className="text-[#2E75B6] hover:underline text-xs"
+                              className="text-indigo-600 hover:underline text-xs"
                             >
                               Edit
                             </button>

@@ -98,10 +98,10 @@ export default function NewRelationshipPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-navy">Add Relationship</h1>
+          <h1 className="text-2xl font-bold text-indigo-900">Add Relationship</h1>
           <OfficeDataToggle onToggle={() => fetchData()} />
         </div>
-        <Link href="/relationships" className="text-[#2E75B6] hover:underline text-sm">
+        <Link href="/relationships" className="text-indigo-600 hover:underline text-sm">
           Back to Relationships
         </Link>
       </div>
@@ -150,7 +150,7 @@ export default function NewRelationshipPage() {
               required
               value={form.relationshipTypeId}
               onChange={(e) => setForm((prev) => ({ ...prev, relationshipTypeId: e.target.value }))}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">— Select Type —</option>
               {relTypes.map((rt) => (
@@ -165,7 +165,7 @@ export default function NewRelationshipPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="bg-[#2E75B6] text-white px-6 py-2 rounded-md hover:bg-[#245d91] transition-colors disabled:opacity-50"
+              className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
               {submitting ? "Saving..." : "Create Relationship"}
             </button>

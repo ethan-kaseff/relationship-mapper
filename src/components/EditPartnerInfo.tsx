@@ -123,10 +123,10 @@ export default function EditPartnerInfo({ partnerId, partner }: Props) {
     return (
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-navy">Partner Information</h2>
+          <h2 className="text-lg font-semibold text-indigo-900">Partner Information</h2>
           <button
             onClick={() => setEditing(true)}
-            className="text-[#2E75B6] hover:underline text-sm"
+            className="text-indigo-600 hover:underline text-sm"
           >
             Edit
           </button>
@@ -175,7 +175,7 @@ export default function EditPartnerInfo({ partnerId, partner }: Props) {
           <div>
             <span className="font-medium text-gray-500">Website:</span>{" "}
             {partner.website ? (
-              <a href={partner.website} target="_blank" rel="noopener noreferrer" className="text-[#2E75B6] hover:underline">
+              <a href={partner.website} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
                 {partner.website}
               </a>
             ) : (
@@ -196,7 +196,7 @@ export default function EditPartnerInfo({ partnerId, partner }: Props) {
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-navy">Edit Partner Information</h2>
+        <h2 className="text-lg font-semibold text-indigo-900">Edit Partner Information</h2>
       </div>
 
       {error && (
@@ -215,7 +215,7 @@ export default function EditPartnerInfo({ partnerId, partner }: Props) {
             name="organizationName"
             value={form.organizationName}
             onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
         </div>
 
@@ -226,7 +226,7 @@ export default function EditPartnerInfo({ partnerId, partner }: Props) {
               name="organizationTypeId"
               value={form.organizationTypeId}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             >
               <option value="">— Select —</option>
               {orgTypes.map((ot) => (
@@ -243,7 +243,7 @@ export default function EditPartnerInfo({ partnerId, partner }: Props) {
             name="address"
             value={form.address}
             onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
         </div>
 
@@ -251,17 +251,17 @@ export default function EditPartnerInfo({ partnerId, partner }: Props) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
             <input type="text" name="city" value={form.city} onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
             <input type="text" name="state" value={form.state} onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Zip</label>
             <input type="text" name="zip" value={form.zip} onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
         </div>
 
@@ -269,19 +269,19 @@ export default function EditPartnerInfo({ partnerId, partner }: Props) {
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
             <input type="text" name="phoneNumber" value={form.phoneNumber} onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
             <input type="email" name="email" value={form.email} onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Website</label>
           <input type="text" name="website" value={form.website} onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
         </div>
 
         <div>
@@ -290,7 +290,7 @@ export default function EditPartnerInfo({ partnerId, partner }: Props) {
             name="priority"
             value={form.priority}
             onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           >
             <option value="">— None —</option>
             <option value="1">1 — Highest</option>
@@ -305,7 +305,7 @@ export default function EditPartnerInfo({ partnerId, partner }: Props) {
           <button
             onClick={handleSave}
             disabled={saving}
-            className="bg-[#2E75B6] text-white px-4 py-1.5 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+            className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save Changes"}
           </button>

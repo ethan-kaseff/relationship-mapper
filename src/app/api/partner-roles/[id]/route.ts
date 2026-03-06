@@ -1,14 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { requireNonConnector } from "@/lib/api-auth";
+import { handleApiError } from "@/lib/api-error";
+import { validateBody, updatePartnerRoleSchema } from "@/lib/validations";
 
 // PATCH /api/partner-roles/[id] — update a partner role (e.g. remove/reassign person)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
   try {
     const { id } = await params;
-    const body = await request.json();
+
+    const validation = await validateBody(request, updatePartnerRoleSchema);
+    if (!validation.success) return validation.response;
+    const body = validation.data;
 
     const personChanging = body.peopleId !== undefined;
 
@@ -65,10 +74,6 @@ export async function PATCH(
 
     return NextResponse.json(role);
   } catch (error) {
-    console.error("Failed to update partner role:", error);
-    return NextResponse.json(
-      { error: "Failed to update partner role" },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }

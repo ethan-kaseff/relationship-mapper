@@ -37,20 +37,20 @@ export default function PartnersTable({ partners }: { partners: Partner[] }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search partners..."
-          className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent w-64"
+          className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-64"
         />
       </div>
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Organization Name</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Type Flag</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Organization Type</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">City</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">State</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Priority</th>
-              <th className="text-left px-4 py-3 font-semibold text-navy">Roles</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Organization Name</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Type Flag</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Organization Type</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">City</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">State</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Priority</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Roles</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -59,7 +59,7 @@ export default function PartnersTable({ partners }: { partners: Partner[] }) {
                 <td className="px-4 py-3">
                   <Link
                     href={`/partners/${partner.id}`}
-                    className="text-[#2E75B6] hover:underline font-medium"
+                    className="text-indigo-600 hover:underline font-medium"
                   >
                     {partner.organizationName ?? "—"}
                   </Link>

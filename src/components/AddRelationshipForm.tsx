@@ -79,7 +79,7 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
     return (
       <button
         onClick={() => setOpen(true)}
-        className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors text-sm"
+        className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
       >
         Add Relationship
       </button>
@@ -102,7 +102,7 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
   return (
     <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mt-4">
       <div className="flex items-center gap-3 mb-3">
-        <h3 className="font-semibold text-navy text-sm">Add New Relationship</h3>
+        <h3 className="font-semibold text-indigo-900 text-sm">Add New Relationship</h3>
         <OfficeDataToggle onToggle={() => fetchData()} />
       </div>
       {error && (
@@ -132,7 +132,7 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
             required
             value={relationshipTypeId}
             onChange={(e) => setRelationshipTypeId(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+            className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           >
             <option value="">— Select —</option>
             {relTypeOptions.map((rt) => (
@@ -146,7 +146,7 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
           <button
             type="submit"
             disabled={submitting}
-            className="bg-[#2E75B6] text-white px-4 py-1.5 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+            className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
           >
             {submitting ? "Saving..." : "Save"}
           </button>

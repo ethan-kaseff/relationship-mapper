@@ -53,8 +53,8 @@ export default function NewHappeningPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-navy">Add Happening</h1>
-        <Link href="/happenings" className="text-[#2E75B6] hover:underline text-sm">
+        <h1 className="text-2xl font-bold text-indigo-900">Add Happening</h1>
+        <Link href="/happenings" className="text-indigo-600 hover:underline text-sm">
           Back to Responses
         </Link>
       </div>
@@ -79,7 +79,7 @@ export default function NewHappeningPage() {
                 autoFocus
                 value={form.happeningDate}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
             <div>
@@ -89,7 +89,7 @@ export default function NewHappeningPage() {
                 name="happeningTime"
                 value={form.happeningTime}
                 onChange={handleChange}
-                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -104,7 +104,7 @@ export default function NewHappeningPage() {
               rows={4}
               value={form.happeningDescription}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
 
@@ -112,7 +112,7 @@ export default function NewHappeningPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="bg-[#2E75B6] text-white px-6 py-2 rounded-md hover:bg-[#245d91] transition-colors disabled:opacity-50"
+              className="bg-indigo-600 text-white px-6 py-2 rounded-md hover:bg-indigo-700 transition-colors disabled:opacity-50"
             >
               {submitting ? "Saving..." : "Create Happening"}
             </button>

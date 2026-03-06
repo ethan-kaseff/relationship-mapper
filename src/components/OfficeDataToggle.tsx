@@ -40,7 +40,7 @@ export default function OfficeDataToggle({ onToggle }: OfficeDataToggleProps) {
       onClick={toggle}
       className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
         viewAll
-          ? "bg-blue-100 text-[#2E75B6] border border-blue-300"
+          ? "bg-indigo-100 text-indigo-600 border border-indigo-300"
           : "bg-gray-100 text-gray-600 border border-gray-300"
       }`}
     >

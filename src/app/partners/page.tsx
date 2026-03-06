@@ -22,12 +22,12 @@ export default async function PartnersPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-navy">Partners</h1>
+          <h1 className="text-2xl font-bold text-indigo-900">Partners</h1>
           <OfficeDataToggle />
         </div>
         <Link
           href="/partners/new"
-          className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors"
+          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
         >
           Add Partner
         </Link>

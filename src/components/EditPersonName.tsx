@@ -82,10 +82,10 @@ export default function EditPersonButton({ personId, person }: Props) {
     return (
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-navy">Contact Information</h2>
+          <h2 className="text-lg font-semibold text-indigo-900">Contact Information</h2>
           <button
             onClick={() => { setForm({ ...person }); setEditing(true); }}
-            className="text-[#2E75B6] hover:underline text-sm"
+            className="text-indigo-600 hover:underline text-sm"
           >
             Edit
           </button>
@@ -142,7 +142,7 @@ export default function EditPersonButton({ personId, person }: Props) {
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-navy">Edit Contact Information</h2>
+        <h2 className="text-lg font-semibold text-indigo-900">Edit Contact Information</h2>
       </div>
 
       {error && (
@@ -163,7 +163,7 @@ export default function EditPersonButton({ personId, person }: Props) {
               required
               value={form.firstName}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
           <div>
@@ -176,7 +176,7 @@ export default function EditPersonButton({ personId, person }: Props) {
               required
               value={form.lastName}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -200,7 +200,7 @@ export default function EditPersonButton({ personId, person }: Props) {
             name="address"
             value={form.address ?? ""}
             onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
         </div>
 
@@ -212,7 +212,7 @@ export default function EditPersonButton({ personId, person }: Props) {
               name="city"
               value={form.city ?? ""}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
           <div>
@@ -222,7 +222,7 @@ export default function EditPersonButton({ personId, person }: Props) {
               name="state"
               value={form.state ?? ""}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
           <div>
@@ -232,7 +232,7 @@ export default function EditPersonButton({ personId, person }: Props) {
               name="zip"
               value={form.zip ?? ""}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -245,7 +245,7 @@ export default function EditPersonButton({ personId, person }: Props) {
               name="phoneNumber"
               value={form.phoneNumber ?? ""}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
           <div>
@@ -255,7 +255,7 @@ export default function EditPersonButton({ personId, person }: Props) {
               name="personalEmail"
               value={form.personalEmail ?? ""}
               onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
         </div>
@@ -279,7 +279,7 @@ export default function EditPersonButton({ personId, person }: Props) {
             id="editIsConnector"
             checked={form.isConnector}
             onChange={handleChange}
-            className="h-4 w-4 text-[#2E75B6] border-gray-300 rounded focus:ring-[#2E75B6]"
+            className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
           />
           <label htmlFor="editIsConnector" className="text-sm font-medium text-gray-700">
             Is Connector
@@ -290,7 +290,7 @@ export default function EditPersonButton({ personId, person }: Props) {
           <button
             onClick={handleSave}
             disabled={saving || !form.firstName.trim() || !form.lastName.trim()}
-            className="bg-[#2E75B6] text-white px-4 py-1.5 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+            className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
           >
             {saving ? "Saving..." : "Save Changes"}
           </button>

@@ -6,7 +6,7 @@ import { useSession, signOut } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
 
 const allNavLinks = [
-  { href: "/", label: "Dashboard" },
+  { href: "/dashboard", label: "Dashboard" },
   { href: "/people", label: "People" },
   { href: "/partners", label: "Partners" },
   { href: "/relationships", label: "Relationships" },
@@ -24,7 +24,7 @@ const ROLE_LABELS: Record<string, string> = {
 
 function getNavLinks(role: string) {
   if (role === "CONNECTOR") {
-    return allNavLinks.filter((l) => l.href === "/" || l.href === "/interactions");
+    return allNavLinks.filter((l) => l.href === "/dashboard" || l.href === "/interactions");
   }
   if (role === "OFFICE_USER") {
     return allNavLinks.filter((l) => l.href !== "/settings");
@@ -46,7 +46,7 @@ export default function Navbar() {
     setMounted(true);
   }, []);
 
-  if (!mounted || pathname === "/login" || status !== "authenticated") return null;
+  if (!mounted || pathname === "/" || pathname === "/login" || status !== "authenticated") return null;
 
   const role = session.user.role;
   const navLinks = getNavLinks(role);
@@ -61,17 +61,14 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-navy text-white shadow-md">
+    <nav className="bg-indigo-900 text-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-8">
         <Link href="/" className="text-lg font-bold tracking-wide">
           JCRB Relationship Map
         </Link>
         <div className="flex gap-4 text-sm">
           {navLinks.map((link) => {
-            const isActive =
-              link.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(link.href);
+            const isActive = pathname.startsWith(link.href);
             return (
               <Link
                 key={link.href}
@@ -79,7 +76,7 @@ export default function Navbar() {
                 className={`transition-colors ${
                   isActive
                     ? "text-white font-semibold border-b-2 border-white pb-0.5"
-                    : "text-blue-200 hover:text-white"
+                    : "text-indigo-200 hover:text-white"
                 }`}
               >
                 {link.label}
@@ -93,8 +90,8 @@ export default function Navbar() {
               onClick={toggleViewAll}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                 viewAll
-                  ? "bg-blue-200 text-navy"
-                  : "bg-navy-light border border-blue-300 text-blue-200"
+                  ? "bg-indigo-200 text-indigo-900"
+                  : "bg-indigo-800 border border-indigo-300 text-indigo-200"
               }`}
             >
               {viewAll ? "All Offices" : "My Office"}
@@ -109,11 +106,11 @@ export default function Navbar() {
           </Link>
           <span>
             {session.user.name}{" "}
-            <span className="text-blue-200 text-xs">({ROLE_LABELS[role] || role})</span>
+            <span className="text-indigo-200 text-xs">({ROLE_LABELS[role] || role})</span>
           </span>
           <button
             onClick={() => signOut({ callbackUrl: "/login" })}
-            className="hover:text-blue-200 transition-colors"
+            className="hover:text-indigo-200 transition-colors"
           >
             Logout
           </button>

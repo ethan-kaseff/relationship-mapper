@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  trustHost: true,
   providers: [
     Credentials({
       credentials: {
@@ -54,9 +55,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return role === "SYSTEM_ADMIN" || role === "OFFICE_ADMIN";
       }
 
-      // CONNECTOR can only access /interactions and API routes for interactions
+      // CONNECTOR can only access dashboard, interactions, and API routes
       if (role === "CONNECTOR") {
-        return pathname === "/" || pathname.startsWith("/interactions") || pathname.startsWith("/api/");
+        return pathname === "/" || pathname === "/dashboard" || pathname.startsWith("/interactions") || pathname.startsWith("/api/");
       }
 
       return true;
