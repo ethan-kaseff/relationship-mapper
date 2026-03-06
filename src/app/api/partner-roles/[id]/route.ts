@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
 import { handleApiError } from "@/lib/api-error";
+import { validateBody, updatePartnerRoleSchema } from "@/lib/validations";
 
 // PATCH /api/partner-roles/[id] — update a partner role (e.g. remove/reassign person)
 export async function PATCH(
@@ -13,7 +14,10 @@ export async function PATCH(
 
   try {
     const { id } = await params;
-    const body = await request.json();
+
+    const validation = await validateBody(request, updatePartnerRoleSchema);
+    if (!validation.success) return validation.response;
+    const body = validation.data;
 
     const personChanging = body.peopleId !== undefined;
 
