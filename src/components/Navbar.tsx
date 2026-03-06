@@ -63,7 +63,7 @@ export default function Navbar() {
   return (
     <nav className="bg-navy text-white shadow-md">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-8">
-        <Link href="/dashboard" className="text-lg font-bold tracking-wide">
+        <Link href="/" className="text-lg font-bold tracking-wide">
           JCRB Relationship Map
         </Link>
         <div className="flex gap-4 text-sm">
