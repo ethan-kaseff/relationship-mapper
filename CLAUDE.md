@@ -47,9 +47,6 @@ Barry has helper instruction files in `claude-helpers/`. When Barry asks to do o
 
 | Barry Says | File to Read |
 |------------|-------------|
-| "Save my work" / "commit" | `claude-helpers/Save My Progress.md` |
-| "Push" / "deploy" | `claude-helpers/Push My Changes.md` |
-| "What changed?" | `claude-helpers/See What Changed.md` |
-| "Is everything working?" | `claude-helpers/Check If Everything Is Working.md` |
-| "Fix my email" / "git email" | `claude-helpers/Fix My Git Email.md` |
-| "Start fresh" / "reset" | `claude-helpers/Start Fresh From GitHub.md` |
+| "Let's get started" / beginning of session | `claude-helpers/Before Starting Work.md` |
+| "Save" / "commit" | `claude-helpers/Save My Changes Locally.md` |
+| "Push" / "deploy" / "push to live" | `claude-helpers/Deploy Changes to Live Site.md` |
