@@ -3,7 +3,7 @@ import {
   createPartnerSchema,
   createPeopleSchema,
   createConnectionSchema,
-  createEventSchema,
+  createHappeningSchema,
   createUserSchema,
 } from "./index";
 
@@ -134,23 +134,23 @@ describe("Validation Schemas", () => {
     });
   });
 
-  describe("createEventSchema", () => {
-    it("should validate a valid event", () => {
+  describe("createHappeningSchema", () => {
+    it("should validate a valid happening", () => {
       const data = {
-        eventDate: "2025-01-15",
-        eventDescription: "Community Safety Meeting",
+        happeningDate: "2025-01-15",
+        happeningDescription: "Community Safety Meeting",
       };
 
-      const result = createEventSchema.safeParse(data);
+      const result = createHappeningSchema.safeParse(data);
       expect(result.success).toBe(true);
     });
 
-    it("should reject missing eventDescription", () => {
+    it("should reject missing happeningDescription", () => {
       const data = {
-        eventDate: "2025-01-15",
+        happeningDate: "2025-01-15",
       };
 
-      const result = createEventSchema.safeParse(data);
+      const result = createHappeningSchema.safeParse(data);
       expect(result.success).toBe(false);
     });
   });

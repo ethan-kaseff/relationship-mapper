@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-export const createEventResponseSchema = z.object({
+export const createHappeningResponseSchema = z.object({
   peopleId: z.string().uuid("Invalid people ID"),
-  eventId: z.string().uuid("Invalid event ID"),
+  happeningId: z.string().uuid("Invalid happening ID"),
   responseDate: z.string().refine(
     (val) => !isNaN(Date.parse(val)),
     { message: "Invalid date format" }
@@ -12,7 +12,7 @@ export const createEventResponseSchema = z.object({
   isPublic: z.boolean().default(true),
 });
 
-export const updateEventResponseSchema = z.object({
+export const updateHappeningResponseSchema = z.object({
   responseDate: z.string().refine(
     (val) => !isNaN(Date.parse(val)),
     { message: "Invalid date format" }
@@ -22,5 +22,5 @@ export const updateEventResponseSchema = z.object({
   isPublic: z.boolean().optional(),
 });
 
-export type CreateEventResponseInput = z.infer<typeof createEventResponseSchema>;
-export type UpdateEventResponseInput = z.infer<typeof updateEventResponseSchema>;
+export type CreateHappeningResponseInput = z.infer<typeof createHappeningResponseSchema>;
+export type UpdateHappeningResponseInput = z.infer<typeof updateHappeningResponseSchema>;

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
-import { validateBody, createEventSchema } from "@/lib/validations";
+import { validateBody, createHappeningResponseSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/api-error";
 
 export async function GET() {
@@ -9,16 +9,13 @@ export async function GET() {
   if (!authResult.success) return authResult.response;
 
   try {
-    const events = await prisma.event.findMany({
+    const happeningResponses = await prisma.happeningResponse.findMany({
       include: {
-        responses: {
-          include: {
-            person: true,
-          },
-        },
+        person: true,
+        happening: true,
       },
     });
-    return NextResponse.json(events);
+    return NextResponse.json(happeningResponses);
   } catch (error) {
     return handleApiError(error);
   }
@@ -28,19 +25,22 @@ export async function POST(request: Request) {
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
-  const validation = await validateBody(request, createEventSchema);
+  const validation = await validateBody(request, createHappeningResponseSchema);
   if (!validation.success) return validation.response;
 
   try {
     const data = validation.data;
-    const event = await prisma.event.create({
+    const happeningResponse = await prisma.happeningResponse.create({
       data: {
-        eventDate: new Date(data.eventDate),
-        eventTime: data.eventTime,
-        eventDescription: data.eventDescription,
+        peopleId: data.peopleId,
+        happeningId: data.happeningId,
+        responseDate: data.responseDate ? new Date(data.responseDate) : null,
+        responseTime: data.responseTime,
+        responseNotes: data.responseNotes,
+        isPublic: data.isPublic ?? true,
       },
     });
-    return NextResponse.json(event, { status: 201 });
+    return NextResponse.json(happeningResponse, { status: 201 });
   } catch (error) {
     return handleApiError(error);
   }

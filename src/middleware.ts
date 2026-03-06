@@ -35,7 +35,7 @@ export async function middleware(request: NextRequest) {
   if (role === "CONNECTOR") {
     // UI pages: only home and interactions
     if (!pathname.startsWith("/api/")) {
-      if (pathname !== "/" && !pathname.startsWith("/interactions")) {
+      if (pathname !== "/" && !pathname.startsWith("/interactions") && !pathname.startsWith("/help")) {
         return NextResponse.redirect(new URL("/", request.url));
       }
     }

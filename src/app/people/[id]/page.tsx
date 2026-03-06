@@ -62,8 +62,8 @@ export default async function PersonDetailPage({
         },
         orderBy: { connectionDate: "desc" },
       },
-      eventResponses: {
-        include: { event: true },
+      happeningResponses: {
+        include: { happening: true },
         orderBy: { createdAt: "desc" },
       },
     },
@@ -123,6 +123,8 @@ export default async function PersonDetailPage({
           person={{
             firstName: person.firstName,
             lastName: person.lastName,
+            prefix: person.prefix,
+            greeting: person.greeting,
             address: person.address,
             city: person.city,
             state: person.state,
@@ -136,6 +138,14 @@ export default async function PersonDetailPage({
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-navy mb-4">Contact Information</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div>
+              <span className="font-medium text-gray-500">Prefix:</span>{" "}
+              <span className="text-gray-800">{person.prefix ?? "—"}</span>
+            </div>
+            <div>
+              <span className="font-medium text-gray-500">Greeting:</span>{" "}
+              <span className="text-gray-800">{person.greeting ?? "—"}</span>
+            </div>
             <div>
               <span className="font-medium text-gray-500">Address:</span>{" "}
               <span className="text-gray-800">{person.address ?? "—"}</span>
@@ -444,30 +454,30 @@ export default async function PersonDetailPage({
         </div>
       )}
 
-      {/* Event Responses */}
+      {/* Happening Responses */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-navy mb-4">Event Responses</h2>
-        {person.eventResponses.length === 0 ? (
-          <p className="text-gray-400 text-sm">No event responses recorded.</p>
+        <h2 className="text-lg font-semibold text-navy mb-4">Responses</h2>
+        {person.happeningResponses.length === 0 ? (
+          <p className="text-gray-400 text-sm">No responses recorded.</p>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
-                <th className="text-left px-4 py-2 font-semibold text-navy">Event</th>
+                <th className="text-left px-4 py-2 font-semibold text-navy">Happening</th>
                 <th className="text-left px-4 py-2 font-semibold text-navy">Date</th>
                 <th className="text-left px-4 py-2 font-semibold text-navy">Notes</th>
                 <th className="text-left px-4 py-2 font-semibold text-navy">Public</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {person.eventResponses.map((er) => (
+              {person.happeningResponses.map((er) => (
                 <tr key={er.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2">
                     <Link
-                      href={`/events/${er.event.id}`}
+                      href={`/happenings/${er.happening.id}`}
                       className="text-[#2E75B6] hover:underline"
                     >
-                      {er.event.eventDescription}
+                      {er.happening.happeningDescription}
                     </Link>
                   </td>
                   <td className="px-4 py-2 text-gray-600">

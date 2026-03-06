@@ -11,7 +11,7 @@ const allNavLinks = [
   { href: "/partners", label: "Partners" },
   { href: "/relationships", label: "Relationships" },
   { href: "/interactions", label: "Interactions" },
-  { href: "/events", label: "Events" },
+  { href: "/happenings", label: "Responses" },
   { href: "/settings", label: "Settings" },
 ];
 
@@ -100,6 +100,13 @@ export default function Navbar() {
               {viewAll ? "All Offices" : "My Office"}
             </button>
           )}
+          <Link
+            href="/help"
+            className="text-blue-200 hover:text-white transition-colors"
+            title="Help"
+          >
+            ?
+          </Link>
           <span>
             {session.user.name}{" "}
             <span className="text-blue-200 text-xs">({ROLE_LABELS[role] || role})</span>

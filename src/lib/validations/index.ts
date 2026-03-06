@@ -2,8 +2,8 @@ export * from "./partner";
 export * from "./people";
 export * from "./relationship";
 export * from "./connection";
-export * from "./event";
-export * from "./event-response";
+export * from "./happening";
+export * from "./happening-response";
 export * from "./partner-role";
 export * from "./user";
 

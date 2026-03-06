@@ -260,45 +260,45 @@ async function main() {
   }
   console.log("  Created 3 connection log entries");
 
-  // ─── Events ──────────────────────────────────────────────────────────────
-  let event1 = await prisma.event.findFirst({
-    where: { eventDescription: "JCRB|AJC Statement on Community Safety" },
+  // ─── Happenings ──────────────────────────────────────────────────────────
+  let happening1 = await prisma.happening.findFirst({
+    where: { happeningDescription: "JCRB|AJC Statement on Community Safety" },
   });
-  if (!event1) {
-    event1 = await prisma.event.create({
+  if (!happening1) {
+    happening1 = await prisma.happening.create({
       data: {
-        eventDate: new Date("2025-10-07"),
-        eventDescription: "JCRB|AJC Statement on Community Safety",
+        happeningDate: new Date("2025-10-07"),
+        happeningDescription: "JCRB|AJC Statement on Community Safety",
       },
     });
   }
 
-  let event2 = await prisma.event.findFirst({
-    where: { eventDescription: "Annual Interfaith Thanksgiving Service" },
+  let happening2 = await prisma.happening.findFirst({
+    where: { happeningDescription: "Annual Interfaith Thanksgiving Service" },
   });
-  if (!event2) {
-    event2 = await prisma.event.create({
+  if (!happening2) {
+    happening2 = await prisma.happening.create({
       data: {
-        eventDate: new Date("2025-11-15"),
-        eventDescription: "Annual Interfaith Thanksgiving Service",
+        happeningDate: new Date("2025-11-15"),
+        happeningDescription: "Annual Interfaith Thanksgiving Service",
       },
     });
   }
 
-  console.log("  Created 2 events");
+  console.log("  Created 2 happenings");
 
-  // ─── Event Responses ─────────────────────────────────────────────────────
-  const existingResponsesCount = await prisma.eventResponse.count();
+  // ─── Happening Responses ─────────────────────────────────────────────────
+  const existingResponsesCount = await prisma.happeningResponse.count();
   if (existingResponsesCount === 0) {
-    await prisma.eventResponse.createMany({
+    await prisma.happeningResponse.createMany({
       data: [
-        { peopleId: contactRecords[0], eventId: event1.id, responseDate: new Date("2025-10-08"), responseNotes: "Issued supportive public statement", isPublic: true },
-        { peopleId: contactRecords[2], eventId: event2.id, responseDate: new Date("2025-11-16"), responseNotes: "Attended and gave opening blessing", isPublic: true },
-        { peopleId: contactRecords[3], eventId: event1.id, responseDate: new Date("2025-10-10"), responseNotes: "Sent private email of support", isPublic: false },
+        { peopleId: contactRecords[0], happeningId: happening1.id, responseDate: new Date("2025-10-08"), responseNotes: "Issued supportive public statement", isPublic: true },
+        { peopleId: contactRecords[2], happeningId: happening2.id, responseDate: new Date("2025-11-16"), responseNotes: "Attended and gave opening blessing", isPublic: true },
+        { peopleId: contactRecords[3], happeningId: happening1.id, responseDate: new Date("2025-10-10"), responseNotes: "Sent private email of support", isPublic: false },
       ],
     });
   }
-  console.log("  Created 3 event responses");
+  console.log("  Created 3 happening responses");
 
   // ─── Admin User ─────────────────────────────────────────────────────────
   const adminEmail = process.env.ADMIN_EMAIL || "admin@jcrb.org";

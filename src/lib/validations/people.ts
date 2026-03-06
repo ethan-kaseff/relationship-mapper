@@ -9,6 +9,8 @@ export const createPeopleSchema = z.object({
   zip: z.string().max(20).optional().nullable(),
   phoneNumber: z.string().max(50).optional().nullable(),
   personalEmail: z.string().email().optional().nullable().or(z.literal("")),
+  prefix: z.string().max(50).optional().nullable(),
+  greeting: z.string().max(500).optional().nullable(),
   isConnector: z.boolean().default(false),
   officeId: z.string().uuid().optional(), // System admins can specify
 });
@@ -22,6 +24,8 @@ export const updatePeopleSchema = z.object({
   zip: z.string().max(20).optional().nullable(),
   phoneNumber: z.string().max(50).optional().nullable(),
   personalEmail: z.string().email().optional().nullable().or(z.literal("")),
+  prefix: z.string().max(50).optional().nullable(),
+  greeting: z.string().max(500).optional().nullable(),
   isConnector: z.boolean().optional(),
 });
 

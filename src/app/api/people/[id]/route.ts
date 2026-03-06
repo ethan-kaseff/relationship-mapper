@@ -41,9 +41,9 @@ export async function GET(
             },
           },
         },
-        eventResponses: {
+        happeningResponses: {
           include: {
-            event: true,
+            happening: true,
           },
         },
       },
@@ -101,7 +101,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Delete related records first (no cascade in schema)
-    await prisma.eventResponse.deleteMany({ where: { peopleId: id } });
+    await prisma.happeningResponse.deleteMany({ where: { peopleId: id } });
     await prisma.connection.deleteMany({ where: { peopleId: id } });
     await prisma.relationship.deleteMany({ where: { peopleId: id } });
     await prisma.relationship.deleteMany({ where: { targetPersonId: id } });

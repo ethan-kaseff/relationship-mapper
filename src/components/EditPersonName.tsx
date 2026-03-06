@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 interface PersonData {
   firstName: string;
   lastName: string;
+  prefix: string | null;
+  greeting: string | null;
   address: string | null;
   city: string | null;
   state: string | null;
@@ -49,6 +51,8 @@ export default function EditPersonButton({ personId, person }: Props) {
         body: JSON.stringify({
           firstName: form.firstName,
           lastName: form.lastName,
+          prefix: form.prefix || null,
+          greeting: form.greeting || null,
           address: form.address || null,
           city: form.city || null,
           state: form.state || null,
@@ -87,6 +91,14 @@ export default function EditPersonButton({ personId, person }: Props) {
           </button>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <span className="font-medium text-gray-500">Prefix:</span>{" "}
+            <span className="text-gray-800">{person.prefix ?? "—"}</span>
+          </div>
+          <div>
+            <span className="font-medium text-gray-500">Greeting:</span>{" "}
+            <span className="text-gray-800">{person.greeting ?? "—"}</span>
+          </div>
           <div>
             <span className="font-medium text-gray-500">Address:</span>{" "}
             <span className="text-gray-800">{person.address ?? "—"}</span>
@@ -170,6 +182,18 @@ export default function EditPersonButton({ personId, person }: Props) {
         </div>
 
         <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Professional Prefix</label>
+          <input
+            type="text"
+            name="prefix"
+            placeholder="e.g. Rabbi, Dr, Reverend"
+            value={form.prefix ?? ""}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+          />
+        </div>
+
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
           <input
             type="text"
@@ -234,6 +258,18 @@ export default function EditPersonButton({ personId, person }: Props) {
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Personalized Greeting</label>
+          <input
+            type="text"
+            name="greeting"
+            placeholder="e.g. Dear Rabbi Smith"
+            value={form.greeting ?? ""}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+          />
         </div>
 
         <div className="flex items-center gap-2">

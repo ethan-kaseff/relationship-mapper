@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
-import { validateBody, createEventResponseSchema } from "@/lib/validations";
+import { validateBody, createHappeningSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/api-error";
 
 export async function GET() {
@@ -9,13 +9,16 @@ export async function GET() {
   if (!authResult.success) return authResult.response;
 
   try {
-    const eventResponses = await prisma.eventResponse.findMany({
+    const happenings = await prisma.happening.findMany({
       include: {
-        person: true,
-        event: true,
+        responses: {
+          include: {
+            person: true,
+          },
+        },
       },
     });
-    return NextResponse.json(eventResponses);
+    return NextResponse.json(happenings);
   } catch (error) {
     return handleApiError(error);
   }
@@ -25,22 +28,19 @@ export async function POST(request: Request) {
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
-  const validation = await validateBody(request, createEventResponseSchema);
+  const validation = await validateBody(request, createHappeningSchema);
   if (!validation.success) return validation.response;
 
   try {
     const data = validation.data;
-    const eventResponse = await prisma.eventResponse.create({
+    const happening = await prisma.happening.create({
       data: {
-        peopleId: data.peopleId,
-        eventId: data.eventId,
-        responseDate: data.responseDate ? new Date(data.responseDate) : null,
-        responseTime: data.responseTime,
-        responseNotes: data.responseNotes,
-        isPublic: data.isPublic ?? true,
+        happeningDate: new Date(data.happeningDate),
+        happeningTime: data.happeningTime,
+        happeningDescription: data.happeningDescription,
       },
     });
-    return NextResponse.json(eventResponse, { status: 201 });
+    return NextResponse.json(happening, { status: 201 });
   } catch (error) {
     return handleApiError(error);
   }

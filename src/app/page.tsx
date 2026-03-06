@@ -9,23 +9,22 @@ export default async function Dashboard() {
   const officeFilter = await getOfficeFilter();
   const personFilter = officeFilter.officeId ? { person: { officeId: officeFilter.officeId } } : {};
 
-  const [peopleCount, partnerCount, relationshipCount, connectionCount, eventCount] =
+  const [peopleCount, partnerCount, relationshipCount, connectionCount, happeningCount] =
     await Promise.all([
       prisma.people.count({ where: officeFilter }),
       prisma.partner.count({ where: officeFilter }),
       prisma.relationship.count({ where: personFilter }),
       prisma.connection.count({ where: personFilter }),
-      prisma.event.count(),
+      prisma.happening.count(),
     ]);
 
   const partnersWithoutRelationships = await prisma.partner.findMany({
     where: {
       ...officeFilter,
-      partnerRoles: {
-        some: {
-          relationships: { none: {} },
-        },
-      },
+      OR: [
+        { partnerRoles: { none: {} } },
+        { partnerRoles: { some: { relationships: { none: {} } } } },
+      ],
     },
     include: { organizationType: true, partnerRoles: { include: { _count: { select: { relationships: true } } } } },
     orderBy: { organizationName: "asc" },
@@ -46,7 +45,7 @@ export default async function Dashboard() {
     { label: "Partners", count: partnerCount, href: "/partners", color: "bg-green-500" },
     { label: "Relationships", count: relationshipCount, href: "/relationships", color: "bg-purple-500" },
     { label: "Interactions", count: connectionCount, href: "/interactions", color: "bg-orange-500" },
-    { label: "Events", count: eventCount, href: "/events", color: "bg-red-500" },
+    { label: "Responses", count: happeningCount, href: "/happenings", color: "bg-red-500" },
   ];
 
   return (

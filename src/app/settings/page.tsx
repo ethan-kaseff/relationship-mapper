@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 
 interface RelationshipType {
@@ -89,6 +89,19 @@ export default function SettingsPage() {
 
   // Office dropdown for user form
   const [userOfficeId, setUserOfficeId] = useState("");
+
+  // Data management state
+  const [importType, setImportType] = useState<"people" | "partners" | "roles">("people");
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const [importResult, setImportResult] = useState<{
+    created: number;
+    total: number;
+    errors: { row: number; message: string }[];
+  } | null>(null);
+  const [importError, setImportError] = useState("");
+  const [exporting, setExporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-focus refs
   const relTypeInputRef = useRef<HTMLInputElement>(null);
@@ -422,6 +435,64 @@ export default function SettingsPage() {
       fetchOffices();
     } catch (err: unknown) {
       setOfficeError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  const handleExport = useCallback(async (format: "xlsx" | "csv", type?: string) => {
+    setExporting(true);
+    try {
+      const params = new URLSearchParams({ format });
+      if (format === "csv" && type) params.set("type", type);
+      const res = await fetch(`/api/export?${params}`);
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = format === "xlsx"
+        ? "relationship-mapper-export.xlsx"
+        : `${type}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Export failed. Please try again.");
+    } finally {
+      setExporting(false);
+    }
+  }, []);
+
+  async function handleImport(e: React.FormEvent) {
+    e.preventDefault();
+    if (!importFile) return;
+    setImporting(true);
+    setImportResult(null);
+    setImportError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      formData.append("type", importType);
+
+      const res = await fetch("/api/import", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Import failed");
+      }
+
+      const result = await res.json();
+      setImportResult(result);
+      setImportFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (err: unknown) {
+      setImportError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -957,6 +1028,133 @@ export default function SettingsPage() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* Data Management — SYSTEM_ADMIN and OFFICE_ADMIN */}
+      {canManageUsers && (
+        <div className="bg-white rounded-lg shadow p-6 mt-6">
+          <h2 className="text-lg font-semibold text-navy mb-4">Data Management</h2>
+
+          {/* Export section */}
+          <div className="mb-6">
+            <h3 className="font-medium text-navy mb-3 text-sm">Export Data</h3>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => handleExport("xlsx")}
+                disabled={exporting}
+                className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+              >
+                {exporting ? "Exporting..." : "Export All (XLSX)"}
+              </button>
+              <button
+                onClick={() => handleExport("csv", "people")}
+                disabled={exporting}
+                className="border border-gray-300 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+              >
+                People CSV
+              </button>
+              <button
+                onClick={() => handleExport("csv", "partners")}
+                disabled={exporting}
+                className="border border-gray-300 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+              >
+                Partners CSV
+              </button>
+              <button
+                onClick={() => handleExport("csv", "relationships")}
+                disabled={exporting}
+                className="border border-gray-300 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+              >
+                Relationships CSV
+              </button>
+              <button
+                onClick={() => handleExport("csv", "interactions")}
+                disabled={exporting}
+                className="border border-gray-300 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+              >
+                Interactions CSV
+              </button>
+              <button
+                onClick={() => handleExport("csv", "roles")}
+                disabled={exporting}
+                className="border border-gray-300 text-gray-700 px-3 py-2 rounded-md hover:bg-gray-50 transition-colors text-sm disabled:opacity-50"
+              >
+                Roles CSV
+              </button>
+            </div>
+          </div>
+
+          {/* Import section */}
+          <div>
+            <h3 className="font-medium text-navy mb-3 text-sm">Import Data</h3>
+            <form onSubmit={handleImport} className="space-y-3">
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Entity Type
+                  </label>
+                  <select
+                    value={importType}
+                    onChange={(e) => setImportType(e.target.value as "people" | "partners" | "roles")}
+                    className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
+                  >
+                    <option value="people">People</option>
+                    <option value="partners">Partners</option>
+                    <option value="roles">Roles</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    File (.csv or .xlsx)
+                  </label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".csv,.xlsx,.xls"
+                    onChange={(e) => setImportFile(e.target.files?.[0] ?? null)}
+                    className="border border-gray-300 rounded-md px-3 py-1.5 text-sm file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={importing || !importFile}
+                  className="bg-[#2E75B6] text-white px-4 py-2 rounded-md hover:bg-[#245d91] transition-colors text-sm disabled:opacity-50"
+                >
+                  {importing ? "Importing..." : "Import"}
+                </button>
+              </div>
+              <p className="text-xs text-gray-500">
+                CSV files should have a header row. Expected columns for People: First Name, Last Name, Address, City, State, Zip, Phone, Email, Is Connector{isSystemAdmin ? ", Office" : ""}.
+                For Partners: Type, Name, Org Type, Address, City, State, Zip, Phone, Email, Website, Priority{isSystemAdmin ? ", Office" : ""}.
+                For Roles: Partner Name, Role Description, Person (optional, as &quot;First Last&quot;).
+              </p>
+            </form>
+
+            {importError && (
+              <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mt-3 text-sm">
+                {importError}
+              </div>
+            )}
+
+            {importResult && (
+              <div className={`border rounded-md p-3 mt-3 text-sm ${importResult.errors.length > 0 ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}`}>
+                <p className="font-medium">
+                  Created {importResult.created} of {importResult.total} records.
+                </p>
+                {importResult.errors.length > 0 && (
+                  <div className="mt-2">
+                    <p className="text-amber-800 font-medium text-xs mb-1">Errors:</p>
+                    <ul className="text-xs text-amber-700 list-disc list-inside max-h-32 overflow-y-auto">
+                      {importResult.errors.map((err, i) => (
+                        <li key={i}>Row {err.row}: {err.message}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
 

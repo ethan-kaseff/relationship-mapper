@@ -61,6 +61,8 @@ model People {
   id            String   @id @default(uuid())
   firstName     String   @map("first_name")
   lastName      String   @map("last_name")
+  prefix        String?  @map("prefix")
+  greeting      String?  @map("greeting")
   address       String?
   city          String?
   state         String?
@@ -79,7 +81,7 @@ model People {
   relationships           Relationship[]  @relation("ConnectorRelationships")
   targetOfRelationships   Relationship[]  @relation("TargetRelationships")
   connections             Connection[]
-  eventResponses EventResponse[]
+  happeningResponses HappeningResponse[]
 
   @@map("people")
 }
@@ -97,7 +99,7 @@ model Partner {
   phoneNumber        String?           @map("phone_number")
   email              String?
   website            String?
-  priority           Int?
+  priority           Int               @default(5)
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
   officeId           String            @map("office_id")
@@ -155,31 +157,31 @@ model Connection {
   @@map("connection")
 }
 
-model Event {
-  id               String          @id @default(uuid())
-  eventDate        DateTime        @map("event_date")
-  eventTime        String?         @map("event_time")
-  eventDescription String          @map("event_description")
-  createdAt        DateTime        @default(now()) @map("created_at")
+model Happening {
+  id                   String              @id @default(uuid())
+  happeningDate        DateTime            @map("happening_date")
+  happeningTime        String?             @map("happening_time")
+  happeningDescription String              @map("happening_description")
+  createdAt            DateTime            @default(now()) @map("created_at")
 
-  responses EventResponse[]
+  responses HappeningResponse[]
 
-  @@map("event")
+  @@map("happening")
 }
 
-model EventResponse {
+model HappeningResponse {
   id            String    @id @default(uuid())
   peopleId      String    @map("people_id")
   person        People    @relation(fields: [peopleId], references: [id])
-  eventId       String    @map("event_id")
-  event         Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  happeningId   String    @map("happening_id")
+  happening     Happening @relation(fields: [happeningId], references: [id], onDelete: Cascade)
   responseDate  DateTime? @map("response_date")
   responseTime  String?   @map("response_time")
   responseNotes String?   @map("response_notes")
   isPublic      Boolean   @default(true) @map("is_public")
   createdAt     DateTime  @default(now()) @map("created_at")
 
-  @@map("event_response")
+  @@map("happening_response")
 }
 
 model RoleAssignment {
