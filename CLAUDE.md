@@ -3,7 +3,7 @@
 ## CRITICAL RULES (never break these)
 
 1. **Database is PostgreSQL.** The file `prisma/schema.prisma` MUST have `provider = "postgresql"`. If you ever see `provider = "sqlite"`, stop and fix it immediately. Never change the provider to sqlite.
-2. **Git email must be `barry@kaseff.com`.** Before any commit, run `git config user.email` and confirm it is `barry@kaseff.com`. If it shows something like `barrykaseff@barrys-mbp-2024.lan`, fix it with `git config user.email "barry@kaseff.com"`.
+2. **Do not change `git config user.email`.** Use whatever email is already configured.
 3. **Always pull before push.** Run `git pull origin main` before pushing to avoid overwriting Ethan's work.
 4. **Always build before push.** Run `npm run build` and confirm it succeeds before pushing. A broken build will break the live site on Vercel.
 5. **Never force-push.** Do not use `git push --force` or `git push -f`. If push fails, ask for help.
