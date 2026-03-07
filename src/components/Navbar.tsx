@@ -12,6 +12,7 @@ const allNavLinks = [
   { href: "/relationships", label: "Relationships" },
   { href: "/interactions", label: "Interactions" },
   { href: "/happenings", label: "Responses" },
+  { href: "/events", label: "Events" },
   { href: "/settings", label: "Settings" },
 ];
 

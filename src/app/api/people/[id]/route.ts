@@ -74,6 +74,7 @@ export async function PUT(
       where: { id },
       data: {
         firstName: data.firstName,
+        middleInitial: data.middleInitial !== undefined ? (data.middleInitial || null) : undefined,
         lastName: data.lastName,
         address: data.address,
         city: data.city,

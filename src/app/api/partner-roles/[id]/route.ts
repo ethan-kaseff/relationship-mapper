@@ -4,6 +4,23 @@ import { requireNonConnector } from "@/lib/api-auth";
 import { handleApiError } from "@/lib/api-error";
 import { validateBody, updatePartnerRoleSchema } from "@/lib/validations";
 
+// DELETE /api/partner-roles/[id] — delete a partner role
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
+  try {
+    const { id } = await params;
+    await prisma.partnerRole.delete({ where: { id } });
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
 // PATCH /api/partner-roles/[id] — update a partner role (e.g. remove/reassign person)
 export async function PATCH(
   request: NextRequest,

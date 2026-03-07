@@ -122,6 +122,7 @@ export default async function PersonDetailPage({
           personId={person.id}
           person={{
             firstName: person.firstName,
+            middleInitial: person.middleInitial,
             lastName: person.lastName,
             prefix: person.prefix,
             greeting: person.greeting,
@@ -141,6 +142,10 @@ export default async function PersonDetailPage({
             <div>
               <span className="font-medium text-gray-500">Prefix:</span>{" "}
               <span className="text-gray-800">{person.prefix ?? "—"}</span>
+            </div>
+            <div>
+              <span className="font-medium text-gray-500">Middle Initial:</span>{" "}
+              <span className="text-gray-800">{person.middleInitial ?? "—"}</span>
             </div>
             <div>
               <span className="font-medium text-gray-500">Greeting:</span>{" "}

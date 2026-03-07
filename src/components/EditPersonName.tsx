@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 interface PersonData {
   firstName: string;
+  middleInitial: string | null;
   lastName: string;
   prefix: string | null;
   greeting: string | null;
@@ -50,6 +51,7 @@ export default function EditPersonButton({ personId, person }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           firstName: form.firstName,
+          middleInitial: form.middleInitial || null,
           lastName: form.lastName,
           prefix: form.prefix || null,
           greeting: form.greeting || null,
@@ -94,6 +96,10 @@ export default function EditPersonButton({ personId, person }: Props) {
           <div>
             <span className="font-medium text-gray-500">Prefix:</span>{" "}
             <span className="text-gray-800">{person.prefix ?? "—"}</span>
+          </div>
+          <div>
+            <span className="font-medium text-gray-500">Middle Initial:</span>{" "}
+            <span className="text-gray-800">{person.middleInitial ?? "—"}</span>
           </div>
           <div>
             <span className="font-medium text-gray-500">Greeting:</span>{" "}
@@ -152,7 +158,7 @@ export default function EditPersonButton({ personId, person }: Props) {
       )}
 
       <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-[1fr_auto_1fr] gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               First Name <span className="text-red-500">*</span>
@@ -162,6 +168,19 @@ export default function EditPersonButton({ personId, person }: Props) {
               name="firstName"
               required
               value={form.firstName}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+          <div className="w-16">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              MI
+            </label>
+            <input
+              type="text"
+              name="middleInitial"
+              maxLength={5}
+              value={form.middleInitial ?? ""}
               onChange={handleChange}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />

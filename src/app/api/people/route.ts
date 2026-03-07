@@ -45,9 +45,27 @@ export async function POST(request: Request) {
         ? data.officeId
         : authResult.session.user.officeId;
 
+    // Check for duplicate name within the same office
+    const existing = await prisma.people.findFirst({
+      where: {
+        prefix: data.prefix || null,
+        firstName: data.firstName,
+        middleInitial: data.middleInitial || null,
+        lastName: data.lastName,
+        officeId,
+      },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: `A person named "${data.prefix ? data.prefix + " " : ""}${data.firstName}${data.middleInitial ? " " + data.middleInitial : ""} ${data.lastName}" already exists in this office.` },
+        { status: 409 }
+      );
+    }
+
     const person = await prisma.people.create({
       data: {
         firstName: data.firstName,
+        middleInitial: data.middleInitial || null,
         lastName: data.lastName,
         address: data.address,
         city: data.city,

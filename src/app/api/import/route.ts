@@ -60,8 +60,20 @@ export async function POST(request: Request) {
     const errors: { row: number; message: string }[] = [];
     let created = 0;
 
+    // Helper to build a dedup key for a person
+    function personKey(prefix: string | null, firstName: string, middleInitial: string | null, lastName: string, officeId: string) {
+      return `${(prefix || "").toLowerCase()}|${firstName.toLowerCase()}|${(middleInitial || "").toLowerCase()}|${lastName.toLowerCase()}|${officeId}`;
+    }
+
     if (type === "people") {
-      // Look up org types for partner import only
+      // Pre-load existing people for duplicate checking
+      const existingPeople = await prisma.people.findMany({
+        select: { prefix: true, firstName: true, middleInitial: true, lastName: true, officeId: true },
+      });
+      const existingKeys = new Set(
+        existingPeople.map((p) => personKey(p.prefix, p.firstName, p.middleInitial, p.lastName, p.officeId))
+      );
+
       for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const rowNum = i + 2; // 1-based, account for header
@@ -91,16 +103,26 @@ export async function POST(request: Request) {
           }
         }
 
+        const prefix = row["prefix"] || row["professional prefix"] || null;
+        const middleInitial = row["middle initial"] || row["middleinitial"] || row["mi"] || null;
+        const key = personKey(prefix, firstName.trim(), middleInitial, lastName.trim(), officeId);
+
+        if (existingKeys.has(key)) {
+          errors.push({ row: rowNum, message: `Duplicate: "${firstName.trim()} ${lastName.trim()}" already exists` });
+          continue;
+        }
+
         try {
           await prisma.people.create({
             data: {
               firstName: firstName.trim(),
+              middleInitial,
               lastName: lastName.trim(),
               address: row["address"] || null,
               city: row["city"] || null,
               state: row["state"] || null,
               zip: row["zip"] || null,
-              prefix: row["prefix"] || row["professional prefix"] || null,
+              prefix,
               greeting: row["greeting"] || row["personalized greeting"] || null,
               phoneNumber: row["phone"] || row["phone number"] || row["phonenumber"] || null,
               personalEmail: row["email"] || row["personal email"] || row["personalemail"] || null,
@@ -110,6 +132,7 @@ export async function POST(request: Request) {
               officeId,
             },
           });
+          existingKeys.add(key);
           created++;
         } catch (err) {
           errors.push({
@@ -187,6 +210,14 @@ export async function POST(request: Request) {
         }
       }
     } else {
+      // Pre-load existing people for duplicate checking (partner "P" creates people)
+      const existingPeopleForPartners = await prisma.people.findMany({
+        select: { prefix: true, firstName: true, middleInitial: true, lastName: true, officeId: true },
+      });
+      const existingPeopleKeys = new Set(
+        existingPeopleForPartners.map((p) => personKey(p.prefix, p.firstName, p.middleInitial, p.lastName, p.officeId))
+      );
+
       // Partners import
       const orgTypes = await prisma.organizationType.findMany({
         select: { id: true, typeName: true },
@@ -261,32 +292,39 @@ export async function POST(request: Request) {
               phoneNumber: row["phone"] || row["phone number"] || row["phonenumber"] || null,
               email: row["email"] || null,
               website: row["website"] || null,
-              priority: priority !== null && !isNaN(priority) ? priority : null,
+              priority: priority !== null && !isNaN(priority) ? priority : undefined,
               officeId,
             },
           });
 
-          // If this partner is a Person, also create a People record
+          // If this partner is a Person, also create a People record (if not a duplicate)
           if (orgPeopleFlag === "P") {
             const nameParts = name.trim().split(/\s+/);
             const firstName = nameParts[0] || "";
             const lastName = nameParts.slice(1).join(" ") || "";
+            const prefix = row["prefix"] || row["professional prefix"] || null;
+            const middleInitial = row["middle initial"] || row["middleinitial"] || row["mi"] || null;
+            const pKey = personKey(prefix, firstName, middleInitial, lastName, officeId);
 
-            await prisma.people.create({
-              data: {
-                firstName,
-                lastName,
-                prefix: row["prefix"] || row["professional prefix"] || null,
-                greeting: row["greeting"] || row["personalized greeting"] || null,
-                address: row["address"] || null,
-                city: row["city"] || null,
-                state: row["state"] || null,
-                zip: row["zip"] || null,
-                phoneNumber: row["phone"] || row["phone number"] || row["phonenumber"] || null,
-                personalEmail: row["email"] || null,
-                officeId,
-              },
-            });
+            if (!existingPeopleKeys.has(pKey)) {
+              await prisma.people.create({
+                data: {
+                  firstName,
+                  middleInitial,
+                  lastName,
+                  prefix,
+                  greeting: row["greeting"] || row["personalized greeting"] || null,
+                  address: row["address"] || null,
+                  city: row["city"] || null,
+                  state: row["state"] || null,
+                  zip: row["zip"] || null,
+                  phoneNumber: row["phone"] || row["phone number"] || row["phonenumber"] || null,
+                  personalEmail: row["email"] || null,
+                  officeId,
+                },
+              });
+              existingPeopleKeys.add(pKey);
+            }
           }
 
           created++;

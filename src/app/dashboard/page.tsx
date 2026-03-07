@@ -31,10 +31,16 @@ function StatIcon({ label }: { label: string }) {
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20.25 8.511c.884.284 1.5 1.128 1.5 2.097v4.286c0 1.136-.847 2.1-1.98 2.193-.34.027-.68.052-1.02.072v3.091l-3-3c-1.354 0-2.694-.055-4.02-.163a2.115 2.115 0 01-.825-.242m9.345-8.334a2.126 2.126 0 00-.476-.095 48.64 48.64 0 00-8.048 0c-1.131.094-1.976 1.057-1.976 2.192v4.286c0 .837.46 1.58 1.155 1.951m9.345-8.334V6.637c0-1.621-1.152-3.026-2.76-3.235A48.455 48.455 0 0011.25 3c-2.115 0-4.198.137-6.24.402-1.608.209-2.76 1.614-2.76 3.235v6.226c0 1.621 1.152 3.026 2.76 3.235.577.075 1.157.14 1.74.194V21l4.155-4.155" />
         </svg>
       );
-    case "Events":
+    case "Happenings":
       return (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+        </svg>
+      );
+    case "Events":
+      return (
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M16.5 6v.75m0 3v.75m0 3v.75m0 3V18m-9-5.25h5.25M7.5 15h3M3.375 5.25c-.621 0-1.125.504-1.125 1.125v3.026a2.999 2.999 0 010 5.198v3.026c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-3.026a2.999 2.999 0 010-5.198V6.375c0-.621-.504-1.125-1.125-1.125H3.375z" />
         </svg>
       );
     default:
@@ -46,13 +52,14 @@ export default async function Dashboard() {
   const officeFilter = await getOfficeFilter();
   const personFilter = officeFilter.officeId ? { person: { officeId: officeFilter.officeId } } : {};
 
-  const [peopleCount, partnerCount, relationshipCount, connectionCount, eventCount] =
+  const [peopleCount, partnerCount, relationshipCount, connectionCount, happeningCount, eventCount] =
     await Promise.all([
       prisma.people.count({ where: officeFilter }),
       prisma.partner.count({ where: officeFilter }),
       prisma.relationship.count({ where: personFilter }),
       prisma.connection.count({ where: personFilter }),
-      prisma.event.count(),
+      prisma.happening.count(),
+      prisma.event.count({ where: officeFilter }),
     ]);
 
   const partnersWithoutRelationships = await prisma.partner.findMany({
@@ -83,6 +90,7 @@ export default async function Dashboard() {
     { label: "Partners", count: partnerCount, href: "/partners" },
     { label: "Relationships", count: relationshipCount, href: "/relationships" },
     { label: "Interactions", count: connectionCount, href: "/interactions" },
+    { label: "Happenings", count: happeningCount, href: "/happenings" },
     { label: "Events", count: eventCount, href: "/events" },
   ];
 
@@ -93,7 +101,7 @@ export default async function Dashboard() {
         <p className="text-sm text-gray-500 mt-1">Overview of your relationship network</p>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-8">
         {stats.map((s) => (
           <Link
             key={s.label}

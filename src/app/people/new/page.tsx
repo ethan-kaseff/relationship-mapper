@@ -30,6 +30,7 @@ export default function NewPersonPage() {
 
   const [form, setForm] = useState({
     firstName: "",
+    middleInitial: "",
     lastName: "",
     prefix: "",
     greeting: "",
@@ -92,7 +93,7 @@ export default function NewPersonPage() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-[1fr_auto_1fr] gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 First Name <span className="text-red-500">*</span>
@@ -103,6 +104,19 @@ export default function NewPersonPage() {
                 required
                 autoFocus
                 value={form.firstName}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div className="w-16">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                MI
+              </label>
+              <input
+                type="text"
+                name="middleInitial"
+                maxLength={5}
+                value={form.middleInitial}
                 onChange={handleChange}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />

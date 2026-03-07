@@ -6,6 +6,8 @@ export * from "./happening";
 export * from "./happening-response";
 export * from "./partner-role";
 export * from "./user";
+export * from "./event";
+export * from "./event-invite";
 
 import { z } from "zod";
 import { NextResponse } from "next/server";

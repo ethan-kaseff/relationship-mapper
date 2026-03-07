@@ -6,6 +6,7 @@ import DeletePartnerButton from "@/components/DeletePartnerButton";
 import EditPartnerInfo from "@/components/EditPartnerInfo";
 import RemoveRolePersonButton from "@/components/RemoveRolePersonButton";
 import AssignRolePersonButton from "@/components/AssignRolePersonButton";
+import DeleteRoleButton from "@/components/DeleteRoleButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -91,7 +92,10 @@ export default async function PartnerDetailPage({
             {partner.partnerRoles.map((role) => (
               <div key={role.id} className="border border-gray-200 rounded-md p-4">
                 <div className="flex items-center gap-3 mb-3">
-                  <h3 className="font-semibold text-indigo-900">{role.roleDescription}</h3>
+                  <h3 className="font-semibold text-indigo-900">
+                    {role.roleDescription}
+                    <DeleteRoleButton roleId={role.id} />
+                  </h3>
                   {role.person ? (
                     <span className="text-sm text-gray-500 flex items-center">
                       —{" "}

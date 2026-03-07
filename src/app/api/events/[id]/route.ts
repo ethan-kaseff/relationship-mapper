@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
-import { validateBody, updatePartnerSchema } from "@/lib/validations";
+import { validateBody, updateEventSchema } from "@/lib/validations";
 import { handleApiError, notFound } from "@/lib/api-error";
 
 export async function GET(
@@ -13,23 +13,17 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const partner = await prisma.partner.findUnique({
+    const event = await prisma.event.findUnique({
       where: { id },
       include: {
-        organizationType: true,
-        partnerRoles: {
-          include: {
-            person: true,
-            relationships: true,
-            connections: true,
-          },
+        invites: {
+          include: { person: true },
+          orderBy: { createdAt: "asc" },
         },
       },
     });
-    if (!partner) {
-      return notFound("Partner not found");
-    }
-    return NextResponse.json(partner);
+    if (!event) return notFound("Event not found");
+    return NextResponse.json(event);
   } catch (error) {
     return handleApiError(error);
   }
@@ -42,31 +36,25 @@ export async function PUT(
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
-  const validation = await validateBody(request, updatePartnerSchema);
+  const validation = await validateBody(request, updateEventSchema);
   if (!validation.success) return validation.response;
 
   try {
     const { id } = await params;
     const data = validation.data;
-    const partner = await prisma.partner.update({
+    const event = await prisma.event.update({
       where: { id },
       data: {
-        orgPeopleFlag: data.orgPeopleFlag,
-        organizationName: data.organizationName,
-        organizationType: data.organizationTypeId
-          ? { connect: { id: data.organizationTypeId } }
-          : { disconnect: true },
-        address: data.address,
-        city: data.city,
-        state: data.state,
-        zip: data.zip,
-        phoneNumber: data.phoneNumber,
-        email: data.email || null,
-        website: data.website || null,
-        ...(data.priority !== undefined ? { priority: data.priority ?? 5 } : {}),
+        title: data.title,
+        description: data.description,
+        eventDate: data.eventDate !== undefined
+          ? (data.eventDate ? new Date(data.eventDate) : null)
+          : undefined,
+        eventTime: data.eventTime,
+        location: data.location,
       },
     });
-    return NextResponse.json(partner);
+    return NextResponse.json(event);
   } catch (error) {
     return handleApiError(error);
   }
@@ -81,8 +69,8 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    await prisma.partner.delete({ where: { id } });
-    return NextResponse.json({ message: "Partner deleted" });
+    await prisma.event.delete({ where: { id } });
+    return NextResponse.json({ message: "Event deleted" });
   } catch (error) {
     return handleApiError(error);
   }

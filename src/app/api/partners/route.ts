@@ -56,7 +56,7 @@ export async function POST(request: Request) {
         phoneNumber: data.phoneNumber,
         email: data.email || null,
         website: data.website || null,
-        priority: data.priority ?? null,
+        priority: data.priority ?? undefined,
         officeId,
       },
     });
@@ -73,6 +73,18 @@ export async function POST(request: Request) {
         const nameParts = data.organizationName.trim().split(/\s+/);
         const firstName = nameParts[0] || "";
         const lastName = nameParts.slice(1).join(" ") || "";
+
+        // Check for duplicate name within the same office
+        const existingPerson = await prisma.people.findFirst({
+          where: { firstName, lastName, officeId, prefix: null, middleInitial: null },
+        });
+        if (existingPerson) {
+          return NextResponse.json(
+            { error: `A person named "${firstName} ${lastName}" already exists in this office.` },
+            { status: 409 }
+          );
+        }
+
         const person = await prisma.people.create({
           data: {
             firstName,
