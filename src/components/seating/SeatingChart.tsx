@@ -50,7 +50,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
   }, [onSave]);
 
   const {
-    state, addTable, addTables, setTables, updateTable, deleteTable, updateGuest,
+    state, addTable, setTables, updateTable, deleteTable, updateGuest,
     assignGuest, unassignGuest, addObject, updateObject, deleteObject,
     setZoom, setFloorSize, getTableById, undo, redo, canUndo, canRedo,
   } = useSeatingChart(layout, guests, handleSave);
