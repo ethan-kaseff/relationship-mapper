@@ -73,16 +73,5 @@ export default function SeatingChartWrapper({ event }: SeatingChartWrapperProps)
     });
   }, [event.id]);
 
-  if (confirmedInvites.length === 0) {
-    return (
-      <div className="bg-white rounded-lg shadow p-8 text-center">
-        <p className="text-gray-500 mb-2">No confirmed guests yet.</p>
-        <p className="text-sm text-gray-400">
-          Mark invitees as &quot;Yes&quot; on the Invites tab to start planning seating.
-        </p>
-      </div>
-    );
-  }
-
   return <SeatingChart layout={layout} guests={guests} onSave={handleSave} />;
 }

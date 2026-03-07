@@ -63,7 +63,7 @@ export default function NewEventPage() {
       }
 
       const event = await res.json();
-      router.push(`/events/${event.id}`);
+      router.push(`/events/${event.id}${templateEventId ? '?tab=seating' : ''}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {

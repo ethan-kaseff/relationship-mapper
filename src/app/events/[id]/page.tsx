@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import InviteManager from "@/components/events/InviteManager";
 import SeatingChartWrapper from "@/components/events/SeatingChartWrapper";
@@ -38,9 +38,11 @@ interface EventData {
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"details" | "invites" | "seating">("details");
+  const initialTab = searchParams.get("tab") as "details" | "invites" | "seating" | null;
+  const [activeTab, setActiveTab] = useState<"details" | "invites" | "seating">(initialTab || "details");
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", eventDate: "", eventTime: "", location: "" });
   const [saving, setSaving] = useState(false);
