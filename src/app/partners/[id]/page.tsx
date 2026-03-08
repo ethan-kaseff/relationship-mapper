@@ -7,6 +7,7 @@ import EditPartnerInfo from "@/components/EditPartnerInfo";
 import RemoveRolePersonButton from "@/components/RemoveRolePersonButton";
 import AssignRolePersonButton from "@/components/AssignRolePersonButton";
 import DeleteRoleButton from "@/components/DeleteRoleButton";
+import AnnualInviteToggle from "@/components/AnnualInviteToggle";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -49,15 +50,12 @@ export default async function PartnerDetailPage({
         <h1 className="text-2xl font-bold text-indigo-900">
           {partner.organizationName ?? "Partner Detail"}
         </h1>
-        <div className="flex items-center gap-4">
-          <DeletePartnerButton partnerId={partner.id} />
-          <Link
-            href="/partners"
-            className="text-indigo-600 hover:underline text-sm"
-          >
-            Back to Partners
-          </Link>
-        </div>
+        <Link
+          href="/partners"
+          className="text-indigo-600 hover:underline text-sm"
+        >
+          Back to Partners
+        </Link>
       </div>
 
       {/* Basic Info */}
@@ -77,10 +75,11 @@ export default async function PartnerDetailPage({
           website: partner.website,
           priority: partner.priority,
         }}
+        annualInvite={partner.orgPeopleFlag === "P" ? partner.annualInvite : undefined}
       />
 
-      {/* Roles & Relationships */}
-      <div className="bg-white rounded-lg shadow p-6 mb-6">
+      {/* Roles & Relationships — only for Organizations */}
+      {partner.orgPeopleFlag === "O" && <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-indigo-900">Roles</h2>
           <AddRoleForm partnerId={partner.id} />
@@ -94,7 +93,6 @@ export default async function PartnerDetailPage({
                 <div className="flex items-center gap-3 mb-3">
                   <h3 className="font-semibold text-indigo-900">
                     {role.roleDescription}
-                    <DeleteRoleButton roleId={role.id} />
                   </h3>
                   {role.person ? (
                     <span className="text-sm text-gray-500 flex items-center">
@@ -105,28 +103,35 @@ export default async function PartnerDetailPage({
                       >
                         {role.person.firstName} {role.person.lastName}
                       </Link>
-                      <RemoveRolePersonButton
-                        roleId={role.id}
-                        personName={`${role.person.firstName} ${role.person.lastName}`}
-                        personId={role.person.id}
-                        personOfficeId={role.person.officeId}
-                      />
-                      <AssignRolePersonButton
-                        roleId={role.id}
-                        currentPersonId={role.person.id}
-                        currentPersonName={`${role.person.firstName} ${role.person.lastName}`}
-                        currentOfficeId={role.person.officeId}
-                      />
                     </span>
                   ) : (
-                    <span className="text-sm text-gray-400 flex items-center">
-                      — Vacant
+                    <span className="text-sm text-gray-400">— Vacant</span>
+                  )}
+                  <span className="ml-auto flex items-center gap-2">
+                    <AnnualInviteToggle roleId={role.id} initialValue={role.annualInvite} />
+                    {role.person ? (
+                      <>
+                        <RemoveRolePersonButton
+                          roleId={role.id}
+                          personName={`${role.person.firstName} ${role.person.lastName}`}
+                          personId={role.person.id}
+                          personOfficeId={role.person.officeId}
+                        />
+                        <AssignRolePersonButton
+                          roleId={role.id}
+                          currentPersonId={role.person.id}
+                          currentPersonName={`${role.person.firstName} ${role.person.lastName}`}
+                          currentOfficeId={role.person.officeId}
+                        />
+                      </>
+                    ) : (
                       <AssignRolePersonButton
                         roleId={role.id}
                         currentPersonId={null}
                       />
-                    </span>
-                  )}
+                    )}
+                    <DeleteRoleButton roleId={role.id} />
+                  </span>
                 </div>
 
                 {role.relationships.length > 0 && (
@@ -172,9 +177,6 @@ export default async function PartnerDetailPage({
                   </table>
                 )}
 
-                {role.relationships.length === 0 && (
-                  <p className="text-gray-400 text-xs">No relationships for this role.</p>
-                )}
 
                 {partner.orgPeopleFlag === "O" && (() => {
                   const pastAssignments = role.roleAssignments.filter(
@@ -220,6 +222,11 @@ export default async function PartnerDetailPage({
             ))}
           </div>
         )}
+      </div>}
+
+      {/* Delete */}
+      <div className="border-t border-gray-200 pt-6 mt-6">
+        <DeletePartnerButton partnerId={partner.id} />
       </div>
     </div>
   );

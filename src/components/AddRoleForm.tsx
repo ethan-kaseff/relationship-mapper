@@ -21,6 +21,10 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
   const [roleDescription, setRoleDescription] = useState("");
   const [peopleId, setPeopleId] = useState("");
   const [startDate, setStartDate] = useState("");
+  const [annualInvite, setAnnualInvite] = useState(false);
+  const [quickAdd, setQuickAdd] = useState(false);
+  const [newFirstName, setNewFirstName] = useState("");
+  const [newLastName, setNewLastName] = useState("");
   const roleInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -46,14 +50,37 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
     setError("");
 
     try {
+      let assignPeopleId = peopleId || null;
+
+      // Quick add: create the person first
+      if (quickAdd && newFirstName && newLastName) {
+        const personRes = await fetch("/api/people", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            firstName: newFirstName.trim(),
+            lastName: newLastName.trim(),
+          }),
+        });
+
+        if (!personRes.ok) {
+          const data = await personRes.json();
+          throw new Error(data.error || "Failed to create person");
+        }
+
+        const newPerson = await personRes.json();
+        assignPeopleId = newPerson.id;
+      }
+
       const res = await fetch("/api/partner-roles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           partnerId,
           roleDescription,
-          peopleId: peopleId || null,
-          startDate: peopleId && startDate ? startDate : null,
+          peopleId: assignPeopleId,
+          startDate: assignPeopleId && startDate ? startDate : null,
+          annualInvite,
         }),
       });
 
@@ -65,6 +92,10 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
       setRoleDescription("");
       setPeopleId("");
       setStartDate("");
+      setAnnualInvite(false);
+      setQuickAdd(false);
+      setNewFirstName("");
+      setNewLastName("");
       setOpen(false);
       router.refresh();
     } catch (err: unknown) {
@@ -94,7 +125,7 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
     <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
       <div className="flex items-center gap-3 mb-3">
         <h3 className="font-semibold text-indigo-900 text-sm">Add New Role</h3>
-        <OfficeDataToggle onToggle={() => fetchPeople()} />
+        {!quickAdd && <OfficeDataToggle onToggle={() => fetchPeople()} />}
       </div>
       {error && (
         <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-2 mb-3 text-xs">
@@ -116,18 +147,72 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
             className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
         </div>
-        <div className="w-56">
-          <label className="block text-xs font-medium text-gray-700 mb-1">
-            Assign Person (optional)
-          </label>
-          <SearchableSelect
-            options={personOptions}
-            value={peopleId}
-            onChange={setPeopleId}
-            placeholder="Search people..."
-          />
-        </div>
-        {peopleId && (
+        {quickAdd ? (
+          <>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                First Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={newFirstName}
+                onChange={(e) => setNewFirstName(e.target.value)}
+                placeholder="First name"
+                className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Last Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                value={newLastName}
+                onChange={(e) => setNewLastName(e.target.value)}
+                placeholder="Last name"
+                className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setQuickAdd(false);
+                setNewFirstName("");
+                setNewLastName("");
+              }}
+              className="text-indigo-600 hover:underline text-xs self-center"
+            >
+              Pick existing
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="w-56">
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Assign Person (optional)
+              </label>
+              <SearchableSelect
+                options={personOptions}
+                value={peopleId}
+                onChange={setPeopleId}
+                placeholder="Search people..."
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setQuickAdd(true);
+                setPeopleId("");
+              }}
+              className="text-indigo-600 hover:underline text-xs self-center"
+            >
+              + New person
+            </button>
+          </>
+        )}
+        {(peopleId || quickAdd) && (
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">
               Start Date (optional)
@@ -140,6 +225,17 @@ export default function AddRoleForm({ partnerId }: { partnerId: string }) {
             />
           </div>
         )}
+        <div className="flex items-center self-center">
+          <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={annualInvite}
+              onChange={(e) => setAnnualInvite(e.target.checked)}
+              className="accent-indigo-600 w-3.5 h-3.5"
+            />
+            <span className="text-xs font-medium text-gray-700">Annual Invite</span>
+          </label>
+        </div>
         <div className="flex gap-2">
           <button
             type="submit"

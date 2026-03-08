@@ -109,6 +109,7 @@ model Partner {
   priority           Int               @default(5)
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
+  annualInvite       Boolean           @default(false) @map("annual_invite")
   officeId           String            @map("office_id")
   office             Office            @relation(fields: [officeId], references: [id])
 
@@ -125,6 +126,7 @@ model PartnerRole {
   roleDescription String  @map("role_description")
   peopleId        String? @map("people_id")
   person          People? @relation(fields: [peopleId], references: [id])
+  annualInvite    Boolean @default(false) @map("annual_invite")
 
   roleAssignments RoleAssignment[]
   relationships   Relationship[]

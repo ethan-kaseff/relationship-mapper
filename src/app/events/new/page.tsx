@@ -16,6 +16,7 @@ export default function NewEventPage() {
   const [error, setError] = useState("");
   const [pastEvents, setPastEvents] = useState<PastEvent[]>([]);
   const [templateEventId, setTemplateEventId] = useState("");
+  const [isAnnualEvent, setIsAnnualEvent] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -54,6 +55,7 @@ export default function NewEventPage() {
             ? new Date(form.eventDate).toISOString()
             : null,
           templateEventId: templateEventId || null,
+          isAnnualEvent,
         }),
       });
 
@@ -172,6 +174,23 @@ export default function NewEventPage() {
               onChange={handleChange}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
+          </div>
+
+          <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={isAnnualEvent}
+                onChange={(e) => setIsAnnualEvent(e.target.checked)}
+                className="accent-indigo-600 w-4 h-4"
+              />
+              <span className="text-sm font-medium text-gray-700">Annual Event</span>
+            </label>
+            {isAnnualEvent && (
+              <p className="text-xs text-gray-500 mt-2 ml-6">
+                All partner roles flagged as &quot;Annual Invite&quot; will be automatically invited.
+              </p>
+            )}
           </div>
 
           <div className="pt-4">

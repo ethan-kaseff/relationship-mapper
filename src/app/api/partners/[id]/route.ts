@@ -64,6 +64,7 @@ export async function PUT(
         email: data.email || null,
         website: data.website || null,
         ...(data.priority !== undefined ? { priority: data.priority ?? 5 } : {}),
+        ...(data.annualInvite !== undefined ? { annualInvite: data.annualInvite } : {}),
       },
     });
     return NextResponse.json(partner);

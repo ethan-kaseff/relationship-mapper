@@ -7,6 +7,7 @@ export const createEventSchema = z.object({
   eventTime: z.string().max(20).optional().nullable(),
   location: z.string().max(300).optional().nullable(),
   templateEventId: z.string().uuid().optional().nullable(),
+  isAnnualEvent: z.boolean().optional(),
 });
 
 export const updateEventSchema = z.object({

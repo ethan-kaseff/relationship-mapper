@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getOfficeFilter } from "@/lib/office-filter";
 import OfficeDataToggle from "@/components/OfficeDataToggle";
+import RelationshipSearch from "@/components/RelationshipSearch";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -22,6 +23,20 @@ export default async function RelationshipsPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const serialized = relationships.map((rel) => ({
+    id: rel.id,
+    person: { id: rel.person.id, firstName: rel.person.firstName, lastName: rel.person.lastName },
+    targetPerson: { id: rel.targetPerson.id, firstName: rel.targetPerson.firstName, lastName: rel.targetPerson.lastName },
+    partnerRole: rel.partnerRole
+      ? {
+          roleDescription: rel.partnerRole.roleDescription,
+          partner: { id: rel.partnerRole.partner.id, organizationName: rel.partnerRole.partner.organizationName },
+        }
+      : null,
+    relationshipType: { relationshipDesc: rel.relationshipType.relationshipDesc },
+    lastReviewedDate: rel.lastReviewedDate ? rel.lastReviewedDate.toISOString() : null,
+  }));
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -37,68 +52,7 @@ export default async function RelationshipsPage() {
         </Link>
       </div>
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b">
-            <tr>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Connector</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Person</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Partner / Role</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Relationship Type</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Last Reviewed</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {relationships.map((rel) => (
-              <tr key={rel.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/people/${rel.person.id}`}
-                    className="text-indigo-600 hover:underline font-medium"
-                  >
-                    {rel.person.firstName} {rel.person.lastName}
-                  </Link>
-                </td>
-                <td className="px-4 py-3">
-                  <Link
-                    href={`/people/${rel.targetPerson.id}`}
-                    className="text-indigo-600 hover:underline font-medium"
-                  >
-                    {rel.targetPerson.firstName} {rel.targetPerson.lastName}
-                  </Link>
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {rel.partnerRole ? (
-                    <Link
-                      href={`/partners/${rel.partnerRole.partner.id}`}
-                      className="text-indigo-600 hover:underline"
-                    >
-                      {rel.partnerRole.partner.organizationName ?? "—"} — {rel.partnerRole.roleDescription}
-                    </Link>
-                  ) : (
-                    <span className="text-gray-400">—</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {rel.relationshipType.relationshipDesc}
-                </td>
-                <td className="px-4 py-3 text-gray-600">
-                  {rel.lastReviewedDate
-                    ? new Date(rel.lastReviewedDate).toLocaleDateString()
-                    : "—"}
-                </td>
-              </tr>
-            ))}
-            {relationships.length === 0 && (
-              <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                  No relationships found. Add your first relationship above.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <RelationshipSearch relationships={serialized} />
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import PartnerAnnualInviteToggle from "@/components/PartnerAnnualInviteToggle";
 
 interface OrgType {
   id: string;
@@ -26,11 +27,12 @@ interface PartnerData {
 interface Props {
   partnerId: string;
   partner: PartnerData;
+  annualInvite?: boolean;
 }
 
 const PRIORITY_LABELS = ["Highest", "High", "Medium", "Low", "Lowest"];
 
-export default function EditPartnerInfo({ partnerId, partner }: Props) {
+export default function EditPartnerInfo({ partnerId, partner, annualInvite }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -188,6 +190,12 @@ export default function EditPartnerInfo({ partnerId, partner }: Props) {
               {partner.priority ? `${partner.priority} — ${PRIORITY_LABELS[partner.priority - 1]}` : "—"}
             </span>
           </div>
+          {annualInvite !== undefined && (
+            <div>
+              <span className="font-medium text-gray-500">Annual Invite:</span>{" "}
+              <PartnerAnnualInviteToggle partnerId={partnerId} initialValue={annualInvite} />
+            </div>
+          )}
         </div>
       </div>
     );

@@ -64,6 +64,8 @@ export async function POST(request: Request) {
       }
     }
 
+    const officeId = (authResult.session.user as { officeId: string }).officeId;
+
     const event = await prisma.event.create({
       data: {
         title: data.title,
@@ -73,9 +75,69 @@ export async function POST(request: Request) {
         location: data.location,
         seatingLayout: seatingLayout ?? undefined,
         createdById: authResult.session.user.id,
-        officeId: (authResult.session.user as { officeId: string }).officeId,
+        officeId,
       },
     });
+
+    // Auto-invite people from annual-invite-flagged roles and partners
+    if (data.isAnnualEvent) {
+      const allPeopleIds: string[] = [];
+
+      // From Organization partner roles flagged as annual invite
+      const roles = await prisma.partnerRole.findMany({
+        where: {
+          annualInvite: true,
+          peopleId: { not: null },
+          partner: { officeId },
+        },
+        select: { peopleId: true },
+      });
+      allPeopleIds.push(...roles.map((r) => r.peopleId!));
+
+      // From Person partners flagged as annual invite
+      const personPartners = await prisma.partner.findMany({
+        where: { officeId, orgPeopleFlag: "P", annualInvite: true },
+        include: {
+          partnerRoles: {
+            where: { peopleId: { not: null } },
+            select: { peopleId: true },
+            take: 1,
+          },
+        },
+      });
+
+      for (const pp of personPartners) {
+        if (pp.partnerRoles.length > 0) {
+          // Has a PartnerRole linking to a People record
+          allPeopleIds.push(pp.partnerRoles[0].peopleId!);
+        } else if (pp.organizationName) {
+          // No PartnerRole — match People by name in same office
+          const nameParts = pp.organizationName.trim().split(/\s+/);
+          const firstName = nameParts[0] || "";
+          const lastName = nameParts.slice(1).join(" ") || "";
+          if (firstName && lastName) {
+            const person = await prisma.people.findFirst({
+              where: { firstName, lastName, officeId },
+              select: { id: true },
+            });
+            if (person) allPeopleIds.push(person.id);
+          }
+        }
+      }
+
+      const uniquePeopleIds = [...new Set(allPeopleIds)];
+
+      if (uniquePeopleIds.length > 0) {
+        await prisma.eventInvite.createMany({
+          data: uniquePeopleIds.map((peopleId) => ({
+            eventId: event.id,
+            peopleId,
+          })),
+          skipDuplicates: true,
+        });
+      }
+    }
+
     return NextResponse.json(event, { status: 201 });
   } catch (error) {
     return handleApiError(error);

@@ -66,6 +66,10 @@ export default async function PersonDetailPage({
         include: { happening: true },
         orderBy: { createdAt: "desc" },
       },
+      eventInvites: {
+        include: { event: true },
+        orderBy: { createdAt: "desc" },
+      },
     },
   });
 
@@ -105,15 +109,12 @@ export default async function PersonDetailPage({
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-indigo-900">{person.firstName} {person.lastName}</h1>
-        <div className="flex items-center gap-4">
-          <DeletePersonButton personId={person.id} />
-          <Link
-            href="/people"
-            className="text-indigo-600 hover:underline text-sm"
-          >
-            Back to People
-          </Link>
-        </div>
+        <Link
+          href="/people"
+          className="text-indigo-600 hover:underline text-sm"
+        >
+          Back to People
+        </Link>
       </div>
 
       {/* Contact Info — editable for non-Connector roles */}
@@ -459,6 +460,58 @@ export default async function PersonDetailPage({
         </div>
       )}
 
+      {/* Event Invites */}
+      <div className="bg-white rounded-lg shadow p-6 mb-6">
+        <h2 className="text-lg font-semibold text-indigo-900 mb-4">Event Invites</h2>
+        {person.eventInvites.length === 0 ? (
+          <p className="text-gray-400 text-sm">Not invited to any events.</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Event</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Date</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">RSVP</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {person.eventInvites.map((invite) => (
+                <tr key={invite.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2">
+                    <Link
+                      href={`/events/${invite.event.id}`}
+                      className="text-indigo-600 hover:underline"
+                    >
+                      {invite.event.title}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-2 text-gray-600">
+                    {invite.event.eventDate
+                      ? new Date(invite.event.eventDate).toLocaleDateString()
+                      : "—"}
+                  </td>
+                  <td className="px-4 py-2">
+                    <span
+                      className={`inline-block text-xs font-medium px-2 py-0.5 rounded-full ${
+                        invite.rsvpStatus === "YES"
+                          ? "bg-green-100 text-green-800"
+                          : invite.rsvpStatus === "NO"
+                          ? "bg-red-100 text-red-800"
+                          : invite.rsvpStatus === "MAYBE"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-gray-100 text-gray-600"
+                      }`}
+                    >
+                      {invite.rsvpStatus}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {/* Happening Responses */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <h2 className="text-lg font-semibold text-indigo-900 mb-4">Responses</h2>
@@ -516,6 +569,11 @@ export default async function PersonDetailPage({
           initialToken={person.connectorToken}
         />
       )}
+
+      {/* Delete */}
+      <div className="border-t border-gray-200 pt-6 mt-6">
+        <DeletePersonButton personId={person.id} />
+      </div>
     </div>
   );
 }

@@ -86,6 +86,9 @@ export async function PATCH(
         ...(body.roleDescription !== undefined
           ? { roleDescription: body.roleDescription }
           : {}),
+        ...(body.annualInvite !== undefined
+          ? { annualInvite: body.annualInvite }
+          : {}),
       },
     });
 

@@ -40,6 +40,7 @@ export async function POST(request: Request) {
         partnerId: data.partnerId,
         roleDescription: data.roleDescription,
         peopleId: data.peopleId,
+        annualInvite: data.annualInvite ?? false,
       },
     });
 
