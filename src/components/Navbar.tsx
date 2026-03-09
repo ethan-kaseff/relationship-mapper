@@ -100,7 +100,7 @@ export default function Navbar() {
           )}
           <Link
             href="/help"
-            className="text-blue-200 hover:text-white transition-colors"
+            className="text-indigo-200 hover:text-white transition-colors"
             title="Help"
           >
             ?
