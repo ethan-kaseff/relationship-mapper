@@ -134,6 +134,7 @@ export default async function PersonDetailPage({
             phoneNumber: person.phoneNumber,
             personalEmail: person.personalEmail,
             isConnector: person.isConnector,
+            annualInvite: person.annualInvite,
           }}
         />
       ) : (
@@ -180,6 +181,16 @@ export default async function PersonDetailPage({
               <span className="font-medium text-gray-500">Connector:</span>{" "}
               {person.isConnector ? (
                 <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                  Yes
+                </span>
+              ) : (
+                <span className="text-gray-800">No</span>
+              )}
+            </div>
+            <div>
+              <span className="font-medium text-gray-500">Annual Invite:</span>{" "}
+              {person.annualInvite ? (
+                <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
                   Yes
                 </span>
               ) : (

@@ -74,6 +74,7 @@ model People {
   phoneNumber   String?  @map("phone_number")
   personalEmail String?  @map("personal_email")
   isConnector    Boolean  @default(false) @map("is_connector")
+  annualInvite   Boolean  @default(false) @map("annual_invite")
   connectorToken String?  @unique @map("connector_token")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")

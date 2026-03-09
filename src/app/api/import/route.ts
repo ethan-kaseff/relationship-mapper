@@ -129,6 +129,9 @@ export async function POST(request: Request) {
               isConnector:
                 (row["is connector"] || row["isconnector"] || "")
                   .toLowerCase() === "yes",
+              annualInvite:
+                (row["annual invite"] || row["annualinvite"] || "")
+                  .toLowerCase() === "yes",
               officeId,
             },
           });
@@ -218,7 +221,14 @@ export async function POST(request: Request) {
         existingPeopleForPartners.map((p) => personKey(p.prefix, p.firstName, p.middleInitial, p.lastName, p.officeId))
       );
 
-      // Partners import
+      // Partners import — pre-load existing partners for duplicate checking
+      const existingPartners = await prisma.partner.findMany({
+        select: { organizationName: true, officeId: true },
+      });
+      const existingPartnerKeys = new Set(
+        existingPartners.map((p) => `${(p.organizationName || "").trim().toLowerCase()}|${p.officeId}`)
+      );
+
       const orgTypes = await prisma.organizationType.findMany({
         select: { id: true, typeName: true },
       });
@@ -279,6 +289,12 @@ export async function POST(request: Request) {
         const priorityStr = row["priority"] || "";
         const priority = priorityStr ? parseInt(priorityStr, 10) : null;
 
+        const partnerKey = `${name.trim().toLowerCase()}|${officeId}`;
+        if (existingPartnerKeys.has(partnerKey)) {
+          errors.push({ row: rowNum, message: `Duplicate: partner "${name.trim()}" already exists` });
+          continue;
+        }
+
         try {
           await prisma.partner.create({
             data: {
@@ -296,6 +312,8 @@ export async function POST(request: Request) {
               officeId,
             },
           });
+
+          existingPartnerKeys.add(partnerKey);
 
           // If this partner is a Person, also create a People record (if not a duplicate)
           if (orgPeopleFlag === "P") {

@@ -83,6 +83,7 @@ export async function PUT(
         phoneNumber: data.phoneNumber,
         personalEmail: data.personalEmail || null,
         isConnector: data.isConnector,
+        annualInvite: data.annualInvite,
       },
     });
     return NextResponse.json(person);

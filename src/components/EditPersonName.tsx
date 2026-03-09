@@ -16,6 +16,7 @@ interface PersonData {
   phoneNumber: string | null;
   personalEmail: string | null;
   isConnector: boolean;
+  annualInvite: boolean;
 }
 
 interface Props {
@@ -62,6 +63,7 @@ export default function EditPersonButton({ personId, person }: Props) {
           phoneNumber: form.phoneNumber || null,
           personalEmail: form.personalEmail || null,
           isConnector: form.isConnector,
+          annualInvite: form.annualInvite,
         }),
       });
 
@@ -133,6 +135,16 @@ export default function EditPersonButton({ personId, person }: Props) {
             <span className="font-medium text-gray-500">Connector:</span>{" "}
             {person.isConnector ? (
               <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                Yes
+              </span>
+            ) : (
+              <span className="text-gray-800">No</span>
+            )}
+          </div>
+          <div>
+            <span className="font-medium text-gray-500">Annual Invite:</span>{" "}
+            {person.annualInvite ? (
+              <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
                 Yes
               </span>
             ) : (
@@ -291,18 +303,33 @@ export default function EditPersonButton({ personId, person }: Props) {
           />
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            name="isConnector"
-            id="editIsConnector"
-            checked={form.isConnector}
-            onChange={handleChange}
-            className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-          />
-          <label htmlFor="editIsConnector" className="text-sm font-medium text-gray-700">
-            Is Connector
-          </label>
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="isConnector"
+              id="editIsConnector"
+              checked={form.isConnector}
+              onChange={handleChange}
+              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            <label htmlFor="editIsConnector" className="text-sm font-medium text-gray-700">
+              Is Connector
+            </label>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              name="annualInvite"
+              id="editAnnualInvite"
+              checked={form.annualInvite}
+              onChange={handleChange}
+              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+            />
+            <label htmlFor="editAnnualInvite" className="text-sm font-medium text-gray-700">
+              Annual Invite
+            </label>
+          </div>
         </div>
 
         <div className="flex gap-2 pt-2">

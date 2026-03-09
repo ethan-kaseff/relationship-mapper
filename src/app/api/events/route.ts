@@ -125,6 +125,13 @@ export async function POST(request: Request) {
         }
       }
 
+      // From People directly flagged as annual invite
+      const annualPeople = await prisma.people.findMany({
+        where: { officeId, annualInvite: true },
+        select: { id: true },
+      });
+      allPeopleIds.push(...annualPeople.map((p) => p.id));
+
       const uniquePeopleIds = [...new Set(allPeopleIds)];
 
       if (uniquePeopleIds.length > 0) {
