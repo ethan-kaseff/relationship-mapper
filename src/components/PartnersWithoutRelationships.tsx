@@ -31,7 +31,7 @@ const PRIORITY_OPTIONS = [
 ];
 
 export default function PartnersWithoutRelationships({ partners }: { partners: Partner[] }) {
-  const [maxPriority, setMaxPriority] = useState("");
+  const [maxPriority, setMaxPriority] = useState("2");
 
   const filtered = maxPriority
     ? partners.filter((p) => p.priority !== null && p.priority <= parseInt(maxPriority))
