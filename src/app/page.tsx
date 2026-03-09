@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { useSession } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
 import { motion } from "framer-motion";
+import LoginModal from "@/components/LoginModal";
 import {
   Building2,
   Shield,
@@ -105,8 +108,24 @@ function NetworkVisualization() {
 }
 
 export default function LandingPage() {
+  return (
+    <Suspense>
+      <LandingPageContent />
+    </Suspense>
+  );
+}
+
+function LandingPageContent() {
   const { status } = useSession();
   const isLoggedIn = status === "authenticated";
+  const searchParams = useSearchParams();
+  const [showLogin, setShowLogin] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("login") === "true" && !isLoggedIn) {
+      setShowLogin(true);
+    }
+  }, [searchParams, isLoggedIn]);
 
   return (
     <div className="min-h-screen">
@@ -115,12 +134,21 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <span className="text-xl font-bold text-indigo-600">Relationship Mapper</span>
           {status !== "loading" && (
-            <Link
-              href={isLoggedIn ? "/dashboard" : "/login"}
-              className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
-            >
-              {isLoggedIn ? "Go to Dashboard" : "Login"}
-            </Link>
+            isLoggedIn ? (
+              <Link
+                href="/dashboard"
+                className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+              >
+                Go to Dashboard
+              </Link>
+            ) : (
+              <button
+                onClick={() => setShowLogin(true)}
+                className="bg-indigo-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 transition-colors"
+              >
+                Login
+              </button>
+            )
           )}
         </div>
       </nav>
@@ -149,12 +177,21 @@ export default function LandingPage() {
                 log interactions, and grow their network — all in one place.
               </motion.p>
               <motion.div className="mt-10 flex flex-col sm:flex-row gap-4 justify-center" variants={fadeUp}>
-                <Link
-                  href={isLoggedIn ? "/dashboard" : "/login"}
-                  className="inline-flex items-center justify-center gap-2 bg-white text-indigo-600 px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-indigo-50 transition-colors shadow-lg"
-                >
-                  Get Started <ArrowRight className="w-4 h-4" />
-                </Link>
+                {isLoggedIn ? (
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center justify-center gap-2 bg-white text-indigo-600 px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-indigo-50 transition-colors shadow-lg"
+                  >
+                    Get Started <ArrowRight className="w-4 h-4" />
+                  </Link>
+                ) : (
+                  <button
+                    onClick={() => setShowLogin(true)}
+                    className="inline-flex items-center justify-center gap-2 bg-white text-indigo-600 px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-indigo-50 transition-colors shadow-lg"
+                  >
+                    Get Started <ArrowRight className="w-4 h-4" />
+                  </button>
+                )}
                 <a
                   href="#how-it-works"
                   className="inline-flex items-center justify-center gap-2 border-2 border-white/30 text-white px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-white/10 transition-colors"
@@ -312,12 +349,21 @@ export default function LandingPage() {
               Start mapping the relationships that drive your organization forward.
             </motion.p>
             <motion.div className="mt-8" variants={fadeUp}>
-              <Link
-                href={isLoggedIn ? "/dashboard" : "/login"}
-                className="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-indigo-700 transition-colors shadow-lg"
-              >
-                Start Mapping Relationships <ArrowRight className="w-4 h-4" />
-              </Link>
+              {isLoggedIn ? (
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-indigo-700 transition-colors shadow-lg"
+                >
+                  Start Mapping Relationships <ArrowRight className="w-4 h-4" />
+                </Link>
+              ) : (
+                <button
+                  onClick={() => setShowLogin(true)}
+                  className="inline-flex items-center gap-2 bg-indigo-600 text-white px-8 py-3.5 rounded-lg text-base font-semibold hover:bg-indigo-700 transition-colors shadow-lg"
+                >
+                  Start Mapping Relationships <ArrowRight className="w-4 h-4" />
+                </button>
+              )}
             </motion.div>
           </motion.div>
         </div>
@@ -329,6 +375,8 @@ export default function LandingPage() {
           <p>&copy; {new Date().getFullYear()} Relationship Mapper. All rights reserved.</p>
         </div>
       </footer>
+
+      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
     </div>
   );
 }

@@ -110,7 +110,7 @@ export default function Navbar() {
             <span className="text-indigo-200 text-xs">({ROLE_LABELS[role] || role})</span>
           </span>
           <button
-            onClick={() => signOut({ callbackUrl: "/login" })}
+            onClick={() => signOut({ callbackUrl: "/" })}
             className="hover:text-indigo-200 transition-colors"
           >
             Logout

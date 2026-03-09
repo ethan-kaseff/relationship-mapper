@@ -31,9 +31,9 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Redirect to login if not authenticated
+  // Redirect to landing page with login modal if not authenticated
   if (!token) {
-    const loginUrl = new URL("/login", request.url);
+    const loginUrl = new URL("/?login=true", request.url);
     return NextResponse.redirect(loginUrl);
   }
 

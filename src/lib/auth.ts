@@ -40,12 +40,12 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+  pages: { signIn: "/" },
   callbacks: {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;
       const pathname = request.nextUrl.pathname;
-      if (pathname === "/login") return true;
+      if (pathname === "/" || pathname === "/login") return true;
       if (!isLoggedIn) return false;
 
       const role = (auth?.user as { role?: string })?.role;
