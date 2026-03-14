@@ -31,6 +31,7 @@ export default function AddRoleForm({ partnerId, allAnnualEventTypes }: { partne
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
   const roleInputRef = useRef<HTMLInputElement>(null);
+  const [roleFilled, setRoleFilled] = useState(false);
 
   useEffect(() => {
     if (open && roleInputRef.current) {
@@ -101,6 +102,7 @@ export default function AddRoleForm({ partnerId, allAnnualEventTypes }: { partne
       }
 
       setRoleDescription("");
+      setRoleFilled(false);
       setPeopleId("");
       setStartDate("");
       setAnnualEventTypeIds([]);
@@ -153,7 +155,8 @@ export default function AddRoleForm({ partnerId, allAnnualEventTypes }: { partne
             type="text"
             required
             value={roleDescription}
-            onChange={(e) => setRoleDescription(e.target.value)}
+            onChange={(e) => { setRoleDescription(e.target.value); setRoleFilled(false); }}
+            onBlur={() => { if (roleDescription.trim()) setRoleFilled(true); }}
             placeholder="e.g. Executive Director"
             className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />
@@ -209,6 +212,7 @@ export default function AddRoleForm({ partnerId, allAnnualEventTypes }: { partne
                 value={peopleId}
                 onChange={setPeopleId}
                 placeholder="Search people..."
+                autoFocus={roleFilled}
               />
             </div>
             <button

@@ -150,7 +150,7 @@ export default async function Dashboard() {
                       </span>
                       <span className="text-gray-400">&middot;</span>
                       <span className="text-gray-500">
-                        {new Date(c.connectionDate).toLocaleDateString()}
+                        {new Date(c.connectionDate).toLocaleDateString(undefined, { timeZone: "UTC" })}
                       </span>
                     </div>
                     <div className="text-sm text-gray-500 mt-0.5">

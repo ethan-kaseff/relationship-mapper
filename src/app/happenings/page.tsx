@@ -32,19 +32,13 @@ export default async function HappeningsPage() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Date</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Time</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Description</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Happening</th>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">Responses</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {happenings.map((happening) => (
               <tr key={happening.id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 text-gray-600">
-                  {new Date(happening.happeningDate).toLocaleDateString()}
-                </td>
-                <td className="px-4 py-3 text-gray-600">{happening.happeningTime ?? "—"}</td>
                 <td className="px-4 py-3">
                   <Link
                     href={`/happenings/${happening.id}`}
@@ -52,6 +46,9 @@ export default async function HappeningsPage() {
                   >
                     {happening.happeningDescription}
                   </Link>
+                  <span className="text-gray-500 ml-2 text-xs">
+                    {new Date(happening.happeningDate).toLocaleDateString(undefined, { timeZone: "UTC" })}
+                  </span>
                 </td>
                 <td className="px-4 py-3">
                   <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
@@ -62,7 +59,7 @@ export default async function HappeningsPage() {
             ))}
             {happenings.length === 0 && (
               <tr>
-                <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={2} className="px-4 py-8 text-center text-gray-400">
                   No happenings found. Add your first one above.
                 </td>
               </tr>

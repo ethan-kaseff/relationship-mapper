@@ -38,6 +38,8 @@ export async function POST(request: Request) {
         responseTime: data.responseTime,
         responseNotes: data.responseNotes,
         isPublic: data.isPublic ?? true,
+        platform: data.platform,
+        platformLink: data.platformLink,
       },
     });
     return NextResponse.json(happeningResponse, { status: 201 });

@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import AddHappeningResponseForm from "@/components/AddHappeningResponseForm";
+import HappeningResponseRow from "@/components/HappeningResponseRow";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -43,7 +45,7 @@ export default async function HappeningDetailPage({
           <div>
             <span className="font-medium text-gray-500">Date:</span>{" "}
             <span className="text-gray-800">
-              {new Date(happening.happeningDate).toLocaleDateString()}
+              {new Date(happening.happeningDate).toLocaleDateString(undefined, { timeZone: "UTC" })}
             </span>
           </div>
           <div>
@@ -59,9 +61,12 @@ export default async function HappeningDetailPage({
 
       {/* Responses */}
       <div className="bg-white rounded-lg shadow p-6">
-        <h2 className="text-lg font-semibold text-indigo-900 mb-4">
-          Responses ({happening.responses.length})
-        </h2>
+        <div className="flex items-center gap-4 mb-4">
+          <h2 className="text-lg font-semibold text-indigo-900">
+            Responses ({happening.responses.length})
+          </h2>
+          <AddHappeningResponseForm happeningId={id} />
+        </div>
         {happening.responses.length === 0 ? (
           <p className="text-gray-400 text-sm">No responses recorded for this happening.</p>
         ) : (
@@ -72,37 +77,25 @@ export default async function HappeningDetailPage({
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Response Date</th>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Notes</th>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Visibility</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {happening.responses.map((resp) => (
-                <tr key={resp.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2">
-                    <Link
-                      href={`/people/${resp.person.id}`}
-                      className="text-indigo-600 hover:underline"
-                    >
-                      {resp.person.firstName} {resp.person.lastName}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">
-                    {resp.responseDate
-                      ? new Date(resp.responseDate).toLocaleDateString()
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">{resp.responseNotes ?? "—"}</td>
-                  <td className="px-4 py-2">
-                    {resp.isPublic ? (
-                      <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
-                        Public
-                      </span>
-                    ) : (
-                      <span className="inline-block bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">
-                        Private
-                      </span>
-                    )}
-                  </td>
-                </tr>
+                <HappeningResponseRow
+                  key={resp.id}
+                  response={{
+                    id: resp.id,
+                    responseDate: resp.responseDate?.toISOString() ?? null,
+                    responseTime: resp.responseTime,
+                    responseNotes: resp.responseNotes,
+                    isPublic: resp.isPublic,
+                    platform: resp.platform,
+                    platformLink: resp.platformLink,
+                    person: resp.person,
+                  }}
+                  mode="happening"
+                />
               ))}
             </tbody>
           </table>

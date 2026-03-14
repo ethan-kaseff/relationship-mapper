@@ -15,6 +15,7 @@ interface Person {
 interface PartnerRole {
   id: string;
   roleDescription: string;
+  peopleId: string | null;
   partner: { organizationName: string | null };
 }
 
@@ -88,7 +89,11 @@ export default function NewInteractionPage() {
     label: `${p.lastName}, ${p.firstName}`,
   }));
 
-  const partnerRoleOptions = partnerRoles.map((pr) => ({
+  const filteredPartnerRoles = form.peopleId
+    ? partnerRoles.filter((pr) => pr.peopleId !== form.peopleId)
+    : partnerRoles;
+
+  const partnerRoleOptions = filteredPartnerRoles.map((pr) => ({
     value: pr.id,
     label: `${pr.partner.organizationName ?? "Unknown"} — ${pr.roleDescription}`,
   }));
@@ -115,7 +120,7 @@ export default function NewInteractionPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              Person <span className="text-red-500">*</span>
+              Connector <span className="text-red-500">*</span>
             </label>
             <SearchableSelect
               options={personOptions}

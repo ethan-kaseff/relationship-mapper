@@ -188,7 +188,7 @@ export default async function PartnerDetailPage({
                           </td>
                           <td className="px-3 py-2 text-gray-600">
                             {rel.lastReviewedDate
-                              ? new Date(rel.lastReviewedDate).toLocaleDateString()
+                              ? new Date(rel.lastReviewedDate).toLocaleDateString(undefined, { timeZone: "UTC" })
                               : "—"}
                           </td>
                         </tr>
@@ -226,10 +226,10 @@ export default async function PartnerDetailPage({
                                 </Link>
                               </td>
                               <td className="px-3 py-1.5 text-gray-600">
-                                {a.startDate ? new Date(a.startDate).toLocaleDateString() : "—"}
+                                {a.startDate ? new Date(a.startDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "—"}
                               </td>
                               <td className="px-3 py-1.5 text-gray-600">
-                                {a.endDate ? new Date(a.endDate).toLocaleDateString() : "—"}
+                                {a.endDate ? new Date(a.endDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "—"}
                               </td>
                             </tr>
                           ))}

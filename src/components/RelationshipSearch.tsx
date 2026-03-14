@@ -39,6 +39,7 @@ export default function RelationshipSearch({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by connector or person name..."
+          autoFocus
           className="w-full max-w-md border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
         />
       </div>
@@ -90,7 +91,7 @@ export default function RelationshipSearch({
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {rel.lastReviewedDate
-                    ? new Date(rel.lastReviewedDate).toLocaleDateString()
+                    ? new Date(rel.lastReviewedDate).toLocaleDateString(undefined, { timeZone: "UTC" })
                     : "—"}
                 </td>
               </tr>

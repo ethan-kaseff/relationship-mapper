@@ -213,7 +213,7 @@ export async function GET(request: Request) {
         partner: rel.partnerRole?.partner?.organizationName ?? "",
         role: rel.partnerRole?.roleDescription ?? "",
         lastReviewed: r.lastReviewedDate
-          ? new Date(r.lastReviewedDate).toLocaleDateString()
+          ? new Date(r.lastReviewedDate).toLocaleDateString(undefined, { timeZone: "UTC" })
           : "",
       });
     }
@@ -238,7 +238,7 @@ export async function GET(request: Request) {
         person: `${conn.person.firstName} ${conn.person.lastName}`,
         partner: conn.partnerRole?.partner?.organizationName ?? "",
         role: conn.partnerRole?.roleDescription ?? "",
-        date: new Date(c.connectionDate).toLocaleDateString(),
+        date: new Date(c.connectionDate).toLocaleDateString(undefined, { timeZone: "UTC" }),
         time: c.connectionTime ?? "",
         notes: c.notes ?? "",
       });
@@ -353,7 +353,7 @@ function buildRelationshipsCsv(relationships: any[]): string {
         r.relationshipType.relationshipDesc,
         r.partnerRole?.partner?.organizationName ?? "",
         r.partnerRole?.roleDescription ?? "",
-        r.lastReviewedDate ? new Date(r.lastReviewedDate).toLocaleDateString() : "",
+        r.lastReviewedDate ? new Date(r.lastReviewedDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "",
       ])
     );
   }
@@ -387,7 +387,7 @@ function buildInteractionsCsv(interactions: any[]): string {
         `${c.person.firstName} ${c.person.lastName}`,
         c.partnerRole?.partner?.organizationName ?? "",
         c.partnerRole?.roleDescription ?? "",
-        new Date(c.connectionDate).toLocaleDateString(),
+        new Date(c.connectionDate).toLocaleDateString(undefined, { timeZone: "UTC" }),
         c.connectionTime ?? "",
         c.notes ?? "",
       ])

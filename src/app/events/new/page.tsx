@@ -136,7 +136,7 @@ export default function NewEventPage() {
                   <option key={event.id} value={event.id}>
                     {event.title}
                     {event.eventDate
-                      ? ` (${new Date(event.eventDate).toLocaleDateString()})`
+                      ? ` (${new Date(event.eventDate).toLocaleDateString(undefined, { timeZone: "UTC" })})`
                       : ""}
                   </option>
                 ))}

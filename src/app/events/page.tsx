@@ -58,7 +58,7 @@ export default async function EventsPage() {
                   </td>
                   <td className="px-4 py-3 text-gray-600">
                     {event.eventDate
-                      ? new Date(event.eventDate).toLocaleDateString()
+                      ? new Date(event.eventDate).toLocaleDateString(undefined, { timeZone: "UTC" })
                       : "—"}
                   </td>
                   <td className="px-4 py-3 text-gray-600">{event.location ?? "—"}</td>

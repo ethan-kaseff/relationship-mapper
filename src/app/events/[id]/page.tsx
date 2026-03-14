@@ -286,7 +286,7 @@ export default function EventDetailPage() {
                   <div>
                     <dt className="text-sm text-gray-500">Date</dt>
                     <dd className="text-sm text-gray-900">
-                      {new Date(event.eventDate).toLocaleDateString()}
+                      {new Date(event.eventDate).toLocaleDateString(undefined, { timeZone: "UTC" })}
                       {event.eventTime && ` at ${event.eventTime}`}
                     </dd>
                   </div>

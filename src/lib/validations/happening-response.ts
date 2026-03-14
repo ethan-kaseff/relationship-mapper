@@ -10,6 +10,8 @@ export const createHappeningResponseSchema = z.object({
   responseTime: z.string().max(20).optional().nullable(),
   responseNotes: z.string().max(2000).optional().nullable(),
   isPublic: z.boolean().default(true),
+  platform: z.string().max(50).optional().nullable(),
+  platformLink: z.string().max(500).optional().nullable(),
 });
 
 export const updateHappeningResponseSchema = z.object({
@@ -20,6 +22,8 @@ export const updateHappeningResponseSchema = z.object({
   responseTime: z.string().max(20).optional().nullable(),
   responseNotes: z.string().max(2000).optional().nullable(),
   isPublic: z.boolean().optional(),
+  platform: z.string().max(50).optional().nullable(),
+  platformLink: z.string().max(500).optional().nullable(),
 });
 
 export type CreateHappeningResponseInput = z.infer<typeof createHappeningResponseSchema>;

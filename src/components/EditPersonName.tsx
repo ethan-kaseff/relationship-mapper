@@ -109,66 +109,57 @@ export default function EditPersonButton({ personId, person, allAnnualEventTypes
             Edit
           </button>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-          <div>
-            <span className="font-medium text-gray-500">Prefix:</span>{" "}
-            <span className="text-gray-800">{person.prefix ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Middle Initial:</span>{" "}
-            <span className="text-gray-800">{person.middleInitial ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Greeting:</span>{" "}
-            <span className="text-gray-800">{person.greeting ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Address:</span>{" "}
-            <span className="text-gray-800">{person.address ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">City:</span>{" "}
-            <span className="text-gray-800">{person.city ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">State:</span>{" "}
-            <span className="text-gray-800">{person.state ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Zip:</span>{" "}
-            <span className="text-gray-800">{person.zip ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Phone:</span>{" "}
-            <span className="text-gray-800">{person.phoneNumber ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Email:</span>{" "}
-            <span className="text-gray-800">{person.personalEmail ?? "—"}</span>
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Connector:</span>{" "}
-            {person.isConnector ? (
-              <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
-                Yes
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 text-sm">
+          {person.prefix && (
+            <div>
+              <span className="font-medium text-gray-500">Prefix:</span>{" "}
+              <span className="text-gray-800">{person.prefix}</span>
+            </div>
+          )}
+          {person.greeting && (
+            <div>
+              <span className="font-medium text-gray-500">Greeting:</span>{" "}
+              <span className="text-gray-800">{person.greeting}</span>
+            </div>
+          )}
+          {person.phoneNumber && (
+            <div>
+              <span className="font-medium text-gray-500">Phone:</span>{" "}
+              <span className="text-gray-800">{person.phoneNumber}</span>
+            </div>
+          )}
+          {person.personalEmail && (
+            <div>
+              <span className="font-medium text-gray-500">Email:</span>{" "}
+              <span className="text-gray-800">{person.personalEmail}</span>
+            </div>
+          )}
+          {(person.address || person.city || person.state || person.zip) && (
+            <div className="md:col-span-2">
+              <span className="font-medium text-gray-500">Address:</span>{" "}
+              <span className="text-gray-800">
+                {[person.address, [person.city, person.state].filter(Boolean).join(", "), person.zip].filter(Boolean).join(" ")}
               </span>
-            ) : (
-              <span className="text-gray-800">No</span>
-            )}
-          </div>
-          <div>
-            <span className="font-medium text-gray-500">Annual Events:</span>{" "}
-            {person.annualEventTypeIds.length > 0 ? (
+            </div>
+          )}
+          {person.isConnector && (
+            <div>
+              <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                Connector
+              </span>
+            </div>
+          )}
+          {person.annualEventTypeIds.length > 0 && (
+            <div className="md:col-span-2">
+              <span className="font-medium text-gray-500">Annual Events:</span>{" "}
               <span className="text-gray-800">
                 {allAnnualEventTypes
                   .filter((t) => person.annualEventTypeIds.includes(t.id))
                   .map((t) => t.name)
                   .join(", ")}
               </span>
-            ) : (
-              <span className="text-gray-800">None</span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     );

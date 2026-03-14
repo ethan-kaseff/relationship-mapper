@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 interface Partner {
@@ -15,6 +16,7 @@ interface Partner {
 }
 
 export default function PartnersTable({ partners }: { partners: Partner[] }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
 
   const filtered = search
@@ -36,7 +38,13 @@ export default function PartnersTable({ partners }: { partners: Partner[] }) {
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && filtered.length === 1) {
+              router.push(`/partners/${filtered[0].id}`);
+            }
+          }}
           placeholder="Search partners..."
+          autoFocus
           className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-64"
         />
       </div>

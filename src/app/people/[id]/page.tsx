@@ -7,6 +7,8 @@ import DeletePersonButton from "@/components/DeletePersonButton";
 import EditPersonButton from "@/components/EditPersonName";
 import RemoveRolePersonButton from "@/components/RemoveRolePersonButton";
 import ConnectorLinkSection from "@/components/ConnectorLinkSection";
+import AddHappeningResponseForm from "@/components/AddHappeningResponseForm";
+import HappeningResponseRow from "@/components/HappeningResponseRow";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -58,7 +60,7 @@ export default async function PersonDetailPage({
       },
       connections: {
         include: {
-          partnerRole: { include: { partner: true } },
+          partnerRole: { include: { partner: true, person: true } },
         },
         orderBy: { connectionDate: "desc" },
       },
@@ -149,63 +151,54 @@ export default async function PersonDetailPage({
       ) : (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-indigo-900 mb-4">Contact Information</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="font-medium text-gray-500">Prefix:</span>{" "}
-              <span className="text-gray-800">{person.prefix ?? "—"}</span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">Middle Initial:</span>{" "}
-              <span className="text-gray-800">{person.middleInitial ?? "—"}</span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">Greeting:</span>{" "}
-              <span className="text-gray-800">{person.greeting ?? "—"}</span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">Address:</span>{" "}
-              <span className="text-gray-800">{person.address ?? "—"}</span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">City:</span>{" "}
-              <span className="text-gray-800">{person.city ?? "—"}</span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">State:</span>{" "}
-              <span className="text-gray-800">{person.state ?? "—"}</span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">Zip:</span>{" "}
-              <span className="text-gray-800">{person.zip ?? "—"}</span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">Phone:</span>{" "}
-              <span className="text-gray-800">{person.phoneNumber ?? "—"}</span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">Email:</span>{" "}
-              <span className="text-gray-800">{person.personalEmail ?? "—"}</span>
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">Connector:</span>{" "}
-              {person.isConnector ? (
-                <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
-                  Yes
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-1 text-sm">
+            {person.prefix && (
+              <div>
+                <span className="font-medium text-gray-500">Prefix:</span>{" "}
+                <span className="text-gray-800">{person.prefix}</span>
+              </div>
+            )}
+            {person.greeting && (
+              <div>
+                <span className="font-medium text-gray-500">Greeting:</span>{" "}
+                <span className="text-gray-800">{person.greeting}</span>
+              </div>
+            )}
+            {person.phoneNumber && (
+              <div>
+                <span className="font-medium text-gray-500">Phone:</span>{" "}
+                <span className="text-gray-800">{person.phoneNumber}</span>
+              </div>
+            )}
+            {person.personalEmail && (
+              <div>
+                <span className="font-medium text-gray-500">Email:</span>{" "}
+                <span className="text-gray-800">{person.personalEmail}</span>
+              </div>
+            )}
+            {(person.address || person.city || person.state || person.zip) && (
+              <div className="md:col-span-2">
+                <span className="font-medium text-gray-500">Address:</span>{" "}
+                <span className="text-gray-800">
+                  {[person.address, [person.city, person.state].filter(Boolean).join(", "), person.zip].filter(Boolean).join(" ")}
                 </span>
-              ) : (
-                <span className="text-gray-800">No</span>
-              )}
-            </div>
-            <div>
-              <span className="font-medium text-gray-500">Annual Events:</span>{" "}
-              {person.annualEventTypes.length > 0 ? (
+              </div>
+            )}
+            {person.isConnector && (
+              <div>
+                <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
+                  Connector
+                </span>
+              </div>
+            )}
+            {person.annualEventTypes.length > 0 && (
+              <div className="md:col-span-2">
+                <span className="font-medium text-gray-500">Annual Events:</span>{" "}
                 <span className="text-gray-800">
                   {person.annualEventTypes.map((a) => a.annualEventType.name).join(", ")}
                 </span>
-              ) : (
-                <span className="text-gray-800">None</span>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -281,10 +274,10 @@ export default async function PersonDetailPage({
                   </td>
                   <td className="px-4 py-2 text-gray-600">{ra.partnerRole.roleDescription}</td>
                   <td className="px-4 py-2 text-gray-600">
-                    {ra.startDate ? new Date(ra.startDate).toLocaleDateString() : "—"}
+                    {ra.startDate ? new Date(ra.startDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "—"}
                   </td>
                   <td className="px-4 py-2 text-gray-600">
-                    {ra.endDate ? new Date(ra.endDate).toLocaleDateString() : "Current"}
+                    {ra.endDate ? new Date(ra.endDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "Current"}
                   </td>
                 </tr>
               ))}
@@ -335,7 +328,7 @@ export default async function PersonDetailPage({
                   <td className="px-4 py-2 text-gray-600">{rel.relationshipType.relationshipDesc}</td>
                   <td className="px-4 py-2 text-gray-600">
                     {rel.lastReviewedDate
-                      ? new Date(rel.lastReviewedDate).toLocaleDateString()
+                      ? new Date(rel.lastReviewedDate).toLocaleDateString(undefined, { timeZone: "UTC" })
                       : "—"}
                   </td>
                 </tr>
@@ -377,7 +370,7 @@ export default async function PersonDetailPage({
                   </td>
                   <td className="px-4 py-2 text-gray-600">{rel.type}</td>
                   <td className="px-4 py-2 text-gray-600">
-                    {rel.lastReviewed ? new Date(rel.lastReviewed).toLocaleDateString() : "—"}
+                    {rel.lastReviewed ? new Date(rel.lastReviewed).toLocaleDateString(undefined, { timeZone: "UTC" }) : "—"}
                   </td>
                 </tr>
               ))}
@@ -398,13 +391,14 @@ export default async function PersonDetailPage({
       )}
 
       {/* Interactions (as connector) */}
-      {person.connections.length > 0 && (
+      {person.isConnector && person.connections.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="text-lg font-semibold text-indigo-900 mb-4">Interactions (as Connector)</h2>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Date</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Person</th>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Partner</th>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Role</th>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Notes</th>
@@ -414,7 +408,16 @@ export default async function PersonDetailPage({
               {person.connections.map((conn) => (
                 <tr key={conn.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 text-gray-600">
-                    {new Date(conn.connectionDate).toLocaleDateString()}
+                    {new Date(conn.connectionDate).toLocaleDateString(undefined, { timeZone: "UTC" })}
+                  </td>
+                  <td className="px-4 py-2">
+                    {conn.partnerRole.person ? (
+                      <Link href={`/people/${conn.partnerRole.person.id}`} className="text-indigo-600 hover:underline">
+                        {conn.partnerRole.person.firstName} {conn.partnerRole.person.lastName}
+                      </Link>
+                    ) : (
+                      "—"
+                    )}
                   </td>
                   <td className="px-4 py-2">
                     <Link
@@ -451,7 +454,7 @@ export default async function PersonDetailPage({
               {roleConnections.map((conn) => (
                 <tr key={conn.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2 text-gray-600">
-                    {new Date(conn.date).toLocaleDateString()}
+                    {new Date(conn.date).toLocaleDateString(undefined, { timeZone: "UTC" })}
                   </td>
                   <td className="px-4 py-2">
                     <Link href={`/people/${conn.connectorId}`} className="text-indigo-600 hover:underline">
@@ -507,7 +510,7 @@ export default async function PersonDetailPage({
                   </td>
                   <td className="px-4 py-2 text-gray-600">
                     {invite.event.eventDate
-                      ? new Date(invite.event.eventDate).toLocaleDateString()
+                      ? new Date(invite.event.eventDate).toLocaleDateString(undefined, { timeZone: "UTC" })
                       : "—"}
                   </td>
                   <td className="px-4 py-2">
@@ -534,7 +537,10 @@ export default async function PersonDetailPage({
 
       {/* Happening Responses */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">
-        <h2 className="text-lg font-semibold text-indigo-900 mb-4">Responses</h2>
+        <div className="flex items-center gap-4 mb-4">
+          <h2 className="text-lg font-semibold text-indigo-900">Responses</h2>
+          <AddHappeningResponseForm personId={person.id} />
+        </div>
         {person.happeningResponses.length === 0 ? (
           <p className="text-gray-400 text-sm">No responses recorded.</p>
         ) : (
@@ -545,37 +551,29 @@ export default async function PersonDetailPage({
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Date</th>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Notes</th>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Public</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {person.happeningResponses.map((er) => (
-                <tr key={er.id} className="hover:bg-gray-50">
-                  <td className="px-4 py-2">
-                    <Link
-                      href={`/happenings/${er.happening.id}`}
-                      className="text-indigo-600 hover:underline"
-                    >
-                      {er.happening.happeningDescription}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">
-                    {er.responseDate
-                      ? new Date(er.responseDate).toLocaleDateString()
-                      : "—"}
-                  </td>
-                  <td className="px-4 py-2 text-gray-600">{er.responseNotes ?? "—"}</td>
-                  <td className="px-4 py-2">
-                    {er.isPublic ? (
-                      <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
-                        Public
-                      </span>
-                    ) : (
-                      <span className="inline-block bg-gray-100 text-gray-600 text-xs font-medium px-2 py-0.5 rounded-full">
-                        Private
-                      </span>
-                    )}
-                  </td>
-                </tr>
+                <HappeningResponseRow
+                  key={er.id}
+                  response={{
+                    id: er.id,
+                    responseDate: er.responseDate?.toISOString() ?? null,
+                    responseTime: er.responseTime,
+                    responseNotes: er.responseNotes,
+                    isPublic: er.isPublic,
+                    platform: er.platform,
+                    platformLink: er.platformLink,
+                    happening: {
+                      id: er.happening.id,
+                      happeningDescription: er.happening.happeningDescription,
+                      happeningDate: er.happening.happeningDate.toISOString(),
+                    },
+                  }}
+                  mode="person"
+                />
               ))}
             </tbody>
           </table>

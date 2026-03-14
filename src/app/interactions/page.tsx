@@ -50,7 +50,7 @@ export default async function InteractionsPage() {
             {connections.map((conn) => (
               <tr key={conn.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 text-gray-600">
-                  {new Date(conn.connectionDate).toLocaleDateString()}
+                  {new Date(conn.connectionDate).toLocaleDateString(undefined, { timeZone: "UTC" })}
                 </td>
                 <td className="px-4 py-3">
                   <Link

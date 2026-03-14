@@ -1,11 +1,10 @@
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider = "postgresql"
 }
 
 // ─── Office ──────────────────────────────────────────────────────────────────
@@ -205,6 +204,8 @@ model HappeningResponse {
   responseTime  String?   @map("response_time")
   responseNotes String?   @map("response_notes")
   isPublic      Boolean   @default(true) @map("is_public")
+  platform      String?   @map("platform")
+  platformLink  String?   @map("platform_link")
   createdAt     DateTime  @default(now()) @map("created_at")
 
   @@map("happening_response")
