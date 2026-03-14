@@ -14,7 +14,7 @@ export const createPartnerSchema = z.object({
   email: z.string().email().optional().nullable().or(z.literal("")),
   website: z.string().url().optional().nullable().or(z.literal("")),
   priority: z.number().int().min(1).max(5).optional().nullable(),
-  annualInvite: z.boolean().optional(),
+  annualEventTypeIds: z.array(z.string().uuid()).optional(),
   officeId: z.string().uuid().optional(), // System admins can specify
   existingPeopleId: z.string().uuid().optional(), // Link to existing People record
 });

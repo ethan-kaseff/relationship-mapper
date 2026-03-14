@@ -31,6 +31,8 @@ interface EventData {
   eventDate: string | null;
   eventTime: string | null;
   location: string | null;
+  trackSeating: boolean;
+  trackMeals: boolean;
   seatingLayout: unknown;
   invites: EventInvite[];
 }
@@ -44,7 +46,7 @@ export default function EventDetailPage() {
   const initialTab = searchParams.get("tab") as "details" | "invites" | "seating" | null;
   const [activeTab, setActiveTab] = useState<"details" | "invites" | "seating">(initialTab || "details");
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", eventDate: "", eventTime: "", location: "" });
+  const [form, setForm] = useState({ title: "", description: "", eventDate: "", eventTime: "", location: "", trackSeating: true, trackMeals: true });
   const [saving, setSaving] = useState(false);
 
   const fetchEvent = useCallback(async () => {
@@ -58,6 +60,8 @@ export default function EventDetailPage() {
         eventDate: data.eventDate ? data.eventDate.split("T")[0] : "",
         eventTime: data.eventTime || "",
         location: data.location || "",
+        trackSeating: data.trackSeating ?? true,
+        trackMeals: data.trackMeals ?? true,
       });
     }
     setLoading(false);
@@ -100,11 +104,13 @@ export default function EventDetailPage() {
     PENDING: event.invites.filter((i) => i.rsvpStatus === "PENDING").length,
   };
 
-  const tabs = [
-    { id: "details" as const, label: "Details" },
-    { id: "invites" as const, label: "Invites", count: event.invites.length },
-    { id: "seating" as const, label: "Seating Chart", count: rsvpCounts.YES },
+  const tabs: { id: "details" | "invites" | "seating"; label: string; count?: number }[] = [
+    { id: "details", label: "Details" },
+    { id: "invites", label: "Invites", count: event.invites.length },
   ];
+  if (event.trackSeating) {
+    tabs.push({ id: "seating", label: "Seating Chart", count: rsvpCounts.YES });
+  }
 
   return (
     <div>
@@ -225,6 +231,29 @@ export default function EventDetailPage() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
+              <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
+                <label className="block text-sm font-medium text-gray-700 mb-3">Tracking Options</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.trackSeating}
+                      onChange={(e) => setForm((f) => ({ ...f, trackSeating: e.target.checked }))}
+                      className="rounded text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700">Assigned seating</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.trackMeals}
+                      onChange={(e) => setForm((f) => ({ ...f, trackMeals: e.target.checked }))}
+                      className="rounded text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700">Meal selection</span>
+                  </label>
+                </div>
+              </div>
               <div className="flex gap-2 pt-2">
                 <button
                   onClick={handleSave}
@@ -287,6 +316,8 @@ export default function EventDetailPage() {
         <InviteManager
           eventId={event.id}
           invites={event.invites}
+          trackMeals={event.trackMeals}
+          trackSeating={event.trackSeating}
           onRefresh={fetchEvent}
         />
       )}

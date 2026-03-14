@@ -5,7 +5,7 @@ export const createPartnerRoleSchema = z.object({
   roleDescription: z.string().min(1, "Role description is required").max(255),
   peopleId: z.string().uuid("Invalid people ID").optional().nullable(),
   startDate: z.string().optional().nullable(),
-  annualInvite: z.boolean().optional(),
+  annualEventTypeIds: z.array(z.string().uuid()).optional(),
 });
 
 export const updatePartnerRoleSchema = z.object({
@@ -13,7 +13,7 @@ export const updatePartnerRoleSchema = z.object({
   peopleId: z.string().uuid("Invalid people ID").optional().nullable(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
-  annualInvite: z.boolean().optional(),
+  annualEventTypeIds: z.array(z.string().uuid()).optional(),
 });
 
 export type CreatePartnerRoleInput = z.infer<typeof createPartnerRoleSchema>;

@@ -14,10 +14,11 @@ model Office {
   id       String    @id @default(uuid())
   name     String    @unique
   isSiloed Boolean   @default(false) @map("is_siloed")
-  users    User[]
-  people   People[]
-  partners Partner[]
-  events   Event[]
+  users            User[]
+  people           People[]
+  partners         Partner[]
+  events           Event[]
+  annualEventTypes AnnualEventType[]
 
   @@map("office")
 }
@@ -58,6 +59,21 @@ model RelationshipType {
   @@map("relationship_type")
 }
 
+model AnnualEventType {
+  id       String @id @default(uuid())
+  name     String
+  officeId String @map("office_id")
+  office   Office @relation(fields: [officeId], references: [id])
+
+  peopleAnnualEventTypes      PeopleAnnualEventType[]
+  partnerAnnualEventTypes     PartnerAnnualEventType[]
+  partnerRoleAnnualEventTypes PartnerRoleAnnualEventType[]
+
+  @@unique([name, officeId])
+  @@index([officeId])
+  @@map("annual_event_type")
+}
+
 // ─── Core Tables ─────────────────────────────────────────────────────────────
 
 model People {
@@ -74,7 +90,6 @@ model People {
   phoneNumber   String?  @map("phone_number")
   personalEmail String?  @map("personal_email")
   isConnector    Boolean  @default(false) @map("is_connector")
-  annualInvite   Boolean  @default(false) @map("annual_invite")
   connectorToken String?  @unique @map("connector_token")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
@@ -88,6 +103,7 @@ model People {
   connections             Connection[]
   happeningResponses HappeningResponse[]
   eventInvites       EventInvite[]
+  annualEventTypes   PeopleAnnualEventType[]
 
   @@unique([prefix, firstName, middleInitial, lastName, officeId], map: "people_name_office_unique")
   @@index([officeId])
@@ -110,11 +126,11 @@ model Partner {
   priority           Int               @default(5)
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
-  annualInvite       Boolean           @default(false) @map("annual_invite")
   officeId           String            @map("office_id")
   office             Office            @relation(fields: [officeId], references: [id])
 
-  partnerRoles PartnerRole[]
+  partnerRoles       PartnerRole[]
+  annualEventTypes   PartnerAnnualEventType[]
 
   @@index([officeId])
   @@map("partner")
@@ -127,11 +143,10 @@ model PartnerRole {
   roleDescription String  @map("role_description")
   peopleId        String? @map("people_id")
   person          People? @relation(fields: [peopleId], references: [id])
-  annualInvite    Boolean @default(false) @map("annual_invite")
-
-  roleAssignments RoleAssignment[]
-  relationships   Relationship[]
-  connections     Connection[]
+  roleAssignments  RoleAssignment[]
+  relationships    Relationship[]
+  connections      Connection[]
+  annualEventTypes PartnerRoleAnnualEventType[]
 
   @@map("partner_role")
 }
@@ -217,6 +232,8 @@ model Event {
   eventDate      DateTime?     @map("event_date")
   eventTime      String?       @map("event_time")
   location       String?
+  trackSeating   Boolean       @default(true) @map("track_seating")
+  trackMeals     Boolean       @default(true) @map("track_meals")
   seatingLayout  Json?         @map("seating_layout")
   createdById    String        @map("created_by_id")
   createdBy      User          @relation("EventCreator", fields: [createdById], references: [id])
@@ -250,4 +267,39 @@ model EventInvite {
   @@unique([eventId, peopleId])
   @@index([eventId])
   @@map("event_invite")
+}
+
+// ─── Annual Event Type Join Tables ────────────────────────────────────────────
+
+model PeopleAnnualEventType {
+  id                 String          @id @default(uuid())
+  peopleId           String          @map("people_id")
+  person             People          @relation(fields: [peopleId], references: [id], onDelete: Cascade)
+  annualEventTypeId  String          @map("annual_event_type_id")
+  annualEventType    AnnualEventType @relation(fields: [annualEventTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([peopleId, annualEventTypeId])
+  @@map("people_annual_event_type")
+}
+
+model PartnerAnnualEventType {
+  id                 String          @id @default(uuid())
+  partnerId          String          @map("partner_id")
+  partner            Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  annualEventTypeId  String          @map("annual_event_type_id")
+  annualEventType    AnnualEventType @relation(fields: [annualEventTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, annualEventTypeId])
+  @@map("partner_annual_event_type")
+}
+
+model PartnerRoleAnnualEventType {
+  id                 String          @id @default(uuid())
+  partnerRoleId      String          @map("partner_role_id")
+  partnerRole        PartnerRole     @relation(fields: [partnerRoleId], references: [id], onDelete: Cascade)
+  annualEventTypeId  String          @map("annual_event_type_id")
+  annualEventType    AnnualEventType @relation(fields: [annualEventTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerRoleId, annualEventTypeId])
+  @@map("partner_role_annual_event_type")
 }

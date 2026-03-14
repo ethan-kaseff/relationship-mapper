@@ -129,9 +129,6 @@ export async function POST(request: Request) {
               isConnector:
                 (row["is connector"] || row["isconnector"] || "")
                   .toLowerCase() === "yes",
-              annualInvite:
-                (row["annual invite"] || row["annualinvite"] || "")
-                  .toLowerCase() === "yes",
               officeId,
             },
           });

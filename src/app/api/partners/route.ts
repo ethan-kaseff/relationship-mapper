@@ -44,6 +44,20 @@ export async function POST(request: Request) {
         ? data.officeId
         : authResult.session.user.officeId;
 
+    // Check for duplicate partner name within the same office
+    const existingPartner = await prisma.partner.findFirst({
+      where: {
+        organizationName: data.organizationName,
+        officeId,
+      },
+    });
+    if (existingPartner) {
+      return NextResponse.json(
+        { error: `A partner named "${data.organizationName}" already exists in this office.` },
+        { status: 409 }
+      );
+    }
+
     const partner = await prisma.partner.create({
       data: {
         orgPeopleFlag: data.orgPeopleFlag,

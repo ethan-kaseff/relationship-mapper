@@ -6,8 +6,10 @@ export const createEventSchema = z.object({
   eventDate: z.string().optional().nullable(),
   eventTime: z.string().max(20).optional().nullable(),
   location: z.string().max(300).optional().nullable(),
+  trackSeating: z.boolean().optional(),
+  trackMeals: z.boolean().optional(),
   templateEventId: z.string().uuid().optional().nullable(),
-  isAnnualEvent: z.boolean().optional(),
+  annualEventTypeId: z.string().uuid().optional().nullable(),
 });
 
 export const updateEventSchema = z.object({
@@ -16,6 +18,8 @@ export const updateEventSchema = z.object({
   eventDate: z.string().optional().nullable(),
   eventTime: z.string().max(20).optional().nullable(),
   location: z.string().max(300).optional().nullable(),
+  trackSeating: z.boolean().optional(),
+  trackMeals: z.boolean().optional(),
 });
 
 export type CreateEventInput = z.infer<typeof createEventSchema>;

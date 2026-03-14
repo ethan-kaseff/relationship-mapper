@@ -8,6 +8,7 @@ export * from "./partner-role";
 export * from "./user";
 export * from "./event";
 export * from "./event-invite";
+export * from "./annual-event-type";
 
 import { z } from "zod";
 import { NextResponse } from "next/server";

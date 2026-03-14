@@ -18,6 +18,13 @@ export async function POST(
     const { id: eventId } = await params;
     const { partnerId, roleIds } = validation.data;
 
+    // Get partner name for group field
+    const partner = await prisma.partner.findUnique({
+      where: { id: partnerId },
+      select: { organizationName: true },
+    });
+    const group = partner?.organizationName || "";
+
     // Get partner roles, optionally filtered
     const where: Record<string, unknown> = { partnerId, peopleId: { not: null } };
     if (roleIds && roleIds.length > 0) {
@@ -29,9 +36,11 @@ export async function POST(
       select: { peopleId: true },
     });
 
-    const peopleIds = roles
-      .map((r) => r.peopleId)
-      .filter((id): id is string => id !== null);
+    const peopleIds = [...new Set(
+      roles
+        .map((r) => r.peopleId)
+        .filter((id): id is string => id !== null)
+    )];
 
     if (peopleIds.length === 0) {
       return badRequest("No people found for the selected partner/roles");
@@ -53,7 +62,9 @@ export async function POST(
       data: newIds.map((peopleId) => ({
         eventId,
         peopleId,
+        group,
       })),
+      skipDuplicates: true,
     });
 
     return NextResponse.json(
@@ -61,6 +72,7 @@ export async function POST(
       { status: 201 }
     );
   } catch (error) {
+    console.error("from-partner error:", error);
     return handleApiError(error);
   }
 }

@@ -52,6 +52,8 @@ export async function PUT(
           : undefined,
         eventTime: data.eventTime,
         location: data.location,
+        trackSeating: data.trackSeating,
+        trackMeals: data.trackMeals,
       },
     });
     return NextResponse.json(event);

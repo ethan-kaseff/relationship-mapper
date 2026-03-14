@@ -26,7 +26,11 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
     fetch("/api/people")
       .then((r) => r.json())
       .then((data) => {
-        setPeople(data.filter((p: Person) => !existingPeopleIds.includes(p.id)));
+        setPeople(
+          data
+            .filter((p: Person) => !existingPeopleIds.includes(p.id))
+            .sort((a: Person, b: Person) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+        );
         setLoading(false);
       });
   }, [existingPeopleIds]);
@@ -92,7 +96,7 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
                   className="rounded text-indigo-600"
                 />
                 <span className="text-sm text-gray-900">
-                  {p.firstName} {p.lastName}
+                  {p.lastName}, {p.firstName}
                 </span>
               </label>
             ))

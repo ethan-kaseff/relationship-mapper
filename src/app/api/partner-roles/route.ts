@@ -40,9 +40,18 @@ export async function POST(request: Request) {
         partnerId: data.partnerId,
         roleDescription: data.roleDescription,
         peopleId: data.peopleId,
-        annualInvite: data.annualInvite ?? false,
       },
     });
+
+    // Create annual event type associations
+    if (data.annualEventTypeIds && data.annualEventTypeIds.length > 0) {
+      await prisma.partnerRoleAnnualEventType.createMany({
+        data: data.annualEventTypeIds.map((typeId) => ({
+          partnerRoleId: partnerRole.id,
+          annualEventTypeId: typeId,
+        })),
+      });
+    }
 
     // Create a RoleAssignment record when a person is assigned during role creation
     if (data.peopleId) {

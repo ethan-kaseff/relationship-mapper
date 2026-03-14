@@ -3,6 +3,17 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 
+interface AnnualEventType {
+  id: string;
+  name: string;
+  office?: { name: string };
+  _count?: {
+    peopleAnnualEventTypes: number;
+    partnerAnnualEventTypes: number;
+    partnerRoleAnnualEventTypes: number;
+  };
+}
+
 interface RelationshipType {
   id: string;
   relationshipDesc: string;
@@ -54,6 +65,18 @@ export default function SettingsPage() {
   const [deleteError, setDeleteError] = useState("");
   const [reassignNeeded, setReassignNeeded] = useState<{ id: string; count: number } | null>(null);
   const [reassignTo, setReassignTo] = useState("");
+
+  // Annual event types state
+  const [aetTypes, setAetTypes] = useState<AnnualEventType[]>([]);
+  const [aetLoading, setAetLoading] = useState(true);
+  const [showAetForm, setShowAetForm] = useState(false);
+  const [newAetName, setNewAetName] = useState("");
+  const [aetSubmitting, setAetSubmitting] = useState(false);
+  const [aetError, setAetError] = useState("");
+  const [editingAetId, setEditingAetId] = useState<string | null>(null);
+  const [editAetName, setEditAetName] = useState("");
+  const [deletingAetId, setDeletingAetId] = useState<string | null>(null);
+  const aetInputRef = useRef<HTMLInputElement>(null);
 
   // User management state
   const [users, setUsers] = useState<User[]>([]);
@@ -118,6 +141,16 @@ export default function SettingsPage() {
       .catch(() => setLoading(false));
   }
 
+  function fetchAetTypes() {
+    fetch("/api/lookup/annual-event-types")
+      .then((res) => res.json())
+      .then((data) => {
+        setAetTypes(data);
+        setAetLoading(false);
+      })
+      .catch(() => setAetLoading(false));
+  }
+
   function fetchUsers() {
     if (!canManageUsers) return;
     fetch("/api/users")
@@ -145,6 +178,10 @@ export default function SettingsPage() {
   }, [showForm]);
 
   useEffect(() => {
+    if (showAetForm && aetInputRef.current) aetInputRef.current.focus();
+  }, [showAetForm]);
+
+  useEffect(() => {
     if (showUserForm && userFirstNameRef.current) userFirstNameRef.current.focus();
   }, [showUserForm]);
 
@@ -153,7 +190,10 @@ export default function SettingsPage() {
   }, [showOfficeForm]);
 
   useEffect(() => {
-    if (isSystemAdmin) fetchTypes();
+    if (isSystemAdmin) {
+      fetchTypes();
+      fetchAetTypes();
+    }
   }, [isSystemAdmin]);
 
   useEffect(() => {
@@ -273,6 +313,78 @@ export default function SettingsPage() {
     setEditDesc(rt.relationshipDesc);
     setEditNotes(rt.notes ?? "");
     setDeletingId(null);
+  }
+
+  async function handleCreateAet(e: React.FormEvent) {
+    e.preventDefault();
+    setAetSubmitting(true);
+    setAetError("");
+
+    try {
+      const res = await fetch("/api/lookup/annual-event-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newAetName }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create");
+      }
+
+      setNewAetName("");
+      setShowAetForm(false);
+      fetchAetTypes();
+    } catch (err: unknown) {
+      setAetError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setAetSubmitting(false);
+    }
+  }
+
+  async function handleUpdateAet(id: string) {
+    setAetSubmitting(true);
+    setAetError("");
+
+    try {
+      const res = await fetch(`/api/lookup/annual-event-types/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editAetName }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update");
+      }
+
+      setEditingAetId(null);
+      fetchAetTypes();
+    } catch (err: unknown) {
+      setAetError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setAetSubmitting(false);
+    }
+  }
+
+  async function handleDeleteAet(id: string) {
+    setAetError("");
+
+    try {
+      const res = await fetch(`/api/lookup/annual-event-types/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete");
+      }
+
+      setDeletingAetId(null);
+      fetchAetTypes();
+    } catch (err: unknown) {
+      setAetError(err instanceof Error ? err.message : "An error occurred");
+    }
   }
 
   async function handleCreateUser(e: React.FormEvent) {
@@ -735,6 +847,175 @@ export default function SettingsPage() {
           </table>
         )}
       </div>}
+
+      {/* Annual Event Types — SYSTEM_ADMIN only */}
+      {isSystemAdmin && (
+        <div className="bg-white rounded-lg shadow p-6 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-indigo-900">Annual Event Types</h2>
+            {!showAetForm && (
+              <button
+                onClick={() => { setShowAetForm(true); setEditingAetId(null); }}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
+              >
+                Add Event Type
+              </button>
+            )}
+          </div>
+
+          {aetError && (
+            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
+              {aetError}
+            </div>
+          )}
+
+          {showAetForm && (
+            <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
+              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Annual Event Type</h3>
+              <form onSubmit={handleCreateAet} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    ref={aetInputRef}
+                    type="text"
+                    required
+                    value={newAetName}
+                    onChange={(e) => setNewAetName(e.target.value)}
+                    placeholder="e.g. Gala, Golf Tournament"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={aetSubmitting}
+                    className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
+                  >
+                    {aetSubmitting ? "Saving..." : "Create"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAetForm(false); setAetError(""); }}
+                    className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {aetLoading ? (
+            <p className="text-gray-400 text-sm">Loading...</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">Name</th>
+                  {isSystemAdmin && <th className="text-left px-4 py-3 font-semibold text-indigo-900">Office</th>}
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">In Use</th>
+                  <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {aetTypes.map((aet) => {
+                  const usageCount =
+                    (aet._count?.peopleAnnualEventTypes ?? 0) +
+                    (aet._count?.partnerAnnualEventTypes ?? 0) +
+                    (aet._count?.partnerRoleAnnualEventTypes ?? 0);
+                  return (
+                    <tr key={aet.id} className="hover:bg-gray-50">
+                      {editingAetId === aet.id ? (
+                        <>
+                          <td className="px-4 py-2">
+                            <input
+                              type="text"
+                              value={editAetName}
+                              onChange={(e) => setEditAetName(e.target.value)}
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                          </td>
+                          {isSystemAdmin && <td className="px-4 py-2 text-gray-600">{aet.office?.name ?? "—"}</td>}
+                          <td className="px-4 py-2 text-gray-600">{usageCount}</td>
+                          <td className="px-4 py-2 text-right">
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                onClick={() => handleUpdateAet(aet.id)}
+                                disabled={aetSubmitting}
+                                className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingAetId(null)}
+                                className="text-gray-500 hover:text-gray-700 text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3 font-medium">{aet.name}</td>
+                          {isSystemAdmin && <td className="px-4 py-3 text-gray-600">{aet.office?.name ?? "—"}</td>}
+                          <td className="px-4 py-3">
+                            <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                              {usageCount}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex gap-3 justify-end">
+                              <button
+                                onClick={() => { setEditingAetId(aet.id); setEditAetName(aet.name); setDeletingAetId(null); }}
+                                className="text-indigo-600 hover:underline text-xs"
+                              >
+                                Edit
+                              </button>
+                              {deletingAetId === aet.id ? (
+                                <span className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleDeleteAet(aet.id)}
+                                    className="text-red-600 hover:underline text-xs font-medium"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletingAetId(null)}
+                                    className="text-gray-500 hover:text-gray-700 text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => setDeletingAetId(aet.id)}
+                                  className="text-red-600 hover:underline text-xs"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+                {aetTypes.length === 0 && (
+                  <tr>
+                    <td colSpan={isSystemAdmin ? 4 : 3} className="px-4 py-8 text-center text-gray-400">
+                      No annual event types defined.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
 
       {/* User Management — SYSTEM_ADMIN and OFFICE_ADMIN */}
       {canManageUsers && (

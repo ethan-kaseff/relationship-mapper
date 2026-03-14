@@ -86,11 +86,21 @@ export async function PATCH(
         ...(body.roleDescription !== undefined
           ? { roleDescription: body.roleDescription }
           : {}),
-        ...(body.annualInvite !== undefined
-          ? { annualInvite: body.annualInvite }
-          : {}),
       },
     });
+
+    // Handle annual event type associations
+    if (body.annualEventTypeIds !== undefined) {
+      await prisma.partnerRoleAnnualEventType.deleteMany({ where: { partnerRoleId: id } });
+      if (body.annualEventTypeIds.length > 0) {
+        await prisma.partnerRoleAnnualEventType.createMany({
+          data: body.annualEventTypeIds.map((typeId) => ({
+            partnerRoleId: id,
+            annualEventTypeId: typeId,
+          })),
+        });
+      }
+    }
 
     return NextResponse.json(role);
   } catch (error) {

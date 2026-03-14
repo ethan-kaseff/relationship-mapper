@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+interface AnnualEventType {
+  id: string;
+  name: string;
+}
+
 interface PersonData {
   firstName: string;
   middleInitial: string | null;
@@ -16,15 +21,16 @@ interface PersonData {
   phoneNumber: string | null;
   personalEmail: string | null;
   isConnector: boolean;
-  annualInvite: boolean;
+  annualEventTypeIds: string[];
 }
 
 interface Props {
   personId: string;
   person: PersonData;
+  allAnnualEventTypes: AnnualEventType[];
 }
 
-export default function EditPersonButton({ personId, person }: Props) {
+export default function EditPersonButton({ personId, person, allAnnualEventTypes }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...person });
@@ -34,6 +40,15 @@ export default function EditPersonButton({ personId, person }: Props) {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value, type, checked } = e.target;
     setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  }
+
+  function handleAetToggle(typeId: string) {
+    setForm((prev) => ({
+      ...prev,
+      annualEventTypeIds: prev.annualEventTypeIds.includes(typeId)
+        ? prev.annualEventTypeIds.filter((id) => id !== typeId)
+        : [...prev.annualEventTypeIds, typeId],
+    }));
   }
 
   function resetForm() {
@@ -63,7 +78,7 @@ export default function EditPersonButton({ personId, person }: Props) {
           phoneNumber: form.phoneNumber || null,
           personalEmail: form.personalEmail || null,
           isConnector: form.isConnector,
-          annualInvite: form.annualInvite,
+          annualEventTypeIds: form.annualEventTypeIds,
         }),
       });
 
@@ -142,13 +157,16 @@ export default function EditPersonButton({ personId, person }: Props) {
             )}
           </div>
           <div>
-            <span className="font-medium text-gray-500">Annual Invite:</span>{" "}
-            {person.annualInvite ? (
-              <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
-                Yes
+            <span className="font-medium text-gray-500">Annual Events:</span>{" "}
+            {person.annualEventTypeIds.length > 0 ? (
+              <span className="text-gray-800">
+                {allAnnualEventTypes
+                  .filter((t) => person.annualEventTypeIds.includes(t.id))
+                  .map((t) => t.name)
+                  .join(", ")}
               </span>
             ) : (
-              <span className="text-gray-800">No</span>
+              <span className="text-gray-800">None</span>
             )}
           </div>
         </div>
@@ -317,20 +335,26 @@ export default function EditPersonButton({ personId, person }: Props) {
               Is Connector
             </label>
           </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name="annualInvite"
-              id="editAnnualInvite"
-              checked={form.annualInvite}
-              onChange={handleChange}
-              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            />
-            <label htmlFor="editAnnualInvite" className="text-sm font-medium text-gray-700">
-              Annual Invite
-            </label>
-          </div>
         </div>
+
+        {allAnnualEventTypes.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Annual Event Invites</label>
+            <div className="flex flex-wrap gap-3">
+              {allAnnualEventTypes.map((type) => (
+                <label key={type.id} className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={form.annualEventTypeIds.includes(type.id)}
+                    onChange={() => handleAetToggle(type.id)}
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700">{type.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-2 pt-2">
           <button

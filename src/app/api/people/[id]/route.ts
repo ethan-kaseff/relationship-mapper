@@ -46,6 +46,9 @@ export async function GET(
             happening: true,
           },
         },
+        annualEventTypes: {
+          include: { annualEventType: true },
+        },
       },
     });
     if (!person) {
@@ -83,9 +86,22 @@ export async function PUT(
         phoneNumber: data.phoneNumber,
         personalEmail: data.personalEmail || null,
         isConnector: data.isConnector,
-        annualInvite: data.annualInvite,
       },
     });
+
+    // Handle annual event type associations
+    if (data.annualEventTypeIds !== undefined) {
+      await prisma.peopleAnnualEventType.deleteMany({ where: { peopleId: id } });
+      if (data.annualEventTypeIds.length > 0) {
+        await prisma.peopleAnnualEventType.createMany({
+          data: data.annualEventTypeIds.map((typeId) => ({
+            peopleId: id,
+            annualEventTypeId: typeId,
+          })),
+        });
+      }
+    }
+
     return NextResponse.json(person);
   } catch (error) {
     return handleApiError(error);

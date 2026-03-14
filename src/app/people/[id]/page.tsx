@@ -70,10 +70,18 @@ export default async function PersonDetailPage({
         include: { event: true },
         orderBy: { createdAt: "desc" },
       },
+      annualEventTypes: {
+        include: { annualEventType: true },
+      },
     },
   });
 
   if (!person) return notFound();
+
+  const allAnnualEventTypes = await prisma.annualEventType.findMany({
+    where: { officeId: person.officeId },
+    orderBy: { name: "asc" },
+  });
 
   const session = await auth();
   const canEdit = session?.user?.role !== "CONNECTOR";
@@ -134,8 +142,9 @@ export default async function PersonDetailPage({
             phoneNumber: person.phoneNumber,
             personalEmail: person.personalEmail,
             isConnector: person.isConnector,
-            annualInvite: person.annualInvite,
+            annualEventTypeIds: person.annualEventTypes.map((a) => a.annualEventType.id),
           }}
+          allAnnualEventTypes={allAnnualEventTypes}
         />
       ) : (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -188,13 +197,13 @@ export default async function PersonDetailPage({
               )}
             </div>
             <div>
-              <span className="font-medium text-gray-500">Annual Invite:</span>{" "}
-              {person.annualInvite ? (
-                <span className="inline-block bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded-full">
-                  Yes
+              <span className="font-medium text-gray-500">Annual Events:</span>{" "}
+              {person.annualEventTypes.length > 0 ? (
+                <span className="text-gray-800">
+                  {person.annualEventTypes.map((a) => a.annualEventType.name).join(", ")}
                 </span>
               ) : (
-                <span className="text-gray-800">No</span>
+                <span className="text-gray-800">None</span>
               )}
             </div>
           </div>

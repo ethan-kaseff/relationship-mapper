@@ -19,30 +19,45 @@ export default async function PartnerDetailPage({
 }) {
   const { id } = await params;
 
-  const partner = await prisma.partner.findUnique({
-    where: { id },
-    include: {
-      organizationType: true,
-      partnerRoles: {
-        include: {
-          person: true,
-          roleAssignments: {
-            include: { person: true },
-            orderBy: { createdAt: "desc" },
-          },
-          relationships: {
-            include: {
-              person: true,
-              targetPerson: true,
-              relationshipType: true,
+  const [partner, allAnnualEventTypesUnfiltered] = await Promise.all([
+    prisma.partner.findUnique({
+      where: { id },
+      include: {
+        organizationType: true,
+        annualEventTypes: {
+          include: { annualEventType: true },
+        },
+        partnerRoles: {
+          include: {
+            person: true,
+            roleAssignments: {
+              include: { person: true },
+              orderBy: { createdAt: "desc" },
+            },
+            relationships: {
+              include: {
+                person: true,
+                targetPerson: true,
+                relationshipType: true,
+              },
+            },
+            annualEventTypes: {
+              include: { annualEventType: true },
             },
           },
         },
       },
-    },
-  });
+    }),
+    prisma.annualEventType.findMany({ orderBy: { name: "asc" } }),
+  ]);
 
   if (!partner) return notFound();
+
+  const allAnnualEventTypes = allAnnualEventTypesUnfiltered.filter(
+    (t) => t.officeId === partner.officeId
+  );
+
+  const partnerAetIds = partner.annualEventTypes.map((a) => a.annualEventType.id);
 
   return (
     <div>
@@ -75,14 +90,15 @@ export default async function PartnerDetailPage({
           website: partner.website,
           priority: partner.priority,
         }}
-        annualInvite={partner.orgPeopleFlag === "P" ? partner.annualInvite : undefined}
+        annualEventTypeIds={partner.orgPeopleFlag === "P" ? partnerAetIds : undefined}
+        allAnnualEventTypes={allAnnualEventTypes}
       />
 
       {/* Roles & Relationships — only for Organizations */}
       {partner.orgPeopleFlag === "O" && <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-indigo-900">Roles</h2>
-          <AddRoleForm partnerId={partner.id} />
+          <AddRoleForm partnerId={partner.id} allAnnualEventTypes={allAnnualEventTypes} />
         </div>
         {partner.partnerRoles.length === 0 ? (
           <p className="text-gray-400 text-sm">No roles defined for this partner.</p>
@@ -108,7 +124,11 @@ export default async function PartnerDetailPage({
                     <span className="text-sm text-gray-400">— Vacant</span>
                   )}
                   <span className="ml-auto flex items-center gap-2">
-                    <AnnualInviteToggle roleId={role.id} initialValue={role.annualInvite} />
+                    <AnnualInviteToggle
+                      roleId={role.id}
+                      initialTypeIds={role.annualEventTypes.map((a) => a.annualEventType.id)}
+                      allTypes={allAnnualEventTypes}
+                    />
                     {role.person ? (
                       <>
                         <RemoveRolePersonButton

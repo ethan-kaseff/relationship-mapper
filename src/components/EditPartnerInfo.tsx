@@ -9,6 +9,11 @@ interface OrgType {
   typeName: string;
 }
 
+interface AnnualEventType {
+  id: string;
+  name: string;
+}
+
 interface PartnerData {
   orgPeopleFlag: string;
   organizationName: string | null;
@@ -27,12 +32,13 @@ interface PartnerData {
 interface Props {
   partnerId: string;
   partner: PartnerData;
-  annualInvite?: boolean;
+  annualEventTypeIds?: string[];
+  allAnnualEventTypes?: AnnualEventType[];
 }
 
 const PRIORITY_LABELS = ["Highest", "High", "Medium", "Low", "Lowest"];
 
-export default function EditPartnerInfo({ partnerId, partner, annualInvite }: Props) {
+export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds, allAnnualEventTypes }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -190,10 +196,10 @@ export default function EditPartnerInfo({ partnerId, partner, annualInvite }: Pr
               {partner.priority ? `${partner.priority} — ${PRIORITY_LABELS[partner.priority - 1]}` : "—"}
             </span>
           </div>
-          {annualInvite !== undefined && (
+          {annualEventTypeIds !== undefined && allAnnualEventTypes && allAnnualEventTypes.length > 0 && (
             <div>
-              <span className="font-medium text-gray-500">Annual Invite:</span>{" "}
-              <PartnerAnnualInviteToggle partnerId={partnerId} initialValue={annualInvite} />
+              <span className="font-medium text-gray-500">Annual Events:</span>{" "}
+              <PartnerAnnualInviteToggle partnerId={partnerId} initialTypeIds={annualEventTypeIds} allTypes={allAnnualEventTypes} />
             </div>
           )}
         </div>

@@ -23,19 +23,25 @@ interface AddFromPartnerModalProps {
 
 export default function AddFromPartnerModal({ eventId, onClose, onAdded }: AddFromPartnerModalProps) {
   const [partners, setPartners] = useState<Partner[]>([]);
+  const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [expandedPartner, setExpandedPartner] = useState<string | null>(null);
   const [selectedRoles, setSelectedRoles] = useState<Set<string>>(new Set());
   const [selectedPartnerId, setSelectedPartnerId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     fetch("/api/partners?includeRoles=true")
       .then((r) => r.json())
       .then((data) => {
-        setPartners(data.filter((p: Partner) =>
-          p.partnerRoles.some((r) => r.peopleId)
-        ));
+        setPartners(
+          data
+            .filter((p: Partner) => p.partnerRoles.some((r) => r.peopleId))
+            .sort((a: Partner, b: Partner) =>
+              (a.organizationName || "").localeCompare(b.organizationName || "")
+            )
+        );
         setLoading(false);
       });
   }, []);
@@ -62,17 +68,39 @@ export default function AddFromPartnerModal({ eventId, onClose, onAdded }: AddFr
   async function handleAdd() {
     if (!selectedPartnerId) return;
     setSubmitting(true);
-    await fetch(`/api/events/${eventId}/invites/from-partner`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        partnerId: selectedPartnerId,
-        roleIds: selectedRoles.size > 0 ? Array.from(selectedRoles) : undefined,
-      }),
-    });
-    onAdded();
-    onClose();
+    try {
+      const res = await fetch(`/api/events/${eventId}/invites/from-partner`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          partnerId: selectedPartnerId,
+          roleIds: selectedRoles.size > 0 ? Array.from(selectedRoles) : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || "Failed to add invites");
+        setSubmitting(false);
+        return;
+      }
+      const result = await res.json();
+      if (result.created === 0 && result.skipped > 0) {
+        setError(`All ${result.skipped} people are already invited to this event.`);
+        setSubmitting(false);
+        return;
+      }
+      onAdded();
+      onClose();
+    } catch {
+      setError("Failed to add invites");
+      setSubmitting(false);
+    }
   }
+
+  const filtered = partners.filter((p) => {
+    const name = (p.organizationName || "").toLowerCase();
+    return name.includes(search.toLowerCase());
+  });
 
   const partner = partners.find((p) => p.id === selectedPartnerId);
   const rolesWithPeople = partner?.partnerRoles.filter((r) => r.peopleId) || [];
@@ -86,15 +114,30 @@ export default function AddFromPartnerModal({ eventId, onClose, onAdded }: AddFr
         <div className="p-4 border-b">
           <h2 className="text-lg font-semibold text-gray-900">Invite from Partner</h2>
           <p className="text-sm text-gray-500 mt-1">Select a partner to invite people linked to their roles.</p>
+          {error && (
+            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-2 mt-2 text-xs">
+              {error}
+            </div>
+          )}
+          <input
+            type="text"
+            placeholder="Search partners..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="mt-3 w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            autoFocus
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {loading ? (
             <p className="text-gray-500 text-sm text-center py-8">Loading...</p>
-          ) : partners.length === 0 ? (
-            <p className="text-gray-500 text-sm text-center py-8">No partners with linked people found.</p>
+          ) : filtered.length === 0 ? (
+            <p className="text-gray-500 text-sm text-center py-8">
+              {partners.length === 0 ? "No partners with linked people found." : "No matching partners."}
+            </p>
           ) : (
-            partners.map((p) => (
+            filtered.map((p) => (
               <div key={p.id} className="border-b border-gray-100">
                 <button
                   onClick={() => togglePartner(p.id)}

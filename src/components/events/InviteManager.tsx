@@ -23,6 +23,8 @@ interface EventInvite {
 interface InviteManagerProps {
   eventId: string;
   invites: EventInvite[];
+  trackMeals: boolean;
+  trackSeating: boolean;
   onRefresh: () => void;
 }
 
@@ -33,18 +35,61 @@ const RSVP_COLORS: Record<string, string> = {
   PENDING: "bg-gray-100 text-gray-700 border-gray-200",
 };
 
-export default function InviteManager({ eventId, invites, onRefresh }: InviteManagerProps) {
+type SortKey = "name" | "rsvp" | "group" | "meal" | "seated";
+type SortDir = "asc" | "desc";
+
+const RSVP_ORDER: Record<string, number> = { YES: 0, MAYBE: 1, PENDING: 2, NO: 3 };
+
+export default function InviteManager({ eventId, invites, trackMeals, trackSeating, onRefresh }: InviteManagerProps) {
   const [showAddPeople, setShowAddPeople] = useState(false);
   const [showAddPartner, setShowAddPartner] = useState(false);
   const [filter, setFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
-  const filtered = invites.filter((inv) => {
-    const matchesFilter = filter === "ALL" || inv.rsvpStatus === filter;
-    const name = `${inv.person.firstName} ${inv.person.lastName}`.toLowerCase();
-    const matchesSearch = name.includes(search.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  const sortIndicator = (key: SortKey) =>
+    sortKey === key ? (sortDir === "asc" ? " \u25B2" : " \u25BC") : "";
+
+  const filtered = invites
+    .filter((inv) => {
+      const matchesFilter = filter === "ALL" || inv.rsvpStatus === filter;
+      const name = `${inv.person.firstName} ${inv.person.lastName}`.toLowerCase();
+      const group = (inv.group || "").toLowerCase();
+      const term = search.toLowerCase();
+      const matchesSearch = name.includes(term) || group.includes(term);
+      return matchesFilter && matchesSearch;
+    })
+    .sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "name":
+          cmp = a.person.lastName.localeCompare(b.person.lastName) || a.person.firstName.localeCompare(b.person.firstName);
+          break;
+        case "rsvp":
+          cmp = (RSVP_ORDER[a.rsvpStatus] ?? 9) - (RSVP_ORDER[b.rsvpStatus] ?? 9);
+          break;
+        case "group":
+          cmp = (a.group || "").localeCompare(b.group || "");
+          break;
+        case "meal":
+          cmp = a.meal.localeCompare(b.meal);
+          break;
+        case "seated":
+          cmp = (a.tableId ? 0 : 1) - (b.tableId ? 0 : 1);
+          break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
 
   async function updateRsvp(inviteId: string, rsvpStatus: string) {
     await fetch(`/api/events/${eventId}/invites/${inviteId}`, {
@@ -136,11 +181,11 @@ export default function InviteManager({ eventId, invites, onRefresh }: InviteMan
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Name</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">RSVP</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Group</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Meal</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Seated</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("name")}>Name{sortIndicator("name")}</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("rsvp")}>RSVP{sortIndicator("rsvp")}</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("group")}>Group{sortIndicator("group")}</th>
+              {trackMeals && <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("meal")}>Meal{sortIndicator("meal")}</th>}
+              {trackSeating && <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("seated")}>Seated{sortIndicator("seated")}</th>}
               <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
             </tr>
           </thead>
@@ -148,7 +193,7 @@ export default function InviteManager({ eventId, invites, onRefresh }: InviteMan
             {filtered.map((inv) => (
               <tr key={inv.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">
-                  {inv.person.firstName} {inv.person.lastName}
+                  {inv.person.lastName}, {inv.person.firstName}
                 </td>
                 <td className="px-4 py-3">
                   <select
@@ -168,31 +213,35 @@ export default function InviteManager({ eventId, invites, onRefresh }: InviteMan
                     value={inv.group}
                     onChange={(e) => updateGroup(inv.id, e.target.value)}
                     placeholder="Group"
-                    className="w-24 px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full min-w-[8rem] px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </td>
-                <td className="px-4 py-3">
-                  <select
-                    value={inv.meal}
-                    onChange={(e) => updateMeal(inv.id, e.target.value)}
-                    className="px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
-                  >
-                    <option>Standard</option>
-                    <option>Vegetarian</option>
-                    <option>Vegan</option>
-                    <option>Kosher</option>
-                    <option>Halal</option>
-                    <option>Gluten-Free</option>
-                    <option>Kids Meal</option>
-                  </select>
-                </td>
-                <td className="px-4 py-3">
-                  {inv.tableId ? (
-                    <span className="text-green-600 text-xs font-medium">Seated</span>
-                  ) : (
-                    <span className="text-gray-400 text-xs">—</span>
-                  )}
-                </td>
+                {trackMeals && (
+                  <td className="px-4 py-3">
+                    <select
+                      value={inv.meal}
+                      onChange={(e) => updateMeal(inv.id, e.target.value)}
+                      className="px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option>Standard</option>
+                      <option>Vegetarian</option>
+                      <option>Vegan</option>
+                      <option>Kosher</option>
+                      <option>Halal</option>
+                      <option>Gluten-Free</option>
+                      <option>Kids Meal</option>
+                    </select>
+                  </td>
+                )}
+                {trackSeating && (
+                  <td className="px-4 py-3">
+                    {inv.tableId ? (
+                      <span className="text-green-600 text-xs font-medium">Seated</span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
+                    )}
+                  </td>
+                )}
                 <td className="px-4 py-3 text-right">
                   <button
                     onClick={() => removeInvite(inv.id)}
@@ -205,7 +254,7 @@ export default function InviteManager({ eventId, invites, onRefresh }: InviteMan
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={4 + (trackMeals ? 1 : 0) + (trackSeating ? 1 : 0)} className="px-4 py-8 text-center text-gray-400">
                   {invites.length === 0
                     ? "No invitees yet. Add people using the buttons above."
                     : "No matching invitees."}

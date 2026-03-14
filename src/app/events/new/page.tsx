@@ -10,13 +10,22 @@ interface PastEvent {
   eventDate: string | null;
 }
 
+interface AnnualEventType {
+  id: string;
+  name: string;
+}
+
 export default function NewEventPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [pastEvents, setPastEvents] = useState<PastEvent[]>([]);
   const [templateEventId, setTemplateEventId] = useState("");
-  const [isAnnualEvent, setIsAnnualEvent] = useState(false);
+  const [annualEventTypeId, setAnnualEventTypeId] = useState("");
+  const [annualEventTypes, setAnnualEventTypes] = useState<AnnualEventType[]>([]);
+
+  const [trackSeating, setTrackSeating] = useState(true);
+  const [trackMeals, setTrackMeals] = useState(true);
 
   const [form, setForm] = useState({
     title: "",
@@ -30,6 +39,11 @@ export default function NewEventPage() {
     fetch("/api/events")
       .then((res) => res.json())
       .then((events) => setPastEvents(events))
+      .catch(() => {});
+
+    fetch("/api/lookup/annual-event-types")
+      .then((res) => res.json())
+      .then((types) => setAnnualEventTypes(types))
       .catch(() => {});
   }, []);
 
@@ -54,8 +68,10 @@ export default function NewEventPage() {
           eventDate: form.eventDate
             ? new Date(form.eventDate).toISOString()
             : null,
+          trackSeating,
+          trackMeals,
           templateEventId: templateEventId || null,
-          isAnnualEvent,
+          annualEventTypeId: annualEventTypeId || null,
         }),
       });
 
@@ -177,21 +193,55 @@ export default function NewEventPage() {
           </div>
 
           <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
-            <label className="inline-flex items-center gap-2 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={isAnnualEvent}
-                onChange={(e) => setIsAnnualEvent(e.target.checked)}
-                className="accent-indigo-600 w-4 h-4"
-              />
-              <span className="text-sm font-medium text-gray-700">Annual Event</span>
+            <label className="block text-sm font-medium text-gray-700 mb-3">
+              Tracking Options
             </label>
-            {isAnnualEvent && (
-              <p className="text-xs text-gray-500 mt-2 ml-6">
-                All partner roles flagged as &quot;Annual Invite&quot; will be automatically invited.
-              </p>
-            )}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={trackSeating}
+                  onChange={(e) => setTrackSeating(e.target.checked)}
+                  className="rounded text-indigo-600"
+                />
+                <span className="text-sm text-gray-700">Assigned seating</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={trackMeals}
+                  onChange={(e) => setTrackMeals(e.target.checked)}
+                  className="rounded text-indigo-600"
+                />
+                <span className="text-sm text-gray-700">Meal selection</span>
+              </label>
+            </div>
           </div>
+
+          {annualEventTypes.length > 0 && (
+            <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Auto-Invite from Annual Event Type
+              </label>
+              <select
+                value={annualEventTypeId}
+                onChange={(e) => setAnnualEventTypeId(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="">— None (no auto-invites) —</option>
+                {annualEventTypes.map((type) => (
+                  <option key={type.id} value={type.id}>
+                    {type.name}
+                  </option>
+                ))}
+              </select>
+              {annualEventTypeId && (
+                <p className="text-xs text-gray-500 mt-2">
+                  All roles, partners, and people flagged for this event type will be automatically invited.
+                </p>
+              )}
+            </div>
+          )}
 
           <div className="pt-4">
             <button

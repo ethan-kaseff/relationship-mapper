@@ -29,7 +29,7 @@ export const updatePeopleSchema = z.object({
   prefix: z.string().max(50).optional().nullable(),
   greeting: z.string().max(500).optional().nullable(),
   isConnector: z.boolean().optional(),
-  annualInvite: z.boolean().optional(),
+  annualEventTypeIds: z.array(z.string().uuid()).optional(),
 });
 
 export type CreatePeopleInput = z.infer<typeof createPeopleSchema>;
