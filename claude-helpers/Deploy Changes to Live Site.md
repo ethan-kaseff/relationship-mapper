@@ -4,21 +4,28 @@ Checks everything, saves any unsaved work, and pushes to GitHub which updates th
 
 1. Check git email is `barry@kaseff.com`. Fix if not.
 
-2. Check `prisma/schema.prisma` has `provider = "postgresql"`. Fix if not.
+2. **Verify prisma/schema.prisma is correct (ALL of these must be true):**
+   - Has `provider = "postgresql"` (NOT sqlite)
+   - Has `url = env("DATABASE_URL")` in the datasource block
+   - Has `directUrl = env("DIRECT_URL")` in the datasource block
+   - Generator has `provider = "prisma-client"` and `output = "../src/generated/prisma"`
+   Fix any of these if missing. These are critical — without them the build breaks.
 
-3. Pull latest from GitHub:
+3. **Verify `src/lib/prisma.ts` imports from `@/generated/prisma/client`** (NOT `@prisma/client`). Fix if wrong.
+
+4. Pull latest from GitHub:
    ```
    git pull origin main
    ```
    Resolve any merge conflicts. Tell Barry what you resolved.
 
-4. If there are uncommitted changes, stage and commit them:
+5. If there are uncommitted changes, stage and commit them:
    ```
    git add -A
    git commit -m "your message here"
    ```
 
-5. Run checks — stop and tell Barry if any fail:
+6. Run checks — stop and tell Barry if any fail:
    ```
    npm run lint
    npm run typecheck
@@ -27,13 +34,13 @@ Checks everything, saves any unsaved work, and pushes to GitHub which updates th
    ```
    If lint fails, try `npm run lint:fix` first. If others fail, tell Barry what's wrong and stop.
 
-6. If the checks required fixes, commit them:
+7. If the checks required fixes, commit them:
    ```
    git add -A
    git commit -m "Fix lint/type errors before push"
    ```
 
-7. Push:
+8. Push:
    ```
    git push origin main
    ```

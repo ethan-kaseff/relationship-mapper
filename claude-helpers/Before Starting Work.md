@@ -17,11 +17,25 @@ Run these steps before making any changes.
    git pull origin main
    ```
 
-3. Check that `prisma/schema.prisma` has `provider = "postgresql"`. If it says `sqlite`, fix it back to `postgresql` before doing anything else.
-
-4. Install any new dependencies:
+3. Install any new dependencies:
    ```
    npm install
    ```
+
+4. **Verify prisma/schema.prisma is correct.** Check ALL of these:
+   - `provider = "postgresql"` (NOT sqlite)
+   - `url = env("DATABASE_URL")` exists in the datasource block
+   - `directUrl = env("DIRECT_URL")` exists in the datasource block
+   - Generator has `output = "../src/generated/prisma"`
+
+   If ANY of these are missing, fix them before doing anything else.
+
+5. **Verify the Prisma client import.** Check that `src/lib/prisma.ts` imports from `@/generated/prisma/client`. If it says `@prisma/client`, fix it.
+
+6. Do a quick build to make sure everything is working:
+   ```
+   npm run build
+   ```
+   If the build fails, stop and tell Barry what's wrong before making changes.
 
 Tell Barry: "You're up to date and ready to go."
