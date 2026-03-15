@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
 import { validateBody, updateHappeningResponseSchema } from "@/lib/validations";
-import { handleApiError, notFound } from "@/lib/api-error";
+import { handleApiError } from "@/lib/api-error";
 
 export async function PUT(
   request: Request,
