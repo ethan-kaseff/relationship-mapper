@@ -26,11 +26,11 @@ Run these steps before making any changes.
    - `provider = "postgresql"` (NOT sqlite)
    - `url = env("DATABASE_URL")` exists in the datasource block
    - `directUrl = env("DIRECT_URL")` exists in the datasource block
-   - Generator has `output = "../src/generated/prisma"`
+   - Generator has `provider = "prisma-client-js"` with NO custom output path
 
    If ANY of these are missing, fix them before doing anything else.
 
-5. **Verify the Prisma client import.** Check that `src/lib/prisma.ts` imports from `@/generated/prisma/client`. If it says `@prisma/client`, fix it.
+5. **Verify the Prisma client import.** Check that `src/lib/prisma.ts` imports from `@prisma/client`. If it says `@/generated/prisma/client` or any other path, fix it back to `@prisma/client`.
 
 6. Do a quick build to make sure everything is working:
    ```

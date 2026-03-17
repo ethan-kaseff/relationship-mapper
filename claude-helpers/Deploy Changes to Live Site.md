@@ -8,10 +8,10 @@ Checks everything, saves any unsaved work, and pushes to GitHub which updates th
    - Has `provider = "postgresql"` (NOT sqlite)
    - Has `url = env("DATABASE_URL")` in the datasource block
    - Has `directUrl = env("DIRECT_URL")` in the datasource block
-   - Generator has `provider = "prisma-client"` and `output = "../src/generated/prisma"`
+   - Generator has `provider = "prisma-client-js"` with NO custom output path
    Fix any of these if missing. These are critical — without them the build breaks.
 
-3. **Verify `src/lib/prisma.ts` imports from `@/generated/prisma/client`** (NOT `@prisma/client`). Fix if wrong.
+3. **Verify `src/lib/prisma.ts` imports from `@prisma/client`** (NOT `@/generated/prisma/client`). Fix if wrong.
 
 4. Pull latest from GitHub:
    ```
