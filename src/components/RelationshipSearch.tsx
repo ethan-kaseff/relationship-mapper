@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Pagination, { usePagination } from "./Pagination";
 
 interface Relationship {
   id: string;
@@ -31,6 +32,11 @@ export default function RelationshipSearch({
       })
     : relationships;
 
+  const { currentPage, pageSize, startIndex, endIndex, setCurrentPage, setPageSize } =
+    usePagination(filtered.length);
+
+  const paginated = filtered.slice(startIndex, endIndex);
+
   return (
     <>
       <div className="mb-4">
@@ -56,7 +62,7 @@ export default function RelationshipSearch({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filtered.map((rel) => (
+            {paginated.map((rel) => (
               <tr key={rel.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">
                   <Link
@@ -105,6 +111,13 @@ export default function RelationshipSearch({
             )}
           </tbody>
         </table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
     </>
   );

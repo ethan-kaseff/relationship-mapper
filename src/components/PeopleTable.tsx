@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import Pagination, { usePagination } from "./Pagination";
 
 interface Person {
   id: string;
@@ -32,6 +33,11 @@ export default function PeopleTable({ people }: { people: Person[] }) {
         );
       })
     : people;
+
+  const { currentPage, pageSize, startIndex, endIndex, setCurrentPage, setPageSize } =
+    usePagination(filtered.length);
+
+  const paginated = filtered.slice(startIndex, endIndex);
 
   return (
     <>
@@ -63,7 +69,7 @@ export default function PeopleTable({ people }: { people: Person[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filtered.map((person) => (
+            {paginated.map((person) => (
               <tr key={person.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">
                   <Link
@@ -95,6 +101,13 @@ export default function PeopleTable({ people }: { people: Person[] }) {
             )}
           </tbody>
         </table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
     </>
   );
