@@ -26,6 +26,28 @@ export default function Pagination({
 
   if (totalItems === 0) return null;
 
+  // Build page numbers with ellipsis
+  // Always show first, last, and pages around the current page
+  function getPageNumbers(): (number | "...")[] {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    const pages: (number | "...")[] = [];
+    // Always show page 1
+    pages.push(1);
+    if (currentPage > 3) pages.push("...");
+    // Pages around current
+    for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+      pages.push(i);
+    }
+    if (currentPage < totalPages - 2) pages.push("...");
+    // Always show last page
+    pages.push(totalPages);
+    return pages;
+  }
+
+  const pageNumbers = getPageNumbers();
+
   return (
     <div className="flex items-center justify-between px-4 py-3 text-sm text-gray-600">
       <div className="flex items-center gap-2">
@@ -59,6 +81,25 @@ export default function Pagination({
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
+          {pageNumbers.map((page, i) =>
+            page === "..." ? (
+              <span key={`ellipsis-${i}`} className="px-1 text-gray-400">
+                ...
+              </span>
+            ) : (
+              <button
+                key={page}
+                onClick={() => onPageChange(page)}
+                className={`min-w-[28px] h-7 rounded text-sm ${
+                  page === currentPage
+                    ? "bg-indigo-600 text-white font-medium"
+                    : "hover:bg-gray-100"
+                }`}
+              >
+                {page}
+              </button>
+            )
+          )}
           <button
             onClick={() => onPageChange(currentPage + 1)}
             disabled={currentPage >= totalPages}
