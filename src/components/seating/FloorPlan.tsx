@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { SeatingGuest, Table, VenueObject } from '@/types/seating';
+import { PIXELS_PER_FOOT } from '@/lib/seating-constants';
 import SeatingTable from './Table';
 import SeatingVenueObject from './VenueObject';
 
@@ -80,12 +81,16 @@ export default function FloorPlan({
         display: 'inline-block',
       }}>
       <div
-        className="relative bg-white border border-gray-300"
+        className="relative border border-gray-300"
         style={{
           width: floorSize.width,
           height: floorSize.height,
           transform: `scale(${zoom})`,
           transformOrigin: 'top left',
+          backgroundImage: `radial-gradient(circle, #9ca3af 0.5px, #ffffff 0.5px)`,
+          backgroundSize: `${PIXELS_PER_FOOT}px ${PIXELS_PER_FOOT}px`,
+          backgroundPosition: `-${PIXELS_PER_FOOT / 2}px -${PIXELS_PER_FOOT / 2}px`,
+          backgroundColor: '#ffffff',
         }}
       >
         {/* Center lines */}

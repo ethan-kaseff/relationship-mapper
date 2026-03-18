@@ -123,6 +123,7 @@ export default function SettingsPage() {
     errors: { row: number; message: string }[];
   } | null>(null);
   const [importError, setImportError] = useState("");
+  const [importErrorFile, setImportErrorFile] = useState("");
   const [exporting, setExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -581,6 +582,7 @@ export default function SettingsPage() {
     setImporting(true);
     setImportResult(null);
     setImportError("");
+    setImportErrorFile("");
 
     try {
       const formData = new FormData();
@@ -599,6 +601,27 @@ export default function SettingsPage() {
 
       const result = await res.json();
       setImportResult(result);
+
+      // Auto-download errors CSV if there were any errors
+      if (result.errors && result.errors.length > 0) {
+        const baseName = importFile.name.replace(/\.(csv|xlsx|xls)$/i, "");
+        const csvHeader = "Row,Message";
+        const csvRows = result.errors.map(
+          (err: { row: number; message: string }) =>
+            `${err.row},"${err.message.replace(/"/g, '""')}"`
+        );
+        const csvContent = [csvHeader, ...csvRows].join("\n");
+        const blob = new Blob([csvContent], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        const errorFileName = `${baseName}_errors.csv`;
+        a.download = errorFileName;
+        a.click();
+        URL.revokeObjectURL(url);
+        setImportErrorFile(errorFileName);
+      }
+
       setImportFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
     } catch (err: unknown) {
@@ -1406,9 +1429,9 @@ export default function SettingsPage() {
                 </button>
               </div>
               <p className="text-xs text-gray-500">
-                CSV files should have a header row. Expected columns for People: First Name, Last Name, Address, City, State, Zip, Phone, Email, Is Connector{isSystemAdmin ? ", Office" : ""}.
+                CSV files should have a header row. Expected columns for People: First Name, Last Name, Address, City, State, Zip, Phone, Email, Is Connector, Annual Events{isSystemAdmin ? ", Office" : ""}.
                 For Partners: Type, Name, Org Type, Address, City, State, Zip, Phone, Email, Website, Priority{isSystemAdmin ? ", Office" : ""}.
-                For Roles: Partner Name, Role Description, Person (optional, as &quot;First Last&quot;).
+                For Roles: Partner Name, Role Description, Person (optional, as &quot;First Last&quot;), Annual Events.
               </p>
             </form>
 
@@ -1425,6 +1448,11 @@ export default function SettingsPage() {
                 </p>
                 {importResult.errors.length > 0 && (
                   <div className="mt-2">
+                    {importErrorFile && (
+                      <p className="text-amber-800 text-xs mb-2">
+                        An error log has been saved as <span className="font-medium">{importErrorFile}</span> in your Downloads folder.
+                      </p>
+                    )}
                     <p className="text-amber-800 font-medium text-xs mb-1">Errors:</p>
                     <ul className="text-xs text-amber-700 list-disc list-inside max-h-32 overflow-y-auto">
                       {importResult.errors.map((err, i) => (

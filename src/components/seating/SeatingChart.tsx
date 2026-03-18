@@ -60,7 +60,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
   }): Table[] => {
     if (tables.length === 0) return tables;
     const { layout: layoutType, spacing, objectSpacing, maxCols } = options;
-    const tableBody = 50;
+    const tableBody = 84; // full radius including chairs (table radius 50 + seat offset 20 + seat radius 14)
     const tableCount = tables.length;
     const margin = 50;
 
@@ -176,7 +176,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
     // Use the same slot-finding logic as computeArrangedTables to count available positions
     const spacing = 200;
     const objectSpacing = 30;
-    const tableBody = 50;
+    const tableBody = 84; // full radius including chairs (table radius 50 + seat offset 20 + seat radius 14)
     const margin = 50;
     const floorW = state.floorSize.width;
     const floorH = state.floorSize.height;
