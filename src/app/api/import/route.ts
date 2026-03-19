@@ -130,7 +130,8 @@ export async function POST(request: Request) {
               prefix,
               greeting: row["greeting"] || row["personalized greeting"] || null,
               phoneNumber: row["phone"] || row["phone number"] || row["phonenumber"] || null,
-              personalEmail: row["email"] || row["personal email"] || row["personalemail"] || null,
+              email1: row["email"] || row["email 1"] || row["email1"] || row["personal email"] || row["personalemail"] || null,
+              email2: row["email 2"] || row["email2"] || null,
               isConnector:
                 (row["is connector"] || row["isconnector"] || "")
                   .toLowerCase() === "yes",
@@ -394,7 +395,8 @@ export async function POST(request: Request) {
                   state: row["state"] || null,
                   zip: row["zip"] || null,
                   phoneNumber: row["phone"] || row["phone number"] || row["phonenumber"] || null,
-                  personalEmail: row["email"] || null,
+                  email1: row["email"] || row["email 1"] || row["email1"] || null,
+                  email2: row["email 2"] || row["email2"] || null,
                   officeId,
                 },
               });

@@ -12,7 +12,8 @@ interface Person {
   city: string | null;
   state: string | null;
   phoneNumber: string | null;
-  personalEmail: string | null;
+  email1: string | null;
+  email2: string | null;
   isConnector: boolean;
 }
 
@@ -29,7 +30,8 @@ export default function PeopleTable({ people }: { people: Person[] }) {
           `${p.lastName}, ${p.firstName}`.toLowerCase().includes(q) ||
           (p.city?.toLowerCase().includes(q) ?? false) ||
           (p.state?.toLowerCase().includes(q) ?? false) ||
-          (p.personalEmail?.toLowerCase().includes(q) ?? false)
+          (p.email1?.toLowerCase().includes(q) ?? false) ||
+          (p.email2?.toLowerCase().includes(q) ?? false)
         );
       })
     : people;
@@ -64,7 +66,8 @@ export default function PeopleTable({ people }: { people: Person[] }) {
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">City</th>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">State</th>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">Phone</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Email</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Email 1</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Email 2</th>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">Connector</th>
             </tr>
           </thead>
@@ -82,7 +85,8 @@ export default function PeopleTable({ people }: { people: Person[] }) {
                 <td className="px-4 py-3 text-gray-600">{person.city ?? "—"}</td>
                 <td className="px-4 py-3 text-gray-600">{person.state ?? "—"}</td>
                 <td className="px-4 py-3 text-gray-600">{person.phoneNumber ?? "—"}</td>
-                <td className="px-4 py-3 text-gray-600">{person.personalEmail ?? "—"}</td>
+                <td className="px-4 py-3 text-gray-600">{person.email1 ?? "—"}</td>
+                <td className="px-4 py-3 text-gray-600">{person.email2 ?? "—"}</td>
                 <td className="px-4 py-3">
                   {person.isConnector && (
                     <span className="inline-block bg-green-100 text-green-800 text-xs font-medium px-2 py-0.5 rounded-full">
@@ -94,7 +98,7 @@ export default function PeopleTable({ people }: { people: Person[] }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
                   {search ? "No people match your search." : "No people found. Add your first person above."}
                 </td>
               </tr>

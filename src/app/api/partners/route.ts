@@ -108,7 +108,7 @@ export async function POST(request: Request) {
             state: data.state,
             zip: data.zip,
             phoneNumber: data.phoneNumber,
-            personalEmail: data.email || null,
+            email1: data.email || null,
             isConnector: false,
             officeId,
           },

@@ -142,7 +142,8 @@ export default async function PersonDetailPage({
             state: person.state,
             zip: person.zip,
             phoneNumber: person.phoneNumber,
-            personalEmail: person.personalEmail,
+            email1: person.email1,
+            email2: person.email2,
             isConnector: person.isConnector,
             annualEventTypeIds: person.annualEventTypes.map((a) => a.annualEventType.id),
           }}
@@ -170,10 +171,16 @@ export default async function PersonDetailPage({
                 <span className="text-gray-800">{person.phoneNumber}</span>
               </div>
             )}
-            {person.personalEmail && (
+            {person.email1 && (
               <div>
-                <span className="font-medium text-gray-500">Email:</span>{" "}
-                <span className="text-gray-800">{person.personalEmail}</span>
+                <span className="font-medium text-gray-500">Email 1:</span>{" "}
+                <span className="text-gray-800">{person.email1}</span>
+              </div>
+            )}
+            {person.email2 && (
+              <div>
+                <span className="font-medium text-gray-500">Email 2:</span>{" "}
+                <span className="text-gray-800">{person.email2}</span>
               </div>
             )}
             {(person.address || person.city || person.state || person.zip) && (

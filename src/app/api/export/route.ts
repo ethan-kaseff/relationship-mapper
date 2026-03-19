@@ -129,7 +129,8 @@ export async function GET(request: Request) {
       { header: "State", key: "state", width: 10 },
       { header: "Zip", key: "zip", width: 10 },
       { header: "Phone", key: "phoneNumber", width: 15 },
-      { header: "Email", key: "personalEmail", width: 25 },
+      { header: "Email 1", key: "email1", width: 25 },
+      { header: "Email 2", key: "email2", width: 25 },
       { header: "Is Connector", key: "isConnector", width: 12 },
       { header: "Office", key: "office", width: 20 },
     ];
@@ -144,7 +145,8 @@ export async function GET(request: Request) {
         state: p.state ?? "",
         zip: p.zip ?? "",
         phoneNumber: p.phoneNumber ?? "",
-        personalEmail: p.personalEmail ?? "",
+        email1: p.email1 ?? "",
+        email2: p.email2 ?? "",
         isConnector: p.isConnector ? "Yes" : "No",
         office: (p as Record<string, unknown> & { office: { name: string } }).office.name,
       });
@@ -308,14 +310,14 @@ function toCsvRow(values: unknown[]): string {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function buildPeopleCsv(people: any[]): string {
-  const headers = ["First Name", "Last Name", "Prefix", "Greeting", "Address", "City", "State", "Zip", "Phone", "Email", "Is Connector", "Office"];
+  const headers = ["First Name", "Last Name", "Prefix", "Greeting", "Address", "City", "State", "Zip", "Phone", "Email 1", "Email 2", "Is Connector", "Office"];
   const rows = [toCsvRow(headers)];
   for (const p of people) {
     rows.push(
       toCsvRow([
         p.firstName, p.lastName, p.prefix, p.greeting,
         p.address, p.city, p.state, p.zip,
-        p.phoneNumber, p.personalEmail, p.isConnector ? "Yes" : "No",
+        p.phoneNumber, p.email1, p.email2, p.isConnector ? "Yes" : "No",
         p.office?.name ?? "",
       ])
     );

@@ -84,7 +84,8 @@ export async function PUT(
         state: data.state,
         zip: data.zip,
         phoneNumber: data.phoneNumber,
-        personalEmail: data.personalEmail || null,
+        email1: data.email1 || null,
+        email2: data.email2 || null,
         isConnector: data.isConnector,
       },
     });

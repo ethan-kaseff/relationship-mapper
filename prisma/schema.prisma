@@ -14,11 +14,12 @@ model Office {
   id       String    @id @default(uuid())
   name     String    @unique
   isSiloed Boolean   @default(false) @map("is_siloed")
-  users            User[]
-  people           People[]
-  partners         Partner[]
-  events           Event[]
-  annualEventTypes AnnualEventType[]
+  users              User[]
+  people             People[]
+  partners           Partner[]
+  events             Event[]
+  annualEventTypes   AnnualEventType[]
+  integrationTokens  IntegrationToken[]
 
   @@map("office")
 }
@@ -88,9 +89,12 @@ model People {
   state         String?
   zip           String?
   phoneNumber   String?  @map("phone_number")
-  personalEmail String?  @map("personal_email")
+  email1         String?  @map("email_1")
+  email2         String?  @map("email_2")
   isConnector    Boolean  @default(false) @map("is_connector")
   connectorToken String?  @unique @map("connector_token")
+  ccContactId1   String?  @map("cc_contact_id_1")
+  ccContactId2   String?  @map("cc_contact_id_2")
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
   officeId      String   @map("office_id")
@@ -237,6 +241,8 @@ model Event {
   trackSeating   Boolean       @default(true) @map("track_seating")
   trackMeals     Boolean       @default(true) @map("track_meals")
   seatingLayout  Json?         @map("seating_layout")
+  ccListId       String?       @map("cc_list_id")
+  ccSyncCount    Int           @default(0) @map("cc_sync_count")
   createdById    String        @map("created_by_id")
   createdBy      User          @relation("EventCreator", fields: [createdById], references: [id])
   officeId       String        @map("office_id")
@@ -250,21 +256,21 @@ model Event {
 }
 
 model EventInvite {
-  id         String    @id @default(uuid())
-  eventId    String    @map("event_id")
-  event      Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  peopleId   String    @map("people_id")
-  person     People    @relation(fields: [peopleId], references: [id])
-  rsvpStatus String    @default("PENDING") @map("rsvp_status") // PENDING, YES, NO, MAYBE
-  rsvpDate   DateTime? @map("rsvp_date")
-  meal       String    @default("Standard")
-  dietary    Json      @default("[]")
-  notes      String?
-  group      String    @default("")
-  tableId    String?   @map("table_id")
-  seatIndex  Int?      @map("seat_index")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
+  id           String    @id @default(uuid())
+  eventId      String    @map("event_id")
+  event        Event     @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  peopleId     String    @map("people_id")
+  person       People    @relation(fields: [peopleId], references: [id])
+  rsvpStatus   String    @default("PENDING") @map("rsvp_status") // PENDING, YES, NO, MAYBE
+  rsvpDate     DateTime? @map("rsvp_date")
+  meal         String    @default("Standard")
+  dietary      Json      @default("[]")
+  notes        String?
+  group        String    @default("")
+  tableId      String?   @map("table_id")
+  seatIndex    Int?      @map("seat_index")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
 
   @@unique([eventId, peopleId])
   @@index([eventId])
@@ -304,4 +310,22 @@ model PartnerRoleAnnualEventType {
 
   @@unique([partnerRoleId, annualEventTypeId])
   @@map("partner_role_annual_event_type")
+}
+
+// ─── Integrations ─────────────────────────────────────────────────────────────
+
+model IntegrationToken {
+  id           String   @id @default(uuid())
+  officeId     String   @map("office_id")
+  office       Office   @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  provider     String   @default("constant_contact")
+  accessToken  String   @map("access_token")
+  refreshToken String   @map("refresh_token")
+  expiresAt    DateTime @map("expires_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@unique([officeId, provider])
+  @@index([officeId])
+  @@map("integration_token")
 }

@@ -72,9 +72,9 @@ async function main() {
 
   // ─── Sample People (Connectors) ─────────────────────────────────────────
   const connectors = [
-    { firstName: "Sarah", lastName: "Cohen", city: "Overland Park", state: "KS", personalEmail: "sarah.cohen@example.com", phoneNumber: "913-555-0101" },
-    { firstName: "David", lastName: "Goldberg", city: "Kansas City", state: "MO", personalEmail: "david.g@example.com", phoneNumber: "816-555-0202" },
-    { firstName: "Rachel", lastName: "Weiss", city: "Leawood", state: "KS", personalEmail: "rachel.w@example.com", phoneNumber: "913-555-0303" },
+    { firstName: "Sarah", lastName: "Cohen", city: "Overland Park", state: "KS", email1: "sarah.cohen@example.com", phoneNumber: "913-555-0101" },
+    { firstName: "David", lastName: "Goldberg", city: "Kansas City", state: "MO", email1: "david.g@example.com", phoneNumber: "816-555-0202" },
+    { firstName: "Rachel", lastName: "Weiss", city: "Leawood", state: "KS", email1: "rachel.w@example.com", phoneNumber: "913-555-0303" },
   ];
 
   const connectorRecords: string[] = [];
@@ -95,10 +95,10 @@ async function main() {
 
   // ─── Sample People (Partner Contacts) ────────────────────────────────────
   const contacts = [
-    { firstName: "Laura", lastName: "Kelly", city: "Topeka", state: "KS", personalEmail: "governor@ks.gov" },
+    { firstName: "Laura", lastName: "Kelly", city: "Topeka", state: "KS", email1: "governor@ks.gov" },
     { firstName: "David", lastName: "Toland", city: "Topeka", state: "KS" },
-    { firstName: "James", lastName: "Mitchell", city: "Kansas City", state: "MO", personalEmail: "jmitchell@faithorg.com" },
-    { firstName: "Maria", lastName: "Rodriguez", city: "Kansas City", state: "MO", personalEmail: "maria.r@kcbusiness.com" },
+    { firstName: "James", lastName: "Mitchell", city: "Kansas City", state: "MO", email1: "jmitchell@faithorg.com" },
+    { firstName: "Maria", lastName: "Rodriguez", city: "Kansas City", state: "MO", email1: "maria.r@kcbusiness.com" },
   ];
 
   const contactRecords: string[] = [];
