@@ -46,7 +46,7 @@ export default function SeatingTable({
   const color = TABLE_COLORS[0];
 
   const snap = (v: number) => snapToGrid ? Math.round(v / gridSize) * gridSize : v;
-  const margin = tableSize / 2; // 50 - keeps table circle on floor, seats can extend into scroll padding
+  const margin = seatDistance + seatSize / 2; // 84 - keeps entire table including chairs on floor
   const clampX = (x: number) => Math.max(margin, Math.min(floorSize.width - margin, x));
   const clampY = (y: number) => Math.max(margin, Math.min(floorSize.height - margin, y));
 
@@ -163,21 +163,37 @@ export default function SeatingTable({
                 : 'bg-white border-gray-300 hover:border-gray-400'
             }`}
             style={{ width: seatSize, height: seatSize, left: seatX, top: seatY }}
+            draggable={!!guest}
+            onDragStart={(e) => {
+              if (guest) {
+                e.dataTransfer.setData('guestId', guest.id);
+                e.dataTransfer.effectAllowed = 'move';
+                const el = document.createElement('div');
+                el.textContent = guest.name.charAt(0).toUpperCase();
+                Object.assign(el.style, {
+                  width: '28px', height: '28px', borderRadius: '50%',
+                  backgroundColor: '#374151', color: '#fff',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: '12px', fontWeight: '600', position: 'absolute', top: '-9999px',
+                });
+                document.body.appendChild(el);
+                e.dataTransfer.setDragImage(el, 14, 14);
+                requestAnimationFrame(() => document.body.removeChild(el));
+              }
+            }}
             onClick={(e) => {
               e.stopPropagation();
               onSeatClick(table.id, index, guest?.id || null);
             }}
             onDragOver={(e) => {
-              if (!guest) {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-              }
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
             }}
             onDrop={(e) => {
               e.preventDefault();
               e.stopPropagation();
               const guestId = e.dataTransfer.getData('guestId');
-              if (guestId && !guest && onGuestDrop) {
+              if (guestId && onGuestDrop) {
                 onGuestDrop(guestId, table.id, index);
               }
             }}

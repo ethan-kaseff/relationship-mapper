@@ -251,8 +251,8 @@ export function useSeatingChart(
     const table: Table = {
       id,
       name: name || `Table ${tableNumber}`,
-      x: 100 + (state.tables.length % 4) * 150,
-      y: 100 + Math.floor(state.tables.length / 4) * 150,
+      x: 120 + (state.tables.length % 4) * 180,
+      y: 120 + Math.floor(state.tables.length / 4) * 180,
       shape: 'round',
       seats: Array(seatCount).fill(null).map(() => ({ guestId: null })),
       width: 100,
@@ -267,8 +267,8 @@ export function useSeatingChart(
     const newTables: Table[] = tables.map((t, i) => ({
       id: `table-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
       name: t.name,
-      x: 100 + ((state.tables.length + i) % 4) * 150,
-      y: 100 + Math.floor((state.tables.length + i) / 4) * 150,
+      x: 120 + ((state.tables.length + i) % 4) * 180,
+      y: 120 + Math.floor((state.tables.length + i) / 4) * 180,
       shape: 'round' as const,
       seats: Array(t.seatCount).fill(null).map(() => ({ guestId: null })),
       width: 100,

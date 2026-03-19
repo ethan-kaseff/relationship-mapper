@@ -1,7 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { FLOOR_PRESETS, PIXELS_PER_FOOT } from '@/lib/seating-constants';
+
+function loadArrangeSettings() {
+  try {
+    const saved = localStorage.getItem('arrangeSettings');
+    if (saved) return JSON.parse(saved);
+  } catch { /* ignore */ }
+  return null;
+}
 
 interface ArrangeOptions {
   layout: 'grid' | 'staggered';
@@ -35,10 +43,20 @@ export default function FloorControls({
 }: FloorControlsProps) {
   const [customWidth, setCustomWidth] = useState(Math.round(floorWidth / PIXELS_PER_FOOT));
   const [customHeight, setCustomHeight] = useState(Math.round(floorHeight / PIXELS_PER_FOOT));
-  const [arrangeLayout, setArrangeLayout] = useState<'grid' | 'staggered'>('grid');
-  const [arrangeSpacingFt, setArrangeSpacingFt] = useState(Math.round(200 / PIXELS_PER_FOOT));
-  const [arrangeObjectSpacingFt, setArrangeObjectSpacingFt] = useState(Math.round(30 / PIXELS_PER_FOOT));
-  const [arrangeMaxCols, setArrangeMaxCols] = useState(0);
+  const saved = loadArrangeSettings();
+  const [arrangeLayout, setArrangeLayout] = useState<'grid' | 'staggered'>(saved?.layout || 'grid');
+  const [arrangeSpacingFt, setArrangeSpacingFt] = useState(saved?.spacingFt ?? Math.round(200 / PIXELS_PER_FOOT));
+  const [arrangeObjectSpacingFt, setArrangeObjectSpacingFt] = useState(saved?.objectSpacingFt ?? Math.round(30 / PIXELS_PER_FOOT));
+  const [arrangeMaxCols, setArrangeMaxCols] = useState(saved?.maxCols ?? 0);
+
+  useEffect(() => {
+    localStorage.setItem('arrangeSettings', JSON.stringify({
+      layout: arrangeLayout,
+      spacingFt: arrangeSpacingFt,
+      objectSpacingFt: arrangeObjectSpacingFt,
+      maxCols: arrangeMaxCols,
+    }));
+  }, [arrangeLayout, arrangeSpacingFt, arrangeObjectSpacingFt, arrangeMaxCols]);
   const [showArrangeOptions, setShowArrangeOptions] = useState(false);
 
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {

@@ -59,10 +59,12 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
     layout: 'grid' | 'staggered'; spacing: number; objectSpacing: number; maxCols: number;
   }): Table[] => {
     if (tables.length === 0) return tables;
-    const { layout: layoutType, spacing, objectSpacing, maxCols } = options;
+    const { layout: layoutType, spacing, objectSpacing } = options;
     const tableBody = 84; // full radius including chairs (table radius 50 + seat offset 20 + seat radius 14)
     const tableCount = tables.length;
-    const margin = 50;
+    const margin = tableBody;
+    const floorW = state.floorSize.width;
+    const floorH = state.floorSize.height;
 
     const objectBounds = state.objects.map((obj) => {
       const pad = obj.padding || { top: 0, right: 0, bottom: 0, left: 0 };
@@ -80,95 +82,70 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       );
 
     const rowH = layoutType === 'staggered' ? spacing * 0.866 : spacing;
-    const floorW = state.floorSize.width;
-    const floorH = state.floorSize.height;
+    const usableW = floorW - 2 * margin;
+    const maxFitCols = Math.max(1, Math.floor(usableW / spacing) + 1);
 
-    const maxFitCols = Math.max(1, Math.floor((floorW - 2 * margin) / spacing) + 1);
+    // Determine how many columns we need for this table count
+    const idealCols = Math.ceil(Math.sqrt(tableCount));
+    let cols = options.maxCols > 0 ? options.maxCols : Math.min(idealCols, maxFitCols);
 
-    const findSlots = (cols: number): { x: number; y: number }[] => {
+    // Build centered slots row by row, skipping positions that overlap objects
+    const buildSlots = (numCols: number): { x: number; y: number }[] => {
       const slots: { x: number; y: number }[] = [];
-      const scanStep = rowH / 2;
-      let y = margin;
-      let placedRows = 0;
-      let lastPlacedY = -Infinity;
-
-      while (slots.length < tableCount && y <= floorH - margin) {
-        if (y - lastPlacedY < rowH - 1) { y += scanStep; continue; }
-        const isOddRow = layoutType === 'staggered' && placedRows % 2 === 1;
-        const stagger = isOddRow ? spacing / 2 : 0;
-        const rowW = (cols - 1) * spacing;
-        const startX = (floorW - rowW) / 2 + stagger;
-
+      let gy = margin;
+      let rowNum = 0;
+      while (slots.length < tableCount && gy <= floorH - margin) {
         const rowSlots: { x: number; y: number }[] = [];
-        for (let col = 0; col < cols; col++) {
-          const x = startX + col * spacing;
-          if (x < margin || x > floorW - margin || y < margin || y > floorH - margin) continue;
-          if (!overlapsObject(x, y)) rowSlots.push({ x, y });
-        }
+        const isStaggeredRow = layoutType === 'staggered' && rowNum % 2 === 1;
+        const rowCols = isStaggeredRow ? numCols - 1 : numCols;
+        if (rowCols <= 0) { gy += rowH; rowNum++; continue; }
+        const needed = Math.min(rowCols, tableCount - slots.length);
+        const rowW = (needed - 1) * spacing;
+        const rowStartX = (floorW - rowW) / 2;
 
-        if (rowSlots.length > 0) {
-          rowSlots.forEach((s) => slots.push(s));
-          placedRows++;
-          lastPlacedY = y;
-          y += rowH;
-        } else {
-          y += scanStep;
+        for (let col = 0; col < needed; col++) {
+          const gx = rowStartX + col * spacing;
+          if (gx >= margin && gx <= floorW - margin && !overlapsObject(gx, gy)) {
+            rowSlots.push({ x: gx, y: gy });
+          }
         }
+        if (rowSlots.length > 0) slots.push(...rowSlots);
+        gy += rowH;
+        rowNum++;
       }
       return slots;
     };
 
-    // Try increasing column counts until all tables fit
-    let cols2: number;
-    let slots: { x: number; y: number }[];
-
-    if (maxCols > 0) {
-      cols2 = maxCols;
-      slots = findSlots(cols2);
-    } else {
-      const idealCols = Math.ceil(Math.sqrt(tableCount));
-      cols2 = Math.min(idealCols, maxFitCols);
-      slots = findSlots(cols2);
-
-      // If not enough slots, increase columns until they fit
-      while (slots.length < tableCount && cols2 < maxFitCols) {
-        cols2++;
-        slots = findSlots(cols2);
-      }
+    let slots = buildSlots(cols);
+    // If not enough slots, try more columns
+    while (slots.length < tableCount && cols < maxFitCols) {
+      cols++;
+      slots = buildSlots(cols);
     }
 
-    // Center the last row if it has fewer tables
-    if (slots.length > 0) {
-      const lastY = slots[slots.length - 1].y;
-      const lastRowStart = slots.findIndex((s) => s.y === lastY);
-      const lastRowCount = slots.length - lastRowStart;
-      if (lastRowCount < cols2 && lastRowCount > 0) {
-        const lastRowW = (lastRowCount - 1) * spacing;
-        const centeredStartX = (floorW - lastRowW) / 2;
-        for (let i = lastRowStart; i < slots.length; i++) {
-          slots[i].x = centeredStartX + (i - lastRowStart) * spacing;
-        }
-      }
-    }
-
-    slots.forEach((s) => {
-      s.x = Math.max(margin, Math.min(floorW - margin, s.x));
-      s.y = Math.max(margin, Math.min(floorH - margin, s.y));
+    // Sort tables by current position so they keep their relative spatial order
+    const sorted = [...tables].sort((a, b) => {
+      const rowA = Math.round(a.y / rowH);
+      const rowB = Math.round(b.y / rowH);
+      if (rowA !== rowB) return rowA - rowB;
+      return a.x - b.x;
     });
 
-    return tables.map((table, i) => {
+    // Assign sorted tables to slots, build position map
+    const resultPositions: Map<string, { x: number; y: number }> = new Map();
+    sorted.forEach((table, i) => {
       if (i < slots.length) {
-        return { ...table, x: slots[i].x, y: slots[i].y };
+        resultPositions.set(table.id, slots[i]);
       } else {
-        // Overflow: add extra rows beyond current floor
-        const overflowIdx = i - slots.length;
-        const overflowCol = overflowIdx % cols2;
-        const overflowRow = Math.floor(overflowIdx / cols2);
-        const rowW = (Math.min(cols2, tableCount - slots.length - overflowRow * cols2) - 1) * spacing;
-        const ox = Math.max(margin, Math.min(floorW - margin, (floorW - rowW) / 2 + overflowCol * spacing));
-        const oy = Math.min(floorH - margin, (slots.length > 0 ? slots[slots.length - 1].y : margin) + (overflowRow + 1) * rowH);
-        return { ...table, x: ox, y: oy };
+        const cx = Math.max(margin, Math.min(floorW - margin, table.x));
+        const cy = Math.max(margin, Math.min(floorH - margin, table.y));
+        resultPositions.set(table.id, { x: cx, y: cy });
       }
+    });
+
+    return tables.map((table) => {
+      const pos = resultPositions.get(table.id)!;
+      return { ...table, x: pos.x, y: pos.y };
     });
   }, [state.objects, state.floorSize.width, state.floorSize.height]);
 
@@ -177,7 +154,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
     const spacing = 200;
     const objectSpacing = 30;
     const tableBody = 84; // full radius including chairs (table radius 50 + seat offset 20 + seat radius 14)
-    const margin = 50;
+    const margin = tableBody; // keep entire table including chairs on floor
     const floorW = state.floorSize.width;
     const floorH = state.floorSize.height;
     const rowH = spacing;
@@ -300,7 +277,23 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
 
   const handleSeatClick = (tableId: string, seatIndex: number, guestId: string | null) => {
     if (selectedGuestId && !guestId) {
+      // Move selected guest to empty seat
       assignGuest(selectedGuestId, tableId, seatIndex);
+      setSelectedGuestId(null);
+      setSelectedSeatInfo(null);
+      return;
+    }
+    if (selectedGuestId && guestId && selectedGuestId !== guestId) {
+      // Swap: find where the selected guest is seated, then swap them
+      const selectedGuest = state.guests.find((g) => g.id === selectedGuestId);
+      if (selectedGuest?.tableId != null && selectedGuest?.seatIndex != null) {
+        const fromTable = selectedGuest.tableId;
+        const fromSeat = selectedGuest.seatIndex;
+        unassignGuest(selectedGuestId);
+        unassignGuest(guestId);
+        assignGuest(guestId, fromTable, fromSeat);
+        assignGuest(selectedGuestId, tableId, seatIndex);
+      }
       setSelectedGuestId(null);
       setSelectedSeatInfo(null);
       return;
@@ -566,7 +559,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
               selectedGuestId={selectedGuestId} selectedSeatInfo={selectedSeatInfo}
               onTableDrag={(id, x, y) => {
                 const gs = 20;
-                const margin = 50;
+                const margin = 84; // full table radius including chairs
                 const cx = Math.max(margin, Math.min(state.floorSize.width - margin, snapToGrid ? Math.round(x / gs) * gs : x));
                 const cy = Math.max(margin, Math.min(state.floorSize.height - margin, snapToGrid ? Math.round(y / gs) * gs : y));
                 updateTable(id, { x: cx, y: cy });
@@ -591,7 +584,23 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
               snapToGrid={snapToGrid} gridSize={20} showCenterLines={showCenterLines}
               selectedTableIds={selectedTableIds} selectedObjectIds={selectedObjectIds}
               onGuestDrop={(guestId, tableId, seatIndex) => {
-                assignGuest(guestId, tableId, seatIndex);
+                const existingGuest = state.guests.find(
+                  (g) => g.tableId === tableId && g.seatIndex === seatIndex
+                );
+                const draggedGuest = state.guests.find((g) => g.id === guestId);
+                if (existingGuest && existingGuest.id !== guestId) {
+                  // Swap: move existing guest to dragged guest's old seat
+                  const fromTable = draggedGuest?.tableId ?? null;
+                  const fromSeat = draggedGuest?.seatIndex ?? null;
+                  unassignGuest(guestId);
+                  unassignGuest(existingGuest.id);
+                  if (fromTable != null && fromSeat != null) {
+                    assignGuest(existingGuest.id, fromTable, fromSeat);
+                  }
+                  assignGuest(guestId, tableId, seatIndex);
+                } else {
+                  assignGuest(guestId, tableId, seatIndex);
+                }
                 setSelectedGuestId(null);
                 setSelectedSeatInfo(null);
               }}

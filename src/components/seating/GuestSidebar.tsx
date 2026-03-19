@@ -80,6 +80,17 @@ export default function GuestSidebar({
           if (!guest.tableId) {
             e.dataTransfer.setData('guestId', guest.id);
             e.dataTransfer.effectAllowed = 'move';
+            const el = document.createElement('div');
+            el.textContent = guest.name.charAt(0).toUpperCase();
+            Object.assign(el.style, {
+              width: '28px', height: '28px', borderRadius: '50%',
+              backgroundColor: '#374151', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '12px', fontWeight: '600', position: 'absolute', top: '-9999px',
+            });
+            document.body.appendChild(el);
+            e.dataTransfer.setDragImage(el, 14, 14);
+            requestAnimationFrame(() => document.body.removeChild(el));
           }
         }}
         className={`guest-card p-3 rounded-lg border cursor-pointer ${
@@ -152,7 +163,21 @@ export default function GuestSidebar({
   };
 
   return (
-    <div className="w-80 bg-white border-l border-gray-200 flex flex-col h-full">
+    <div
+      className="w-80 bg-white border-l border-gray-200 flex flex-col h-full"
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        const guestId = e.dataTransfer.getData('guestId');
+        if (guestId) {
+          const guest = guests.find((g) => g.id === guestId);
+          if (guest?.tableId) onUnassign(guestId);
+        }
+      }}
+    >
       <div className="p-4 border-b border-gray-200">
         <h2 className="text-lg font-semibold text-gray-800 mb-3">Guests (RSVP Yes)</h2>
         <input
