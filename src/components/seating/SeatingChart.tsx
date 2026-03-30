@@ -374,13 +374,13 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       const actualCount = Math.min(data.tableCount, remaining);
       if (actualCount <= 0) {
         setCapacityWarning(`Floor is at capacity (${state.tables.length} tables). Increase floor size or remove objects to add more.`);
-        setTimeout(() => setCapacityWarning(null), 5000);
+        setTimeout(() => setCapacityWarning(null), 8000);
         setEditingTable(null);
         return;
       }
       if (actualCount < data.tableCount) {
         setCapacityWarning(`Only ${actualCount} of ${data.tableCount} tables could fit. Increase floor size for more.`);
-        setTimeout(() => setCapacityWarning(null), 5000);
+        setTimeout(() => setCapacityWarning(null), 8000);
       }
       // Find the highest existing number for this prefix
       const prefix = data.name || 'Table';
@@ -406,7 +406,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       const remaining = getRemainingCapacity();
       if (remaining <= 0) {
         setCapacityWarning(`Floor is at capacity (${state.tables.length} tables). Increase floor size or remove objects to add more.`);
-        setTimeout(() => setCapacityWarning(null), 5000);
+        setTimeout(() => setCapacityWarning(null), 8000);
         setEditingTable(null);
         return;
       }
@@ -478,7 +478,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
                   const remaining = getRemainingCapacity();
                   if (remaining <= 0) {
                     setCapacityWarning(`Floor is at capacity (${state.tables.length} tables). Increase floor size or remove objects to add more.`);
-                    setTimeout(() => setCapacityWarning(null), 5000);
+                    setTimeout(() => setCapacityWarning(null), 8000);
                   } else {
                     setEditingTable(null); setTableModalOpen(true);
                   }

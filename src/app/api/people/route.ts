@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     });
     if (existing) {
       return NextResponse.json(
-        { error: `A person named "${data.prefix ? data.prefix + " " : ""}${data.firstName}${data.middleInitial ? " " + data.middleInitial : ""} ${data.lastName}" already exists in this office.` },
+        { error: `A person named "${[data.prefix, data.firstName, data.middleInitial, data.lastName].filter(Boolean).join(" ")}" already exists in this office.` },
         { status: 409 }
       );
     }

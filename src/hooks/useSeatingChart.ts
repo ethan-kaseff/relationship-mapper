@@ -212,6 +212,12 @@ export function useSeatingChart(
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  const onSaveRef = useRef(onSave);
+  onSaveRef.current = onSave;
+
   useEffect(() => {
     if (!onSave) return;
 
@@ -221,6 +227,7 @@ export function useSeatingChart(
 
     saveTimeoutRef.current = setTimeout(() => {
       onSave(state);
+      saveTimeoutRef.current = null;
     }, 1000);
 
     return () => {
@@ -229,6 +236,18 @@ export function useSeatingChart(
       }
     };
   }, [state, onSave]);
+
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+        onSaveRef.current?.(stateRef.current);
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

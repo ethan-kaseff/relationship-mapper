@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
 import { validateBody, updatePeopleSchema } from "@/lib/validations";
 import { handleApiError, notFound } from "@/lib/api-error";
+import { getOfficeFilter } from "@/lib/office-filter";
 
 export async function GET(
   request: Request,
@@ -13,8 +14,9 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const person = await prisma.people.findUnique({
-      where: { id },
+    const officeFilter = await getOfficeFilter();
+    const person = await prisma.people.findFirst({
+      where: { id, ...officeFilter },
       include: {
         partnerRoles: {
           include: {

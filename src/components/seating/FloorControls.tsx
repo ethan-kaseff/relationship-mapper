@@ -144,12 +144,12 @@ export default function FloorControls({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-gray-600 font-medium">Spacing:</span>
-            <input type="range" min={6} max={30} step={1} value={arrangeSpacingFt} onChange={(e) => setArrangeSpacingFt(parseInt(e.target.value))} className="w-24" />
+            <input type="range" min={6} max={30} step={1} value={arrangeSpacingFt} onChange={(e) => setArrangeSpacingFt(parseInt(e.target.value))} className="w-24" aria-label="Table spacing in feet" />
             <span className="text-gray-500 w-14 text-center">{arrangeSpacingFt} ft</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-gray-600 font-medium">Object clearance:</span>
-            <input type="range" min={0} max={10} step={1} value={arrangeObjectSpacingFt} onChange={(e) => setArrangeObjectSpacingFt(parseInt(e.target.value))} className="w-24" />
+            <input type="range" min={0} max={10} step={1} value={arrangeObjectSpacingFt} onChange={(e) => setArrangeObjectSpacingFt(parseInt(e.target.value))} className="w-24" aria-label="Object clearance in feet" />
             <span className="text-gray-500 w-14 text-center">{arrangeObjectSpacingFt} ft</span>
           </div>
           <div className="flex items-center gap-2">

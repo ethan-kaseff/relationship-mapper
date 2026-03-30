@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/api-auth";
 import { handleApiError } from "@/lib/api-error";
+import { Prisma } from "@prisma/client";
 import ExcelJS from "exceljs";
 
 export async function POST(request: Request) {
@@ -15,6 +16,9 @@ export async function POST(request: Request) {
 
     if (!file) {
       return NextResponse.json({ error: "No file provided" }, { status: 400 });
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      return NextResponse.json({ error: "File too large. Maximum size is 50MB." }, { status: 413 });
     }
     if (!type || !["people", "partners", "roles"].includes(type)) {
       return NextResponse.json(
@@ -118,53 +122,65 @@ export async function POST(request: Request) {
         }
 
         try {
-          const person = await prisma.people.create({
-            data: {
-              firstName: firstName.trim(),
-              middleInitial,
-              lastName: lastName.trim(),
-              address: row["address"] || null,
-              city: row["city"] || null,
-              state: row["state"] || null,
-              zip: row["zip"] || null,
-              prefix,
-              greeting: row["greeting"] || row["personalized greeting"] || null,
-              phoneNumber: row["phone"] || row["phone number"] || row["phonenumber"] || null,
-              email1: row["email"] || row["email 1"] || row["email1"] || row["personal email"] || row["personalemail"] || null,
-              email2: row["email 2"] || row["email2"] || null,
-              isConnector:
-                (row["is connector"] || row["isconnector"] || "")
-                  .toLowerCase() === "yes",
-              officeId,
-            },
+          const annualEventsRaw = row["annual events"] || row["annualevents"] || row["annual event types"] || "";
+          const eventNames = annualEventsRaw.trim()
+            ? annualEventsRaw.split(",").map((s: string) => s.trim()).filter(Boolean)
+            : [];
+
+          // Resolve annual event types before the transaction
+          const resolvedEvents: { name: string; id: string }[] = [];
+          for (const eventName of eventNames) {
+            const aet = allAnnualEventTypes.find(
+              (a) => a.name.toLowerCase() === eventName.toLowerCase() && a.officeId === officeId
+            );
+            if (aet) {
+              resolvedEvents.push({ name: eventName, id: aet.id });
+            } else {
+              errors.push({
+                row: rowNum,
+                message: `Annual event type "${eventName}" not found (person was still created)`,
+              });
+            }
+          }
+
+          await prisma.$transaction(async (tx) => {
+            const person = await tx.people.create({
+              data: {
+                firstName: firstName.trim(),
+                middleInitial,
+                lastName: lastName.trim(),
+                address: row["address"] || null,
+                city: row["city"] || null,
+                state: row["state"] || null,
+                zip: row["zip"] || null,
+                prefix,
+                greeting: row["greeting"] || row["personalized greeting"] || null,
+                phoneNumber: row["phone"] || row["phone number"] || row["phonenumber"] || null,
+                email1: row["email"] || row["email 1"] || row["email1"] || row["personal email"] || row["personalemail"] || null,
+                email2: row["email 2"] || row["email2"] || null,
+                isConnector:
+                  (row["is connector"] || row["isconnector"] || "")
+                    .toLowerCase() === "yes",
+                officeId,
+              },
+            });
+
+            for (const evt of resolvedEvents) {
+              try {
+                await tx.peopleAnnualEventType.create({
+                  data: { peopleId: person.id, annualEventTypeId: evt.id },
+                });
+              } catch (err) {
+                if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+                  // Skip if already exists (unique constraint)
+                } else {
+                  throw err;
+                }
+              }
+            }
           });
           existingKeys.add(key);
           created++;
-
-          // Handle "annual events" column — comma-separated list of annual event type names
-          const annualEventsRaw = row["annual events"] || row["annualevents"] || row["annual event types"] || "";
-          if (annualEventsRaw.trim()) {
-            const eventNames = annualEventsRaw.split(",").map((s: string) => s.trim()).filter(Boolean);
-            for (const eventName of eventNames) {
-              const aet = allAnnualEventTypes.find(
-                (a) => a.name.toLowerCase() === eventName.toLowerCase() && a.officeId === officeId
-              );
-              if (aet) {
-                try {
-                  await prisma.peopleAnnualEventType.create({
-                    data: { peopleId: person.id, annualEventTypeId: aet.id },
-                  });
-                } catch {
-                  // Skip if already exists (unique constraint)
-                }
-              } else {
-                errors.push({
-                  row: rowNum,
-                  message: `Annual event type "${eventName}" not found (person was still created)`,
-                });
-              }
-            }
-          }
         } catch (err) {
           errors.push({
             row: rowNum,
@@ -252,8 +268,12 @@ export async function POST(request: Request) {
                   await prisma.partnerRoleAnnualEventType.create({
                     data: { partnerRoleId: role.id, annualEventTypeId: aet.id },
                   });
-                } catch {
-                  // Skip if already exists (unique constraint)
+                } catch (err) {
+                  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+                    // Skip if already exists (unique constraint)
+                  } else {
+                    throw err;
+                  }
                 }
               } else {
                 errors.push({

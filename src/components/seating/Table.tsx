@@ -45,10 +45,19 @@ export default function SeatingTable({
   const seatDistance = tableSize / 2 + 20;
   const color = TABLE_COLORS[0];
 
-  const snap = (v: number) => snapToGrid ? Math.round(v / gridSize) * gridSize : v;
   const margin = seatDistance + seatSize / 2; // 84 - keeps entire table including chairs on floor
-  const clampX = (x: number) => Math.max(margin, Math.min(floorSize.width - margin, x));
-  const clampY = (y: number) => Math.max(margin, Math.min(floorSize.height - margin, y));
+  const snapFn = useCallback(
+    (v: number) => snapToGrid ? Math.round(v / gridSize) * gridSize : v,
+    [snapToGrid, gridSize]
+  );
+  const clampX = useCallback(
+    (x: number) => Math.max(margin, Math.min(floorSize.width - margin, x)),
+    [margin, floorSize.width]
+  );
+  const clampY = useCallback(
+    (y: number) => Math.max(margin, Math.min(floorSize.height - margin, y)),
+    [margin, floorSize.height]
+  );
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).classList.contains('table-seat')) return;
@@ -68,24 +77,22 @@ export default function SeatingTable({
     didDragRef.current = true;
     const dx = (e.clientX - dragStartRef.current.x) / zoom;
     const dy = (e.clientY - dragStartRef.current.y) / zoom;
-    const newX = clampX(snap(dragStartRef.current.tableX + dx));
-    const newY = clampY(snap(dragStartRef.current.tableY + dy));
+    const newX = clampX(snapFn(dragStartRef.current.tableX + dx));
+    const newY = clampY(snapFn(dragStartRef.current.tableY + dy));
     tableRef.current.style.left = `${newX - tableSize / 2 - seatDistance}px`;
     tableRef.current.style.top = `${newY - tableSize / 2 - seatDistance}px`;
-
-  }, [isDragging, zoom, tableSize, seatDistance, snapToGrid, gridSize, floorSize]);
+  }, [isDragging, zoom, tableSize, seatDistance, snapFn, clampX, clampY]);
 
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (!isDragging || !dragStartRef.current) return;
     const dx = (e.clientX - dragStartRef.current.x) / zoom;
     const dy = (e.clientY - dragStartRef.current.y) / zoom;
-    const newX = clampX(snap(dragStartRef.current.tableX + dx));
-    const newY = clampY(snap(dragStartRef.current.tableY + dy));
+    const newX = clampX(snapFn(dragStartRef.current.tableX + dx));
+    const newY = clampY(snapFn(dragStartRef.current.tableY + dy));
     setIsDragging(false);
     dragStartRef.current = null;
     onDragEnd(table.id, newX, newY);
-
-  }, [isDragging, zoom, table.id, onDragEnd, snapToGrid, gridSize, floorSize]);
+  }, [isDragging, zoom, table.id, onDragEnd, snapFn, clampX, clampY]);
 
   useEffect(() => {
     if (isDragging) {
