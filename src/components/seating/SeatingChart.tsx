@@ -130,25 +130,55 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       slots = buildSlots(cols);
     }
 
-    // Sort tables by current position so they keep their relative spatial order
-    const sorted = [...tables].sort((a, b) => {
-      const rowA = Math.round(a.y / rowH);
-      const rowB = Math.round(b.y / rowH);
-      if (rowA !== rowB) return rowA - rowB;
-      return a.x - b.x;
-    });
-
-    // Assign sorted tables to slots, build position map
+    // Snap each table to its nearest available slot, preserving relative positions.
+    // Each table claims the closest unclaimed slot, so manual swaps are preserved.
+    const availableSlots = new Set(slots.map((_, i) => i));
     const resultPositions: Map<string, { x: number; y: number }> = new Map();
-    sorted.forEach((table, i) => {
-      if (i < slots.length) {
-        resultPositions.set(table.id, slots[i]);
+
+    // Build a list of (table, distances to each slot) sorted by minimum distance
+    // so the table closest to any slot gets first pick
+    const assignments: { tableId: string; slotIdx: number; dist: number }[] = [];
+    for (const table of tables) {
+      let bestIdx = -1;
+      let bestDist = Infinity;
+      for (let i = 0; i < slots.length; i++) {
+        const dx = table.x - slots[i].x;
+        const dy = table.y - slots[i].y;
+        const dist = dx * dx + dy * dy;
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestIdx = i;
+        }
+      }
+      assignments.push({ tableId: table.id, slotIdx: bestIdx, dist: bestDist });
+    }
+
+    // Greedily assign: process tables by shortest distance first
+    assignments.sort((a, b) => a.dist - b.dist);
+    for (const assign of assignments) {
+      // Find the closest *available* slot for this table
+      let bestIdx = -1;
+      let bestDist = Infinity;
+      const table = tables.find((t) => t.id === assign.tableId)!;
+      for (const idx of availableSlots) {
+        const dx = table.x - slots[idx].x;
+        const dy = table.y - slots[idx].y;
+        const dist = dx * dx + dy * dy;
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestIdx = idx;
+        }
+      }
+      if (bestIdx >= 0) {
+        resultPositions.set(assign.tableId, slots[bestIdx]);
+        availableSlots.delete(bestIdx);
       } else {
+        // No slots left, clamp to floor bounds
         const cx = Math.max(margin, Math.min(floorW - margin, table.x));
         const cy = Math.max(margin, Math.min(floorH - margin, table.y));
-        resultPositions.set(table.id, { x: cx, y: cy });
+        resultPositions.set(assign.tableId, { x: cx, y: cy });
       }
-    });
+    }
 
     return tables.map((table) => {
       const pos = resultPositions.get(table.id)!;
