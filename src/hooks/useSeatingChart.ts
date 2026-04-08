@@ -41,10 +41,15 @@ type HistoryAction =
   | { type: 'UNDO' }
   | { type: 'REDO' };
 
+function padTableName(name: string): string {
+  return name.replace(/^(.*\s)(\d+)$/, (_, prefix, num) => `${prefix}${num.padStart(2, '0')}`);
+}
+
 function layoutToState(layout: SeatingLayout | null, guests: SeatingGuest[]): SeatingState {
   const l = layout || DEFAULT_SEATING_LAYOUT;
+  const tables = (l.tables || []).map((t) => ({ ...t, name: padTableName(t.name) }));
   return {
-    tables: l.tables || [],
+    tables,
     guests,
     objects: l.objects || [],
     floorSize: { width: l.floorWidth || 1200, height: l.floorHeight || 800 },
