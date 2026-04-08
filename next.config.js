@@ -1,4 +1,3 @@
-// trigger redeploy
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   webpack: (config, { dev }) => {
