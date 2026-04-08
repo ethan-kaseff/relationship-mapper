@@ -62,7 +62,7 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-indigo-900 text-white shadow-md">
+    <nav className="bg-indigo-900 text-white shadow-md print-hide">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-8">
         <Link href="/" className="text-lg font-bold tracking-wide">
           JCRB Relationship Map

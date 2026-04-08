@@ -1,8 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import AddPeopleModal from "./AddPeopleModal";
 import AddFromPartnerModal from "./AddFromPartnerModal";
+import Pagination, { usePagination } from "../Pagination";
+
+function BlurInput({
+  value: externalValue,
+  onCommit,
+  ...props
+}: { value: string; onCommit: (val: string) => void } & Omit<React.InputHTMLAttributes<HTMLInputElement>, "value" | "onChange" | "onBlur">) {
+  const [localValue, setLocalValue] = useState(externalValue);
+  const dirtyRef = useRef(false);
+
+  useEffect(() => {
+    if (!dirtyRef.current) setLocalValue(externalValue);
+  }, [externalValue]);
+
+  return (
+    <input
+      {...props}
+      value={localValue}
+      onChange={(e) => { dirtyRef.current = true; setLocalValue(e.target.value); }}
+      onBlur={() => {
+        if (dirtyRef.current && localValue !== externalValue) {
+          onCommit(localValue);
+        }
+        dirtyRef.current = false;
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
 
 interface EventInvite {
   id: string;
@@ -26,6 +59,10 @@ interface InviteManagerProps {
   trackMeals: boolean;
   trackSeating: boolean;
   onRefresh: () => void;
+  ccConnected?: boolean;
+  syncing?: boolean;
+  syncResult?: string | null;
+  onSyncCC?: () => void;
 }
 
 const RSVP_COLORS: Record<string, string> = {
@@ -40,13 +77,18 @@ type SortDir = "asc" | "desc";
 
 const RSVP_ORDER: Record<string, number> = { YES: 0, MAYBE: 1, PENDING: 2, NO: 3 };
 
-export default function InviteManager({ eventId, invites, trackMeals, trackSeating, onRefresh }: InviteManagerProps) {
+export default function InviteManager({ eventId, invites, trackMeals, trackSeating, onRefresh, ccConnected, syncing, syncResult, onSyncCC }: InviteManagerProps) {
   const [showAddPeople, setShowAddPeople] = useState(false);
   const [showAddPartner, setShowAddPartner] = useState(false);
   const [filter, setFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  const distinctGroups = useMemo(() =>
+    Array.from(new Set(invites.map((i) => i.group).filter(Boolean))).sort(),
+    [invites]
+  );
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -91,6 +133,10 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
       return sortDir === "asc" ? cmp : -cmp;
     });
 
+  const { currentPage, pageSize, startIndex, endIndex, setCurrentPage, setPageSize } =
+    usePagination(filtered.length);
+  const paginated = filtered.slice(startIndex, endIndex);
+
   async function updateRsvp(inviteId: string, rsvpStatus: string) {
     await fetch(`/api/events/${eventId}/invites/${inviteId}`, {
       method: "PUT",
@@ -126,31 +172,14 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex gap-2">
-          <button
-            onClick={() => setShowAddPeople(true)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 text-sm"
-          >
-            + Add People
-          </button>
-          <button
-            onClick={() => setShowAddPartner(true)}
-            className="border border-indigo-300 text-indigo-600 px-4 py-2 rounded-md hover:bg-indigo-50 text-sm"
-          >
-            + From Partner
-          </button>
-        </div>
-      </div>
-
-      {/* Filter and search */}
-      <div className="flex gap-3 mb-4 items-center">
+      {/* Search, filters, and action buttons */}
+      <div className="flex gap-3 mb-4 items-center flex-wrap">
         <input
           type="text"
           placeholder="Search invitees..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="flex-1 max-w-xs px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          className="flex-1 min-w-[12rem] max-w-xs px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
         />
         <div className="flex gap-1">
           {["ALL", "YES", "NO", "MAYBE", "PENDING"].map((f) => (
@@ -174,6 +203,59 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
             </button>
           ))}
         </div>
+        <div className="ml-auto flex gap-2 items-center">
+          {syncResult && (
+            <span className="text-sm text-gray-600">{syncResult}</span>
+          )}
+          {ccConnected && onSyncCC && (
+            <button
+              onClick={onSyncCC}
+              disabled={syncing}
+              className="px-3 py-1.5 text-sm border border-indigo-300 text-indigo-600 rounded-md hover:bg-indigo-50 disabled:opacity-50"
+            >
+              {syncing ? "Syncing..." : "Sync to CC"}
+            </button>
+          )}
+          <button
+            onClick={() => {
+              const headers = ["Last Name", "First Name", "RSVP", "Group", ...(trackMeals ? ["Meal"] : []), ...(trackSeating ? ["Seated"] : [])];
+              const rows = filtered.map((inv) => [
+                inv.person.lastName,
+                inv.person.firstName,
+                inv.rsvpStatus,
+                inv.group || "",
+                ...(trackMeals ? [inv.meal] : []),
+                ...(trackSeating ? [inv.tableId ? "Yes" : "No"] : []),
+              ]);
+              const csvContent = [headers, ...rows]
+                .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
+                .join("\n");
+              const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `invites-${filter.toLowerCase()}${search ? `-${search}` : ""}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+            disabled={filtered.length === 0}
+            className="border border-gray-300 text-gray-600 px-3 py-1.5 rounded-md hover:bg-gray-50 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Export CSV
+          </button>
+          <button
+            onClick={() => setShowAddPartner(true)}
+            className="border border-indigo-300 text-indigo-600 px-3 py-1.5 rounded-md hover:bg-indigo-50 text-sm"
+          >
+            + From Partner
+          </button>
+          <button
+            onClick={() => setShowAddPeople(true)}
+            className="bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 text-sm"
+          >
+            + Add People
+          </button>
+        </div>
       </div>
 
       {/* Invite table */}
@@ -190,7 +272,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filtered.map((inv) => (
+            {paginated.map((inv) => (
               <tr key={inv.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">
                   {inv.person.lastName}, {inv.person.firstName}
@@ -208,10 +290,11 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                   </select>
                 </td>
                 <td className="px-4 py-3">
-                  <input
+                  <BlurInput
                     type="text"
+                    list="group-suggestions"
                     value={inv.group}
-                    onChange={(e) => updateGroup(inv.id, e.target.value)}
+                    onCommit={(val) => updateGroup(inv.id, val)}
                     placeholder="Group"
                     className="w-full min-w-[8rem] px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
                   />
@@ -263,7 +346,20 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
             )}
           </tbody>
         </table>
+        <Pagination
+          currentPage={currentPage}
+          totalItems={filtered.length}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+        />
       </div>
+
+      <datalist id="group-suggestions">
+        {distinctGroups.map((g) => (
+          <option key={g} value={g} />
+        ))}
+      </datalist>
 
       {showAddPeople && (
         <AddPeopleModal

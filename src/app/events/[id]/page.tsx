@@ -48,6 +48,9 @@ export default function EventDetailPage() {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", eventDate: "", eventTime: "", location: "", trackSeating: true, trackMeals: true });
   const [saving, setSaving] = useState(false);
+  const [ccConnected, setCcConnected] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
 
   const fetchEvent = useCallback(async () => {
     const res = await fetch(`/api/events/${id}`);
@@ -70,6 +73,32 @@ export default function EventDetailPage() {
   useEffect(() => {
     fetchEvent();
   }, [fetchEvent]);
+
+  useEffect(() => {
+    fetch("/api/constant-contact/status")
+      .then((res) => res.json())
+      .then((data) => setCcConnected(data.connected))
+      .catch(() => {});
+  }, []);
+
+  async function handleSyncCC() {
+    setSyncing(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch(`/api/events/${id}/sync-cc`, { method: "POST" });
+      const data = await res.json();
+      if (res.ok) {
+        setSyncResult(data.message);
+      } else {
+        setSyncResult(data.error || "Sync failed");
+      }
+    } catch {
+      setSyncResult("Failed to sync to Constant Contact");
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncResult(null), 8000);
+    }
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -114,14 +143,14 @@ export default function EventDetailPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 print-hide">
         <div>
           <Link href="/events" className="text-indigo-600 hover:underline text-sm">
             &larr; Back to Events
           </Link>
           <h1 className="text-2xl font-bold text-indigo-900 mt-1">{event.title}</h1>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <button
             onClick={handleDelete}
             className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50"
@@ -132,7 +161,7 @@ export default function EventDetailPage() {
       </div>
 
       {/* RSVP Summary */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      <div className="grid grid-cols-4 gap-3 mb-6 print-hide">
         <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-green-700">{rsvpCounts.YES}</div>
           <div className="text-xs text-green-600">Yes</div>
@@ -152,7 +181,7 @@ export default function EventDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-6">
+      <div className="flex border-b border-gray-200 mb-6 print-hide">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -319,6 +348,10 @@ export default function EventDetailPage() {
           trackMeals={event.trackMeals}
           trackSeating={event.trackSeating}
           onRefresh={fetchEvent}
+          ccConnected={ccConnected}
+          syncing={syncing}
+          syncResult={syncResult}
+          onSyncCC={handleSyncCC}
         />
       )}
 

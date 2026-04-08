@@ -66,7 +66,7 @@ export default function GuestSidebar({
   const showUnassignedList = filter === 'all' || filter === 'unassigned';
   const showTableSections = filter === 'all' || filter === 'assigned';
 
-  const renderGuestCard = (guest: SeatingGuest) => {
+  const renderGuestCard = (guest: SeatingGuest, hideTableName = false) => {
     const isSelected = selectedGuestId === guest.id;
     const tableName = getTableName(guest.tableId);
     const canAssignToSeat = selectedSeatInfo && !guest.tableId;
@@ -93,7 +93,7 @@ export default function GuestSidebar({
             requestAnimationFrame(() => document.body.removeChild(el));
           }
         }}
-        className={`guest-card p-3 rounded-lg border cursor-pointer ${
+        className={`guest-card p-2 rounded-lg border cursor-pointer ${
           !guest.tableId ? 'cursor-grab active:cursor-grabbing' : ''
         } ${
           isSelected
@@ -131,7 +131,7 @@ export default function GuestSidebar({
                 </span>
               )}
             </div>
-            {tableName && (
+            {tableName && !hideTableName && (
               <p className="text-xs text-green-600 mt-1">Seated at {tableName}</p>
             )}
           </div>
@@ -219,7 +219,7 @@ export default function GuestSidebar({
                     Unassigned ({unassignedGuests.length})
                   </p>
                 )}
-                {unassignedGuests.map(renderGuestCard)}
+                {unassignedGuests.map((g) => renderGuestCard(g))}
               </>
             )}
 
@@ -262,7 +262,7 @@ export default function GuestSidebar({
                           {tableGuests.length === 0 ? (
                             <p className="text-xs text-gray-400 text-center py-2">No guests</p>
                           ) : (
-                            tableGuests.map(renderGuestCard)
+                            tableGuests.map((g) => renderGuestCard(g, true))
                           )}
                         </div>
                       )}

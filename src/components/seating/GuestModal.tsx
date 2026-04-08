@@ -8,16 +8,19 @@ interface GuestModalProps {
   guest: SeatingGuest | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updates: { id: string; meal: string; dietary: string[]; notes: string }) => void;
+  onSave: (updates: { id: string; group: string; meal: string; dietary: string[]; notes: string }) => void;
+  existingGroups?: string[];
 }
 
-export default function GuestModal({ guest, isOpen, onClose, onSave }: GuestModalProps) {
+export default function GuestModal({ guest, isOpen, onClose, onSave, existingGroups = [] }: GuestModalProps) {
+  const [group, setGroup] = useState('');
   const [meal, setMeal] = useState('Standard');
   const [dietary, setDietary] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
 
   useEffect(() => {
     if (guest) {
+      setGroup(guest.group || '');
       setMeal(guest.meal);
       setDietary(guest.dietary);
       setNotes(guest.notes || '');
@@ -27,7 +30,7 @@ export default function GuestModal({ guest, isOpen, onClose, onSave }: GuestModa
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!guest) return;
-    onSave({ id: guest.id, meal, dietary, notes: notes.trim() });
+    onSave({ id: guest.id, group: group.trim(), meal, dietary, notes: notes.trim() });
     onClose();
   };
 
@@ -47,6 +50,23 @@ export default function GuestModal({ guest, isOpen, onClose, onSave }: GuestModa
           <p className="text-sm text-gray-500 mb-4">{guest.name}</p>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Group</label>
+              <input
+                type="text"
+                list="seating-group-suggestions"
+                value={group}
+                onChange={(e) => setGroup(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                placeholder="e.g., Family, College Friends, Work"
+              />
+              <datalist id="seating-group-suggestions">
+                {existingGroups.map((g) => (
+                  <option key={g} value={g} />
+                ))}
+              </datalist>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Meal Preference</label>
               <select

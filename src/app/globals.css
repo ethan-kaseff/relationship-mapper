@@ -5,3 +5,36 @@
 body {
   @apply bg-gray-50 text-gray-900;
 }
+
+/* Print styles: only show the floor plan when printing from the seating chart */
+@media print {
+  body, html {
+    background: white !important;
+    overflow: visible !important;
+  }
+
+  /* Hide elements marked with print-hide */
+  .print-hide {
+    display: none !important;
+  }
+
+  /* Remove max-width and padding from main wrapper */
+  main {
+    max-width: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  /* Make the floor plan fill the print page */
+  #seating-floor-plan {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    padding: 0.25in !important;
+    overflow: visible !important;
+    background: white !important;
+    z-index: 9999 !important;
+  }
+}

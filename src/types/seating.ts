@@ -20,7 +20,7 @@ export interface Table {
   name: string;
   x: number;
   y: number;
-  shape: "round" | "rectangle" | "oval";
+  shape: "round" | "square" | "rectangle" | "oval";
   seats: Seat[];
   width: number;
   height: number;

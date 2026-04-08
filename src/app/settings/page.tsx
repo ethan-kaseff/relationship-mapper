@@ -113,6 +113,12 @@ export default function SettingsPage() {
   // Office dropdown for user form
   const [userOfficeId, setUserOfficeId] = useState("");
 
+  // Constant Contact integration state
+  const [ccConnected, setCcConnected] = useState(false);
+  const [ccLoading, setCcLoading] = useState(true);
+  const [ccDisconnecting, setCcDisconnecting] = useState(false);
+  const [ccMessage, setCcMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   // Data management state
   const [importType, setImportType] = useState<"people" | "partners" | "roles">("people");
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -203,6 +209,50 @@ export default function SettingsPage() {
       fetchOffices();
     }
   }, [canManageUsers]);
+
+  // Constant Contact: check status & handle OAuth callback params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ccConnectedParam = params.get("cc_connected");
+    const ccError = params.get("cc_error");
+
+    if (ccConnectedParam === "true") {
+      setCcMessage({ type: "success", text: "Constant Contact connected successfully!" });
+    } else if (ccError) {
+      const errorMessages: Record<string, string> = {
+        auth_denied: "Authorization was denied.",
+        no_code: "No authorization code received.",
+        token_exchange: "Failed to complete authentication. Please try again.",
+      };
+      setCcMessage({ type: "error", text: errorMessages[ccError] || "An error occurred." });
+    }
+
+    fetch("/api/constant-contact/status")
+      .then((res) => res.json())
+      .then((data) => {
+        setCcConnected(data.connected);
+        setCcLoading(false);
+      })
+      .catch(() => setCcLoading(false));
+  }, []);
+
+  async function handleCcDisconnect() {
+    if (!confirm("Disconnect Constant Contact? You can reconnect later.")) return;
+    setCcDisconnecting(true);
+    try {
+      const res = await fetch("/api/constant-contact/disconnect", { method: "POST" });
+      if (res.ok) {
+        setCcConnected(false);
+        setCcMessage({ type: "success", text: "Constant Contact disconnected." });
+      } else {
+        setCcMessage({ type: "error", text: "Failed to disconnect." });
+      }
+    } catch {
+      setCcMessage({ type: "error", text: "Failed to disconnect." });
+    } finally {
+      setCcDisconnecting(false);
+    }
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -643,6 +693,79 @@ export default function SettingsPage() {
   return (
     <div>
       <h1 className="text-2xl font-bold text-indigo-900 mb-6">Settings</h1>
+
+      {/* Constant Contact Integration */}
+      {(isSystemAdmin || isOfficeAdmin) && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-semibold text-indigo-900 mb-1">Integrations</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Connect third-party services to sync your event data.
+          </p>
+
+          {ccMessage && (
+            <div
+              className={`mb-4 p-3 rounded-md text-sm ${
+                ccMessage.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {ccMessage.text}
+              <button
+                onClick={() => setCcMessage(null)}
+                className="float-right text-xs underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">Constant Contact</h3>
+                  <p className="text-sm text-gray-500">
+                    Sync event invite lists as email contact lists
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {ccLoading ? (
+                  <span className="text-sm text-gray-400">Checking...</span>
+                ) : ccConnected ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                      <span className="w-2 h-2 bg-green-500 rounded-full" />
+                      Connected
+                    </span>
+                    <button
+                      onClick={handleCcDisconnect}
+                      disabled={ccDisconnecting}
+                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {ccDisconnecting ? "Disconnecting..." : "Disconnect"}
+                    </button>
+                  </>
+                ) : (
+                  <a
+                    href="/api/constant-contact/auth"
+                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  >
+                    Connect
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Relationship Types — SYSTEM_ADMIN only */}
       {isSystemAdmin && <div className="bg-white rounded-lg shadow p-6">

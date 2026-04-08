@@ -31,6 +31,9 @@ export const TABLE_COLORS = [
 
 export const PIXELS_PER_FOOT = 15;
 
+export const DEFAULT_TABLE_DIAMETER_FT = 6;
+export const DEFAULT_TABLE_WIDTH = DEFAULT_TABLE_DIAMETER_FT * PIXELS_PER_FOOT; // 90px
+
 export const FLOOR_PRESETS = [
   { label: 'Small (40x30 ft)', width: 40 * 15, height: 30 * 15 },
   { label: 'Medium (60x40 ft)', width: 60 * 15, height: 40 * 15 },

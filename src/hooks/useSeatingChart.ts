@@ -2,7 +2,7 @@
 
 import { useReducer, useCallback, useEffect, useRef } from 'react';
 import { SeatingGuest, Table, VenueObject, SeatingLayout } from '@/types/seating';
-import { DEFAULT_SEATING_LAYOUT } from '@/lib/seating-constants';
+import { DEFAULT_SEATING_LAYOUT, DEFAULT_TABLE_WIDTH } from '@/lib/seating-constants';
 
 const MAX_HISTORY = 50;
 
@@ -264,7 +264,13 @@ export function useSeatingChart(
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [undo, redo]);
 
-  const addTable = useCallback((seatCount: number = 8, name?: string) => {
+  const addTable = useCallback((
+    seatCount: number = 8,
+    name?: string,
+    shape: Table['shape'] = 'round',
+    width: number = DEFAULT_TABLE_WIDTH,
+    height: number = DEFAULT_TABLE_WIDTH,
+  ) => {
     const id = `table-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const tableNumber = state.tables.length + 1;
     const table: Table = {
@@ -272,26 +278,26 @@ export function useSeatingChart(
       name: name || `Table ${tableNumber}`,
       x: 120 + (state.tables.length % 4) * 180,
       y: 120 + Math.floor(state.tables.length / 4) * 180,
-      shape: 'round',
+      shape,
       seats: Array(seatCount).fill(null).map(() => ({ guestId: null })),
-      width: 100,
-      height: 100,
+      width,
+      height,
       rotation: 0,
     };
     dispatch({ type: 'ADD_TABLE', payload: table });
     return table;
   }, [state.tables.length, dispatch]);
 
-  const addTables = useCallback((tables: { seatCount: number; name: string }[]) => {
+  const addTables = useCallback((tables: { seatCount: number; name: string; shape?: Table['shape']; width?: number; height?: number }[]) => {
     const newTables: Table[] = tables.map((t, i) => ({
       id: `table-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
       name: t.name,
       x: 120 + ((state.tables.length + i) % 4) * 180,
       y: 120 + Math.floor((state.tables.length + i) / 4) * 180,
-      shape: 'round' as const,
+      shape: t.shape || 'round',
       seats: Array(t.seatCount).fill(null).map(() => ({ guestId: null })),
-      width: 100,
-      height: 100,
+      width: t.width || DEFAULT_TABLE_WIDTH,
+      height: t.height || DEFAULT_TABLE_WIDTH,
       rotation: 0,
     }));
     dispatch({ type: 'ADD_TABLES', payload: newTables });

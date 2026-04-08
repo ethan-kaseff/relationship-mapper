@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import { SeatingGuest, Table, VenueObject, SeatingLayout } from '@/types/seating';
+import { PIXELS_PER_FOOT, DEFAULT_TABLE_WIDTH } from '@/lib/seating-constants';
 import { useSeatingChart, SeatingState } from '@/hooks/useSeatingChart';
 import FloorPlan from './FloorPlan';
 import FloorControls from './FloorControls';
@@ -60,7 +61,13 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
   }): Table[] => {
     if (tables.length === 0) return tables;
     const { layout: layoutType, spacing, objectSpacing } = options;
-    const tableBody = 84; // full radius including chairs (table radius 50 + seat offset 20 + seat radius 14)
+    const seatOffset = 20;
+    const seatSize = 28;
+    const tableBody = Math.max(...tables.map((t) => {
+      const w = t.width || DEFAULT_TABLE_WIDTH;
+      const h = t.height || DEFAULT_TABLE_WIDTH;
+      return Math.max(w, h) / 2 + seatOffset + seatSize / 2;
+    }));
     const tableCount = tables.length;
     const margin = tableBody;
     const floorW = state.floorSize.width;
@@ -149,12 +156,21 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
     });
   }, [state.objects, state.floorSize.width, state.floorSize.height]);
 
-  const getMaxSlotCount = useCallback((tableCount: number): number => {
+  const getMaxSlotCount = useCallback((tableCount: number, tableWidth?: number, tableHeight?: number): number => {
     // Use the same slot-finding logic as computeArrangedTables to count available positions
-    const spacing = 200;
     const objectSpacing = 30;
-    const tableBody = 84; // full radius including chairs (table radius 50 + seat offset 20 + seat radius 14)
-    const margin = tableBody; // keep entire table including chairs on floor
+    const seatOffset = 20;
+    const seatSz = 28;
+    // Use provided dimensions (for new tables) or largest existing table
+    const maxDim = Math.max(
+      tableWidth || DEFAULT_TABLE_WIDTH,
+      tableHeight || DEFAULT_TABLE_WIDTH,
+      ...state.tables.map((t) => Math.max(t.width || DEFAULT_TABLE_WIDTH, t.height || DEFAULT_TABLE_WIDTH))
+    );
+    const tableBody = maxDim / 2 + seatOffset + seatSz / 2;
+    // Spacing = 2 * tableBody + small gap (enough for tables not to overlap)
+    const spacing = tableBody * 2 + 5;
+    const margin = tableBody;
     const floorW = state.floorSize.width;
     const floorH = state.floorSize.height;
     const rowH = spacing;
@@ -175,13 +191,9 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
         (b) => x + tableBody > b.left && x - tableBody < b.right && y + tableBody > b.top && y - tableBody < b.bottom
       );
 
-    // Try with the column count the arrange algorithm would use
-    const idealCols = Math.ceil(Math.sqrt(tableCount));
-    let cols = Math.min(idealCols, maxFitCols);
-
-    // Count slots for increasing column counts (matching the retry logic in computeArrangedTables)
+    // Try all column counts to find the maximum number of slots
     let bestSlotCount = 0;
-    for (let c = cols; c <= maxFitCols; c++) {
+    for (let c = 1; c <= maxFitCols; c++) {
       let slotCount = 0;
       let y = margin;
       let lastPlacedY = -Infinity;
@@ -206,14 +218,14 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
         }
       }
       bestSlotCount = Math.max(bestSlotCount, slotCount);
-      if (slotCount >= tableCount) break;
     }
     return bestSlotCount;
-  }, [state.objects, state.floorSize.width, state.floorSize.height]);
+  }, [state.tables, state.objects, state.floorSize.width, state.floorSize.height]);
 
-  const getRemainingCapacity = useCallback((): number => {
-    const maxSlots = getMaxSlotCount(state.tables.length + 1);
-    return Math.max(0, maxSlots - state.tables.length);
+  const getRemainingCapacity = useCallback((tableWidth?: number, tableHeight?: number): number => {
+    const maxSlots = getMaxSlotCount(state.tables.length + 1, tableWidth, tableHeight);
+    const remaining = Math.max(0, maxSlots - state.tables.length);
+    return remaining;
   }, [state.tables.length, getMaxSlotCount]);
 
   const arrangeTables = useCallback((options: {
@@ -349,12 +361,15 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
     setSelectedObjectIds(new Set());
   }, [selectedTableIds, selectedObjectIds, deleteTable, deleteObject]);
 
-  const handleGuestSave = (data: { id: string; meal: string; dietary: string[]; notes: string }) => {
-    updateGuest(data.id, { meal: data.meal, dietary: data.dietary, notes: data.notes });
+  const handleGuestSave = (data: { id: string; group: string; meal: string; dietary: string[]; notes: string }) => {
+    updateGuest(data.id, { group: data.group, meal: data.meal, dietary: data.dietary, notes: data.notes });
     setEditingGuest(null);
   };
 
-  const handleTableSave = (data: { name: string; seatCount: number; id?: string; preselectedGuestIds?: string[]; tableCount?: number }) => {
+  const handleTableSave = (data: { name: string; seatCount: number; shape: Table['shape']; widthFt: number; heightFt: number; id?: string; preselectedGuestIds?: string[]; tableCount?: number }) => {
+    const widthPx = data.widthFt * PIXELS_PER_FOOT;
+    const heightPx = data.heightFt * PIXELS_PER_FOOT;
+
     if (data.id) {
       const table = getTableById(data.id);
       if (table) {
@@ -367,10 +382,10 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
           });
           newSeats = newSeats.slice(0, data.seatCount);
         }
-        updateTable(data.id, { name: data.name, seats: newSeats });
+        updateTable(data.id, { name: data.name, seats: newSeats, shape: data.shape, width: widthPx, height: heightPx });
       }
     } else if (data.tableCount && data.tableCount > 1) {
-      const remaining = getRemainingCapacity();
+      const remaining = getRemainingCapacity(widthPx, heightPx);
       const actualCount = Math.min(data.tableCount, remaining);
       if (actualCount <= 0) {
         setCapacityWarning(`Floor is at capacity (${state.tables.length} tables). Increase floor size or remove objects to add more.`);
@@ -394,16 +409,18 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
         id: `table-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
         name: `${prefix} ${startNum + i}`,
         x: 100, y: 100,
-        shape: 'round' as const,
+        shape: data.shape,
         seats: Array(data.seatCount).fill(null).map(() => ({ guestId: null })),
-        width: 100, height: 100, rotation: 0,
+        width: widthPx, height: heightPx, rotation: 0,
       }));
       const allTables = [...state.tables, ...newTables];
-      const arranged = computeArrangedTables(allTables, { layout: 'grid', spacing: 200, objectSpacing: 30, maxCols: 0 });
+      const tBody = Math.max(widthPx, heightPx) / 2 + 20 + 14;
+      const autoSpacing = tBody * 2 + 5;
+      const arranged = computeArrangedTables(allTables, { layout: 'grid', spacing: autoSpacing, objectSpacing: 30, maxCols: 0 });
       setTables(arranged);
       setPendingAutoAction(`Added and arranged ${actualCount} tables`);
     } else {
-      const remaining = getRemainingCapacity();
+      const remaining = getRemainingCapacity(widthPx, heightPx);
       if (remaining <= 0) {
         setCapacityWarning(`Floor is at capacity (${state.tables.length} tables). Increase floor size or remove objects to add more.`);
         setTimeout(() => setCapacityWarning(null), 8000);
@@ -423,12 +440,14 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
         id: `table-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
         name: tableName,
         x: 100, y: 100,
-        shape: 'round',
+        shape: data.shape,
         seats: Array(data.seatCount).fill(null).map(() => ({ guestId: null })),
-        width: 100, height: 100, rotation: 0,
+        width: widthPx, height: heightPx, rotation: 0,
       };
       const allTables = [...state.tables, newTable];
-      const arranged = computeArrangedTables(allTables, { layout: 'grid', spacing: 200, objectSpacing: 30, maxCols: 0 });
+      const tBody = Math.max(widthPx, heightPx) / 2 + 20 + 14;
+      const autoSpacing = tBody * 2 + 5;
+      const arranged = computeArrangedTables(allTables, { layout: 'grid', spacing: autoSpacing, objectSpacing: 30, maxCols: 0 });
       setTables(arranged);
       if (data.preselectedGuestIds) {
         const placedTable = arranged.find((t) => t.id === newTable.id);
@@ -467,7 +486,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       <div className={`flex-1 flex min-h-0 ${isFullscreen ? 'fixed inset-0 z-40 bg-gray-50' : ''}`} ref={floorContainerRef}>
         <div className="flex-1 min-w-0 flex flex-col min-h-0">
           {/* Header */}
-          <div className="bg-white border-b border-gray-200 px-4 py-2">
+          <div className="bg-white border-b border-gray-200 px-4 py-2 print-hide">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
                 <p className="text-xs text-gray-500">
@@ -517,7 +536,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
               </div>
             </div>
           </div>
-          <FloorControls
+          <div className="print-hide"><FloorControls
             floorWidth={state.floorSize.width} floorHeight={state.floorSize.height}
             zoom={state.zoom} isFullscreen={isFullscreen}
             onFloorSizeChange={setFloorSize} onArrangeTables={arrangeTables}
@@ -526,16 +545,16 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
             showCenterLines={showCenterLines} onToggleCenterLines={() => setShowCenterLines(!showCenterLines)}
             onZoomChange={setZoom}
             onZoomFit={zoomFit} onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
-          />
+          /></div>
           {capacityWarning && (
-            <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex items-center justify-between text-sm">
+            <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex items-center justify-between text-sm print-hide">
               <span className="text-red-700 font-medium">{capacityWarning}</span>
               <button onClick={() => setCapacityWarning(null)}
                 className="px-3 py-1 border border-red-300 text-red-600 rounded hover:bg-red-100 text-xs font-medium">Dismiss</button>
             </div>
           )}
           {pendingAutoAction && (
-            <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between text-sm">
+            <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 flex items-center justify-between text-sm print-hide">
               <span className="text-amber-800 font-medium">{pendingAutoAction}</span>
               <div className="flex items-center gap-2">
                 <button onClick={() => { undo(); setPendingAutoAction(null); }}
@@ -546,20 +565,23 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
             </div>
           )}
           {(selectedTableIds.size > 0 || selectedObjectIds.size > 0) && (
-            <div className="bg-indigo-50 border-b border-indigo-200 px-4 py-2 flex items-center gap-3 text-sm">
+            <div className="bg-indigo-50 border-b border-indigo-200 px-4 py-2 flex items-center gap-3 text-sm print-hide">
               <span className="text-indigo-700 font-medium">{selectedTableIds.size + selectedObjectIds.size} selected</span>
               <button onClick={handleDeleteSelected} className="px-3 py-1 bg-red-600 text-white rounded hover:bg-red-700 text-xs font-medium">Delete Selected</button>
               <button onClick={() => { setSelectedTableIds(new Set()); setSelectedObjectIds(new Set()); }} className="px-3 py-1 border border-gray-300 rounded hover:bg-gray-100 text-xs font-medium text-gray-600">Clear</button>
             </div>
           )}
-          <div ref={floorViewRef} className="flex-1 min-h-0 p-4 overflow-hidden">
+          <div ref={floorViewRef} id="seating-floor-plan" className="flex-1 min-h-0 p-4 overflow-hidden print:p-0 print:overflow-visible">
             <FloorPlan
               tables={state.tables} guests={state.guests} objects={state.objects}
               floorSize={state.floorSize} zoom={state.zoom}
               selectedGuestId={selectedGuestId} selectedSeatInfo={selectedSeatInfo}
               onTableDrag={(id, x, y) => {
                 const gs = 20;
-                const margin = 84; // full table radius including chairs
+                const t = state.tables.find((tbl) => tbl.id === id);
+                const tw = t?.width || DEFAULT_TABLE_WIDTH;
+                const th = t?.height || DEFAULT_TABLE_WIDTH;
+                const margin = Math.max(tw, th) / 2 + 20 + 14; // half table + seat offset + seat radius
                 const cx = Math.max(margin, Math.min(state.floorSize.width - margin, snapToGrid ? Math.round(x / gs) * gs : x));
                 const cy = Math.max(margin, Math.min(state.floorSize.height - margin, snapToGrid ? Math.round(y / gs) * gs : y));
                 updateTable(id, { x: cx, y: cy });
@@ -607,25 +629,28 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
             />
           </div>
         </div>
-        <GuestSidebar
-          guests={state.guests} tables={state.tables}
-          selectedGuestId={selectedGuestId} selectedSeatInfo={selectedSeatInfo}
-          onGuestSelect={handleGuestSelect}
-          onGuestEdit={(guest) => { setEditingGuest(guest); setGuestModalOpen(true); }}
-          onUnassign={unassignGuest}
-        />
+        <div className="print-hide">
+          <GuestSidebar
+            guests={state.guests} tables={state.tables}
+            selectedGuestId={selectedGuestId} selectedSeatInfo={selectedSeatInfo}
+            onGuestSelect={handleGuestSelect}
+            onGuestEdit={(guest) => { setEditingGuest(guest); setGuestModalOpen(true); }}
+            onUnassign={unassignGuest}
+          />
+        </div>
       </div>
 
       {/* Modals */}
       <GuestModal guest={editingGuest} isOpen={guestModalOpen}
         onClose={() => { setGuestModalOpen(false); setEditingGuest(null); }}
         onSave={handleGuestSave}
+        existingGroups={Array.from(new Set(state.guests.map((g) => g.group).filter(Boolean))).sort()}
       />
       <SeatingTableModal table={editingTable} isOpen={tableModalOpen}
         onClose={() => { setTableModalOpen(false); setEditingTable(null); }}
         onSave={handleTableSave}
         onDelete={editingTable ? () => deleteTable(editingTable.id) : undefined}
-        onDuplicate={editingTable ? () => { addTable(editingTable.seats.length, `${editingTable.name} (copy)`); setEditingTable(null); } : undefined}
+        onDuplicate={editingTable ? () => { addTable(editingTable.seats.length, `${editingTable.name} (copy)`, editingTable.shape || 'round', editingTable.width || DEFAULT_TABLE_WIDTH, editingTable.height || DEFAULT_TABLE_WIDTH); setEditingTable(null); } : undefined}
         unassignedGuests={state.guests.filter((g) => !g.tableId)}
       />
       <ObjectModal object={editingObject} isOpen={objectModalOpen}

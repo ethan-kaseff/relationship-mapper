@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { Table, SeatingGuest } from '@/types/seating';
-import { GROUP_COLORS } from '@/lib/seating-constants';
+import { GROUP_COLORS, PIXELS_PER_FOOT, DEFAULT_TABLE_DIAMETER_FT } from '@/lib/seating-constants';
 
 interface TableModalProps {
   table: Table | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (data: { name: string; seatCount: number; id?: string; preselectedGuestIds?: string[]; tableCount?: number }) => void;
+  onSave: (data: { name: string; seatCount: number; shape: Table['shape']; widthFt: number; heightFt: number; id?: string; preselectedGuestIds?: string[]; tableCount?: number }) => void;
   onDelete?: () => void;
   onDuplicate?: () => void;
   unassignedGuests?: SeatingGuest[];
@@ -20,16 +20,27 @@ export default function SeatingTableModal({
   const [name, setName] = useState('');
   const [seatCount, setSeatCount] = useState(8);
   const [tableCount, setTableCount] = useState(1);
+  const [shape, setShape] = useState<Table['shape']>('round');
+  const [widthFt, setWidthFt] = useState(DEFAULT_TABLE_DIAMETER_FT);
+  const [heightFt, setHeightFt] = useState(DEFAULT_TABLE_DIAMETER_FT);
   const [selectedGuestIds, setSelectedGuestIds] = useState<Set<string>>(new Set());
+
+  const showTwoDimensions = shape === 'rectangle' || shape === 'oval';
 
   useEffect(() => {
     if (table) {
       setName(table.name);
       setSeatCount(table.seats.length);
+      setShape(table.shape || 'round');
+      setWidthFt(table.width ? table.width / PIXELS_PER_FOOT : DEFAULT_TABLE_DIAMETER_FT);
+      setHeightFt(table.height ? table.height / PIXELS_PER_FOOT : DEFAULT_TABLE_DIAMETER_FT);
     } else {
       setName('');
       setSeatCount(8);
       setTableCount(1);
+      setShape('round');
+      setWidthFt(DEFAULT_TABLE_DIAMETER_FT);
+      setHeightFt(DEFAULT_TABLE_DIAMETER_FT);
     }
     setSelectedGuestIds(new Set());
   }, [table, isOpen]);
@@ -75,13 +86,17 @@ export default function SeatingTableModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const effectiveHeightFt = showTwoDimensions ? heightFt : widthFt;
     if (!table && tableCount > 1) {
-      onSave({ name: name.trim() || 'Table', seatCount, tableCount });
+      onSave({ name: name.trim() || 'Table', seatCount, shape, widthFt, heightFt: effectiveHeightFt, tableCount });
     } else {
       onSave({
         id: table?.id,
         name: name.trim(),
         seatCount,
+        shape,
+        widthFt,
+        heightFt: effectiveHeightFt,
         preselectedGuestIds: !table && selectedGuestIds.size > 0 ? Array.from(selectedGuestIds) : undefined,
       });
     }
@@ -130,6 +145,67 @@ export default function SeatingTableModal({
                 min={1} max={20}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Shape</label>
+              <div className="flex gap-2">
+                {([
+                  { value: 'round', label: 'Circle' },
+                  { value: 'square', label: 'Square' },
+                  { value: 'rectangle', label: 'Rectangle' },
+                  { value: 'oval', label: 'Oval' },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      setShape(opt.value);
+                      if (opt.value === 'round' || opt.value === 'square') {
+                        setHeightFt(widthFt);
+                      }
+                    }}
+                    className={`flex-1 px-3 py-1.5 text-sm rounded-lg border ${
+                      shape === opt.value
+                        ? 'bg-indigo-50 border-indigo-500 text-indigo-700 font-medium'
+                        : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  {showTwoDimensions ? 'Width (ft)' : 'Size (ft)'}
+                </label>
+                <input
+                  type="number"
+                  value={widthFt}
+                  onChange={(e) => {
+                    const v = Math.max(2, Math.min(30, parseFloat(e.target.value) || 2));
+                    setWidthFt(v);
+                    if (!showTwoDimensions) setHeightFt(v);
+                  }}
+                  min={2} max={30} step={0.5}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+              {showTwoDimensions && (
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Height (ft)</label>
+                  <input
+                    type="number"
+                    value={heightFt}
+                    onChange={(e) => setHeightFt(Math.max(2, Math.min(30, parseFloat(e.target.value) || 2)))}
+                    min={2} max={30} step={0.5}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+              )}
             </div>
 
             {showGuestSelection && (
