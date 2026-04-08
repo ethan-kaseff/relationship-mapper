@@ -352,6 +352,11 @@ export default function EventDetailPage() {
           syncing={syncing}
           syncResult={syncResult}
           onSyncCC={handleSyncCC}
+          tableNames={(() => {
+            const layout = event.seatingLayout as { tables?: { id: string; name: string }[] } | null;
+            if (!layout?.tables) return {};
+            return Object.fromEntries(layout.tables.map((t) => [t.id, t.name]));
+          })()}
         />
       )}
 

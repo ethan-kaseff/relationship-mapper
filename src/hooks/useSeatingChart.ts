@@ -275,7 +275,7 @@ export function useSeatingChart(
     const tableNumber = state.tables.length + 1;
     const table: Table = {
       id,
-      name: name || `Table ${tableNumber}`,
+      name: name || `Table ${String(tableNumber).padStart(2, '0')}`,
       x: 120 + (state.tables.length % 4) * 180,
       y: 120 + Math.floor(state.tables.length / 4) * 180,
       shape,

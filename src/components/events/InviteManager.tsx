@@ -63,6 +63,7 @@ interface InviteManagerProps {
   syncing?: boolean;
   syncResult?: string | null;
   onSyncCC?: () => void;
+  tableNames?: Record<string, string>;
 }
 
 const RSVP_COLORS: Record<string, string> = {
@@ -77,7 +78,7 @@ type SortDir = "asc" | "desc";
 
 const RSVP_ORDER: Record<string, number> = { YES: 0, MAYBE: 1, PENDING: 2, NO: 3 };
 
-export default function InviteManager({ eventId, invites, trackMeals, trackSeating, onRefresh, ccConnected, syncing, syncResult, onSyncCC }: InviteManagerProps) {
+export default function InviteManager({ eventId, invites, trackMeals, trackSeating, onRefresh, ccConnected, syncing, syncResult, onSyncCC, tableNames = {} }: InviteManagerProps) {
   const [showAddPeople, setShowAddPeople] = useState(false);
   const [showAddPartner, setShowAddPartner] = useState(false);
   const [filter, setFilter] = useState<string>("ALL");
@@ -126,9 +127,12 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
         case "meal":
           cmp = a.meal.localeCompare(b.meal);
           break;
-        case "seated":
-          cmp = (a.tableId ? 0 : 1) - (b.tableId ? 0 : 1);
+        case "seated": {
+          const aName = a.tableId ? (tableNames[a.tableId] || "") : "";
+          const bName = b.tableId ? (tableNames[b.tableId] || "") : "";
+          cmp = (a.tableId ? 0 : 1) - (b.tableId ? 0 : 1) || aName.localeCompare(bName);
           break;
+        }
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -218,14 +222,14 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
           )}
           <button
             onClick={() => {
-              const headers = ["Last Name", "First Name", "RSVP", "Group", ...(trackMeals ? ["Meal"] : []), ...(trackSeating ? ["Seated"] : [])];
+              const headers = ["Last Name", "First Name", "RSVP", "Group", ...(trackMeals ? ["Meal"] : []), ...(trackSeating ? ["Table"] : [])];
               const rows = filtered.map((inv) => [
                 inv.person.lastName,
                 inv.person.firstName,
                 inv.rsvpStatus,
                 inv.group || "",
                 ...(trackMeals ? [inv.meal] : []),
-                ...(trackSeating ? [inv.tableId ? "Yes" : "No"] : []),
+                ...(trackSeating ? [inv.tableId ? (tableNames[inv.tableId] || "Seated") : ""] : []),
               ]);
               const csvContent = [headers, ...rows]
                 .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
@@ -267,7 +271,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
               <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("rsvp")}>RSVP{sortIndicator("rsvp")}</th>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("group")}>Group{sortIndicator("group")}</th>
               {trackMeals && <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("meal")}>Meal{sortIndicator("meal")}</th>}
-              {trackSeating && <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("seated")}>Seated{sortIndicator("seated")}</th>}
+              {trackSeating && <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("seated")}>Table{sortIndicator("seated")}</th>}
               <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
             </tr>
           </thead>
@@ -319,7 +323,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                 {trackSeating && (
                   <td className="px-4 py-3">
                     {inv.tableId ? (
-                      <span className="text-green-600 text-xs font-medium">Seated</span>
+                      <span className="text-green-600 text-xs font-medium">{tableNames[inv.tableId] || "Seated"}</span>
                     ) : (
                       <span className="text-gray-400 text-xs">—</span>
                     )}

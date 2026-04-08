@@ -437,7 +437,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       const startNum = maxNum + 1;
       const newTables: Table[] = Array.from({ length: actualCount }, (_, i) => ({
         id: `table-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 7)}`,
-        name: `${prefix} ${startNum + i}`,
+        name: `${prefix} ${String(startNum + i).padStart(2, '0')}`,
         x: 100, y: 100,
         shape: data.shape,
         seats: Array(data.seatCount).fill(null).map(() => ({ guestId: null })),
@@ -464,7 +464,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
           const match = t.name.match(/^Table\s*(\d+)$/);
           if (match) maxNum = Math.max(maxNum, parseInt(match[1]));
         });
-        tableName = `Table ${maxNum + 1}`;
+        tableName = `Table ${String(maxNum + 1).padStart(2, '0')}`;
       }
       const newTable: Table = {
         id: `table-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
