@@ -81,7 +81,7 @@ export default async function Dashboard() {
     orderBy: { connectionDate: "desc" },
     include: {
       person: true,
-      partnerRole: { include: { partner: true } },
+      partnerRole: { include: { partner: true, person: true } },
     },
   });
 
@@ -154,7 +154,13 @@ export default async function Dashboard() {
                       </span>
                     </div>
                     <div className="text-sm text-gray-500 mt-0.5">
-                      {c.partnerRole.partner.organizationName} &middot; {c.partnerRole.roleDescription}
+                      {c.partnerRole.person && (
+                        <>{c.partnerRole.person.firstName} {c.partnerRole.person.lastName} &middot; </>
+                      )}
+                      {c.partnerRole.partner.organizationName}
+                      {c.partnerRole.roleDescription && (
+                        <> &middot; {c.partnerRole.roleDescription}</>
+                      )}
                     </div>
                     {truncatedNotes && (
                       <p className="text-sm text-gray-400 mt-1">{truncatedNotes}</p>
