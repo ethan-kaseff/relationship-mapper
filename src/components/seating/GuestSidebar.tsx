@@ -62,9 +62,16 @@ export default function GuestSidebar({
     return map;
   }, [guests, tables]);
 
-  const unassignedGuests = filteredGuests.filter((g) => !g.tableId);
+  const sortByLastName = (a: SeatingGuest, b: SeatingGuest) => {
+    const aLast = a.name.split(' ').slice(-1)[0] || '';
+    const bLast = b.name.split(' ').slice(-1)[0] || '';
+    return aLast.localeCompare(bLast) || a.name.localeCompare(b.name);
+  };
+
+  const unassignedGuests = filteredGuests.filter((g) => !g.tableId).sort(sortByLastName);
   const showUnassignedList = filter === 'all' || filter === 'unassigned';
   const showTableSections = filter === 'all' || filter === 'assigned';
+  const sortedTables = useMemo(() => [...tables].sort((a, b) => a.name.localeCompare(b.name)), [tables]);
 
   const renderGuestCard = (guest: SeatingGuest, hideTableName = false) => {
     const isSelected = selectedGuestId === guest.id;
@@ -223,17 +230,17 @@ export default function GuestSidebar({
               </>
             )}
 
-            {showTableSections && tables.length > 0 && (
+            {showTableSections && sortedTables.length > 0 && (
               <>
                 {filter === 'all' && (
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-4 mb-1">
                     Seated by Table
                   </p>
                 )}
-                {tables.map((table) => {
+                {sortedTables.map((table) => {
                   const tableGuests = (guestsByTable[table.id] || []).filter((g) =>
                     g.name.toLowerCase().includes(searchTerm.toLowerCase())
-                  );
+                  ).sort(sortByLastName);
                   if (tableGuests.length === 0 && searchTerm) return null;
                   const isExpanded = expandedTables.has(table.id);
 

@@ -1,22 +1,24 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { SeatingGuest } from '@/types/seating';
+import { SeatingGuest, Table } from '@/types/seating';
 import { MEAL_OPTIONS, DIETARY_OPTIONS } from '@/lib/seating-constants';
 
 interface GuestModalProps {
   guest: SeatingGuest | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updates: { id: string; group: string; meal: string; dietary: string[]; notes: string }) => void;
+  onSave: (updates: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null }) => void;
   existingGroups?: string[];
+  tables?: Table[];
 }
 
-export default function GuestModal({ guest, isOpen, onClose, onSave, existingGroups = [] }: GuestModalProps) {
+export default function GuestModal({ guest, isOpen, onClose, onSave, existingGroups = [], tables = [] }: GuestModalProps) {
   const [group, setGroup] = useState('');
   const [meal, setMeal] = useState('Standard');
   const [dietary, setDietary] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
+  const [tableId, setTableId] = useState<string | null>(null);
 
   useEffect(() => {
     if (guest) {
@@ -24,13 +26,14 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
       setMeal(guest.meal);
       setDietary(guest.dietary);
       setNotes(guest.notes || '');
+      setTableId(guest.tableId);
     }
   }, [guest, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!guest) return;
-    onSave({ id: guest.id, group: group.trim(), meal, dietary, notes: notes.trim() });
+    onSave({ id: guest.id, group: group.trim(), meal, dietary, notes: notes.trim(), tableId });
     onClose();
   };
 
@@ -66,6 +69,22 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
                 ))}
               </datalist>
             </div>
+
+            {tables.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Table</label>
+                <select
+                  value={tableId || ''}
+                  onChange={(e) => setTableId(e.target.value || null)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                >
+                  <option value="">Unassigned</option>
+                  {tables.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Meal Preference</label>

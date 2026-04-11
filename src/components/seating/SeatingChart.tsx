@@ -320,6 +320,11 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
   const handleSeatClick = (tableId: string, seatIndex: number, guestId: string | null) => {
     if (selectedGuestId && !guestId) {
       // Move selected guest to empty seat
+      const guest = state.guests.find((g) => g.id === selectedGuestId);
+      const table = state.tables.find((t) => t.id === tableId);
+      const guestName = guest?.name || 'this guest';
+      const tableName = table?.name || 'this table';
+      if (!confirm(`Move ${guestName} to ${tableName}, seat ${seatIndex + 1}?`)) return;
       assignGuest(selectedGuestId, tableId, seatIndex);
       setSelectedGuestId(null);
       setSelectedSeatInfo(null);
@@ -328,6 +333,8 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
     if (selectedGuestId && guestId && selectedGuestId !== guestId) {
       // Swap: find where the selected guest is seated, then swap them
       const selectedGuest = state.guests.find((g) => g.id === selectedGuestId);
+      const targetGuest = state.guests.find((g) => g.id === guestId);
+      if (!confirm(`Swap ${selectedGuest?.name || 'selected guest'} with ${targetGuest?.name || 'this guest'}?`)) return;
       if (selectedGuest?.tableId != null && selectedGuest?.seatIndex != null) {
         const fromTable = selectedGuest.tableId;
         const fromSeat = selectedGuest.seatIndex;
@@ -340,7 +347,16 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       setSelectedSeatInfo(null);
       return;
     }
-    if (guestId) { setSelectedGuestId(guestId); setSelectedSeatInfo(null); return; }
+    if (guestId) {
+      const guest = state.guests.find((g) => g.id === guestId);
+      if (guest) {
+        setEditingGuest(guest);
+        setGuestModalOpen(true);
+        setSelectedGuestId(guestId);
+        setSelectedSeatInfo(null);
+      }
+      return;
+    }
     if (selectedSeatInfo?.tableId === tableId && selectedSeatInfo?.seatIndex === seatIndex) {
       setSelectedSeatInfo(null);
     } else {
@@ -391,8 +407,31 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
     setSelectedObjectIds(new Set());
   }, [selectedTableIds, selectedObjectIds, deleteTable, deleteObject]);
 
-  const handleGuestSave = (data: { id: string; group: string; meal: string; dietary: string[]; notes: string }) => {
+  const handleGuestSave = (data: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null }) => {
     updateGuest(data.id, { group: data.group, meal: data.meal, dietary: data.dietary, notes: data.notes });
+    const guest = state.guests.find((g) => g.id === data.id);
+    if (guest?.tableId !== data.tableId) {
+      if (guest?.tableId && !data.tableId && guest.group) {
+        // Unassigning — check for group members at the same table
+        const groupAtTable = state.guests.filter(
+          (g) => g.group === guest.group && g.tableId === guest.tableId && g.id !== data.id
+        );
+        if (groupAtTable.length > 0) {
+          const names = groupAtTable.map((g) => g.name).join(', ');
+          if (confirm(`Also remove ${groupAtTable.length} other "${guest.group}" member${groupAtTable.length > 1 ? 's' : ''} from ${state.tables.find((t) => t.id === guest.tableId)?.name || 'this table'}?\n\n${names}`)) {
+            groupAtTable.forEach((g) => unassignGuest(g.id));
+          }
+        }
+      }
+      if (guest?.tableId) unassignGuest(data.id);
+      if (data.tableId) {
+        const table = state.tables.find((t) => t.id === data.tableId);
+        if (table) {
+          const openSeat = table.seats.findIndex((s) => !s.guestId);
+          if (openSeat >= 0) assignGuest(data.id, data.tableId, openSeat);
+        }
+      }
+    }
     setEditingGuest(null);
   };
 
@@ -640,7 +679,10 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
                   (g) => g.tableId === tableId && g.seatIndex === seatIndex
                 );
                 const draggedGuest = state.guests.find((g) => g.id === guestId);
+                const table = state.tables.find((t) => t.id === tableId);
+                const tableName = table?.name || 'this table';
                 if (existingGuest && existingGuest.id !== guestId) {
+                  if (!confirm(`Swap ${draggedGuest?.name || 'this guest'} with ${existingGuest.name}?`)) return;
                   // Swap: move existing guest to dragged guest's old seat
                   const fromTable = draggedGuest?.tableId ?? null;
                   const fromSeat = draggedGuest?.seatIndex ?? null;
@@ -651,7 +693,39 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
                   }
                   assignGuest(guestId, tableId, seatIndex);
                 } else {
+                  if (!confirm(`Move ${draggedGuest?.name || 'this guest'} to ${tableName}, seat ${seatIndex + 1}?`)) return;
                   assignGuest(guestId, tableId, seatIndex);
+
+                  // Check if there are other unassigned guests in the same group
+                  if (draggedGuest?.group && !draggedGuest.tableId && table) {
+                    const groupMembers = state.guests.filter(
+                      (g) => g.group === draggedGuest.group && !g.tableId && g.id !== guestId
+                    );
+                    if (groupMembers.length > 0) {
+                      // Find empty seats sorted by proximity to the dropped seat
+                      const emptySeats = table.seats
+                        .map((s, i) => ({ guestId: s.guestId, index: i }))
+                        .filter((s) => !s.guestId && s.index !== seatIndex)
+                        .sort((a, b) => {
+                          const totalSeats = table.seats.length;
+                          const distA = Math.min(Math.abs(a.index - seatIndex), totalSeats - Math.abs(a.index - seatIndex));
+                          const distB = Math.min(Math.abs(b.index - seatIndex), totalSeats - Math.abs(b.index - seatIndex));
+                          return distA - distB;
+                        });
+                      const canFit = Math.min(groupMembers.length, emptySeats.length);
+                      if (canFit > 0) {
+                        const names = groupMembers.slice(0, canFit).map((g) => g.name).join(', ');
+                        const extra = groupMembers.length > canFit
+                          ? ` (only ${canFit} of ${groupMembers.length} will fit)`
+                          : '';
+                        if (confirm(`Also seat ${canFit} other "${draggedGuest.group}" group member${canFit > 1 ? 's' : ''} at ${tableName}?${extra}\n\n${names}`)) {
+                          groupMembers.slice(0, canFit).forEach((g, i) => {
+                            assignGuest(g.id, tableId, emptySeats[i].index);
+                          });
+                        }
+                      }
+                    }
+                  }
                 }
                 setSelectedGuestId(null);
                 setSelectedSeatInfo(null);
@@ -665,7 +739,23 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
             selectedGuestId={selectedGuestId} selectedSeatInfo={selectedSeatInfo}
             onGuestSelect={handleGuestSelect}
             onGuestEdit={(guest) => { setEditingGuest(guest); setGuestModalOpen(true); }}
-            onUnassign={unassignGuest}
+            onUnassign={(guestId) => {
+              const guest = state.guests.find((g) => g.id === guestId);
+              if (guest?.group && guest.tableId) {
+                const groupAtTable = state.guests.filter(
+                  (g) => g.group === guest.group && g.tableId === guest.tableId && g.id !== guestId
+                );
+                if (groupAtTable.length > 0) {
+                  const names = groupAtTable.map((g) => g.name).join(', ');
+                  if (confirm(`Remove all ${groupAtTable.length + 1} "${guest.group}" members from ${state.tables.find((t) => t.id === guest.tableId)?.name || 'this table'}?\n\n${guest.name}, ${names}`)) {
+                    unassignGuest(guestId);
+                    groupAtTable.forEach((g) => unassignGuest(g.id));
+                    return;
+                  }
+                }
+              }
+              unassignGuest(guestId);
+            }}
           />
         </div>
       </div>
@@ -675,6 +765,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
         onClose={() => { setGuestModalOpen(false); setEditingGuest(null); }}
         onSave={handleGuestSave}
         existingGroups={Array.from(new Set(state.guests.map((g) => g.group).filter(Boolean))).sort()}
+        tables={state.tables}
       />
       <SeatingTableModal table={editingTable} isOpen={tableModalOpen}
         onClose={() => { setTableModalOpen(false); setEditingTable(null); }}
