@@ -3,7 +3,7 @@
 const nextConfig = {
   webpack: (config, { dev }) => {
     // Disable persistent cache in dev to prevent stale module errors
-    // when files are edited externally (e.g. by Claude Code)
+    // when files are edited externally (e.g. by Claude Code).
     if (dev) {
       config.cache = false;
     }
