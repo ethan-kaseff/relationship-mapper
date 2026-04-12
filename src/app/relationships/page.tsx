@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getOfficeFilter } from "@/lib/office-filter";
+import { auth } from "@/lib/auth";
 import OfficeDataToggle from "@/components/OfficeDataToggle";
 import RelationshipSearch from "@/components/RelationshipSearch";
 
@@ -37,6 +38,10 @@ export default async function RelationshipsPage() {
     lastReviewedDate: rel.lastReviewedDate ? rel.lastReviewedDate.toISOString() : null,
   }));
 
+  const session = await auth();
+  const role = session?.user?.role;
+  const canWrite = role !== "CONNECTOR" && role !== "VIEWER";
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -44,12 +49,14 @@ export default async function RelationshipsPage() {
           <h1 className="text-2xl font-bold text-indigo-900">Relationships</h1>
           <OfficeDataToggle />
         </div>
-        <Link
-          href="/relationships/new"
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
-        >
-          Add Relationship
-        </Link>
+        {canWrite && (
+          <Link
+            href="/relationships/new"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
+          >
+            Add Relationship
+          </Link>
+        )}
       </div>
 
       <RelationshipSearch relationships={serialized} />

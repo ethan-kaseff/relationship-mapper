@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
+import { auth } from "@/lib/auth";
 import AddRoleForm from "@/components/AddRoleForm";
 import DeletePartnerButton from "@/components/DeletePartnerButton";
 import EditPartnerInfo from "@/components/EditPartnerInfo";
@@ -53,6 +54,10 @@ export default async function PartnerDetailPage({
 
   if (!partner) return notFound();
 
+  const session = await auth();
+  const userRole = session?.user?.role;
+  const canEdit = userRole !== "CONNECTOR" && userRole !== "VIEWER";
+
   const allAnnualEventTypes = allAnnualEventTypesUnfiltered.filter(
     (t) => t.officeId === partner.officeId
   );
@@ -92,13 +97,14 @@ export default async function PartnerDetailPage({
         }}
         annualEventTypeIds={partner.orgPeopleFlag === "P" ? partnerAetIds : undefined}
         allAnnualEventTypes={allAnnualEventTypes}
+        readOnly={!canEdit}
       />
 
       {/* Roles & Relationships — only for Organizations */}
       {partner.orgPeopleFlag === "O" && <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-indigo-900">Roles</h2>
-          <AddRoleForm partnerId={partner.id} allAnnualEventTypes={allAnnualEventTypes} />
+          {canEdit && <AddRoleForm partnerId={partner.id} allAnnualEventTypes={allAnnualEventTypes} />}
         </div>
         {partner.partnerRoles.length === 0 ? (
           <p className="text-gray-400 text-sm">No roles defined for this partner.</p>
@@ -123,35 +129,37 @@ export default async function PartnerDetailPage({
                   ) : (
                     <span className="text-sm text-gray-400">— Vacant</span>
                   )}
-                  <span className="ml-auto flex items-center gap-2">
-                    <AnnualInviteToggle
-                      roleId={role.id}
-                      initialTypeIds={role.annualEventTypes.map((a) => a.annualEventType.id)}
-                      allTypes={allAnnualEventTypes}
-                    />
-                    {role.person ? (
-                      <>
-                        <RemoveRolePersonButton
-                          roleId={role.id}
-                          personName={`${role.person.firstName} ${role.person.lastName}`}
-                          personId={role.person.id}
-                          personOfficeId={role.person.officeId}
-                        />
+                  {canEdit && (
+                    <span className="ml-auto flex items-center gap-2">
+                      <AnnualInviteToggle
+                        roleId={role.id}
+                        initialTypeIds={role.annualEventTypes.map((a) => a.annualEventType.id)}
+                        allTypes={allAnnualEventTypes}
+                      />
+                      {role.person ? (
+                        <>
+                          <RemoveRolePersonButton
+                            roleId={role.id}
+                            personName={`${role.person.firstName} ${role.person.lastName}`}
+                            personId={role.person.id}
+                            personOfficeId={role.person.officeId}
+                          />
+                          <AssignRolePersonButton
+                            roleId={role.id}
+                            currentPersonId={role.person.id}
+                            currentPersonName={`${role.person.firstName} ${role.person.lastName}`}
+                            currentOfficeId={role.person.officeId}
+                          />
+                        </>
+                      ) : (
                         <AssignRolePersonButton
                           roleId={role.id}
-                          currentPersonId={role.person.id}
-                          currentPersonName={`${role.person.firstName} ${role.person.lastName}`}
-                          currentOfficeId={role.person.officeId}
+                          currentPersonId={null}
                         />
-                      </>
-                    ) : (
-                      <AssignRolePersonButton
-                        roleId={role.id}
-                        currentPersonId={null}
-                      />
-                    )}
-                    <DeleteRoleButton roleId={role.id} />
-                  </span>
+                      )}
+                      <DeleteRoleButton roleId={role.id} />
+                    </span>
+                  )}
                 </div>
 
                 {role.relationships.length > 0 && (
@@ -245,9 +253,11 @@ export default async function PartnerDetailPage({
       </div>}
 
       {/* Delete */}
-      <div className="border-t border-gray-200 pt-6 mt-6">
-        <DeletePartnerButton partnerId={partner.id} />
-      </div>
+      {canEdit && (
+        <div className="border-t border-gray-200 pt-6 mt-6">
+          <DeletePartnerButton partnerId={partner.id} />
+        </div>
+      )}
     </div>
   );
 }

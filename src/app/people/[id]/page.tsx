@@ -86,7 +86,8 @@ export default async function PersonDetailPage({
   });
 
   const session = await auth();
-  const canEdit = session?.user?.role !== "CONNECTOR";
+  const userRole = session?.user?.role;
+  const canEdit = userRole !== "CONNECTOR" && userRole !== "VIEWER";
 
   // Relationships where this person is the target (others connecting to them)
   const targetRelationships = person.targetOfRelationships.map((rel) => ({
@@ -298,7 +299,7 @@ export default async function PersonDetailPage({
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-indigo-900">Relationships (as Connector)</h2>
-            <AddRelationshipForm personId={person.id} />
+            {canEdit && <AddRelationshipForm personId={person.id} />}
           </div>
           <table className="w-full text-sm">
             <thead className="bg-gray-50 border-b">
@@ -391,7 +392,7 @@ export default async function PersonDetailPage({
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold text-indigo-900">Relationships</h2>
-            <AddRelationshipForm personId={person.id} />
+            {canEdit && <AddRelationshipForm personId={person.id} />}
           </div>
           <p className="text-gray-400 text-sm">No relationships recorded.</p>
         </div>
@@ -546,7 +547,7 @@ export default async function PersonDetailPage({
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center gap-4 mb-4">
           <h2 className="text-lg font-semibold text-indigo-900">Responses</h2>
-          <AddHappeningResponseForm personId={person.id} />
+          {canEdit && <AddHappeningResponseForm personId={person.id} />}
         </div>
         {person.happeningResponses.length === 0 ? (
           <p className="text-gray-400 text-sm">No responses recorded.</p>
@@ -596,9 +597,11 @@ export default async function PersonDetailPage({
       )}
 
       {/* Delete */}
-      <div className="border-t border-gray-200 pt-6 mt-6">
-        <DeletePersonButton personId={person.id} />
-      </div>
+      {canEdit && (
+        <div className="border-t border-gray-200 pt-6 mt-6">
+          <DeletePersonButton personId={person.id} />
+        </div>
+      )}
     </div>
   );
 }

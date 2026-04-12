@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth";
 import OfficeDataToggle from "@/components/OfficeDataToggle";
 import HappeningsTable from "@/components/HappeningsTable";
 
@@ -21,6 +22,10 @@ export default async function HappeningsPage() {
     _count: h._count,
   }));
 
+  const session = await auth();
+  const role = session?.user?.role;
+  const canWrite = role !== "CONNECTOR" && role !== "VIEWER";
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -28,12 +33,14 @@ export default async function HappeningsPage() {
           <h1 className="text-2xl font-bold text-indigo-900">Responses</h1>
           <OfficeDataToggle />
         </div>
-        <Link
-          href="/happenings/new"
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
-        >
-          Add Happening
-        </Link>
+        {canWrite && (
+          <Link
+            href="/happenings/new"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
+          >
+            Add Happening
+          </Link>
+        )}
       </div>
 
       <HappeningsTable happenings={serialized} />

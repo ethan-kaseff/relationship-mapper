@@ -45,14 +45,15 @@ export async function requireMinimumRole(requiredRole: Role): Promise<AuthResult
 }
 
 /**
- * Require user to NOT be a CONNECTOR role.
- * CONNECTORs have limited access to only their own data.
+ * Require user to NOT be a CONNECTOR or VIEWER role.
+ * CONNECTORs and VIEWERs have limited access — no write operations.
  */
 export async function requireNonConnector(): Promise<AuthResult> {
   const authResult = await requireAuth();
   if (!authResult.success) return authResult;
 
-  if (authResult.session.user.role === ROLES.CONNECTOR) {
+  const role = authResult.session.user.role;
+  if (role === ROLES.CONNECTOR || role === ROLES.VIEWER) {
     return { success: false, response: forbidden() };
   }
 

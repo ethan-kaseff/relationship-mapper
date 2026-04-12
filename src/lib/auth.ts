@@ -60,6 +60,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return pathname === "/" || pathname === "/dashboard" || pathname.startsWith("/interactions") || pathname.startsWith("/api/");
       }
 
+      // VIEWER can access people, partners, relationships, interactions, happenings, and API routes
+      if (role === "VIEWER") {
+        return (
+          pathname.startsWith("/people") ||
+          pathname.startsWith("/partners") ||
+          pathname.startsWith("/relationships") ||
+          pathname.startsWith("/interactions") ||
+          pathname.startsWith("/happenings") ||
+          pathname.startsWith("/api/")
+        );
+      }
+
       return true;
     },
     async jwt({ token, user }) {

@@ -58,8 +58,8 @@ export async function POST(request: NextRequest) {
 
   // Office admins cannot create system admins
   const allowedRoles = isOfficeAdmin
-    ? ["OFFICE_ADMIN", "OFFICE_USER", "CONNECTOR"]
-    : ["SYSTEM_ADMIN", "OFFICE_ADMIN", "OFFICE_USER", "CONNECTOR"];
+    ? ["OFFICE_ADMIN", "OFFICE_USER", "VIEWER", "CONNECTOR"]
+    : ["SYSTEM_ADMIN", "OFFICE_ADMIN", "OFFICE_USER", "VIEWER", "CONNECTOR"];
 
   if (role && !allowedRoles.includes(role)) {
     return badRequest("Invalid role");

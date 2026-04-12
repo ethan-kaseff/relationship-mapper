@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getOfficeFilter } from "@/lib/office-filter";
+import { auth } from "@/lib/auth";
 import OfficeDataToggle from "@/components/OfficeDataToggle";
 import InteractionsTable from "@/components/InteractionsTable";
 
@@ -39,6 +40,10 @@ export default async function InteractionsPage() {
     },
   }));
 
+  const session = await auth();
+  const role = session?.user?.role;
+  const canWrite = role !== "VIEWER";
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -46,12 +51,14 @@ export default async function InteractionsPage() {
           <h1 className="text-2xl font-bold text-indigo-900">Interactions</h1>
           <OfficeDataToggle />
         </div>
-        <Link
-          href="/interactions/new"
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
-        >
-          Add Interaction
-        </Link>
+        {canWrite && (
+          <Link
+            href="/interactions/new"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors"
+          >
+            Add Interaction
+          </Link>
+        )}
       </div>
 
       <InteractionsTable connections={serialized} />

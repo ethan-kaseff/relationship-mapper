@@ -34,11 +34,12 @@ interface Props {
   partner: PartnerData;
   annualEventTypeIds?: string[];
   allAnnualEventTypes?: AnnualEventType[];
+  readOnly?: boolean;
 }
 
 const PRIORITY_LABELS = ["Highest", "High", "Medium", "Low", "Lowest"];
 
-export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds, allAnnualEventTypes }: Props) {
+export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds, allAnnualEventTypes, readOnly }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -132,12 +133,14 @@ export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds
       <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-indigo-900">Partner Information</h2>
-          <button
-            onClick={() => setEditing(true)}
-            className="text-indigo-600 hover:underline text-sm"
-          >
-            Edit
-          </button>
+          {!readOnly && (
+            <button
+              onClick={() => setEditing(true)}
+              className="text-indigo-600 hover:underline text-sm"
+            >
+              Edit
+            </button>
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
           <div>

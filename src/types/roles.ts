@@ -2,6 +2,7 @@ export const ROLES = {
   SYSTEM_ADMIN: "SYSTEM_ADMIN",
   OFFICE_ADMIN: "OFFICE_ADMIN",
   OFFICE_USER: "OFFICE_USER",
+  VIEWER: "VIEWER",
   CONNECTOR: "CONNECTOR",
 } as const;
 
@@ -11,6 +12,7 @@ export const ROLE_HIERARCHY: Record<Role, number> = {
   SYSTEM_ADMIN: 4,
   OFFICE_ADMIN: 3,
   OFFICE_USER: 2,
+  VIEWER: 1.5,
   CONNECTOR: 1,
 };
 

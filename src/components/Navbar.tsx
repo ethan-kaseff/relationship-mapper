@@ -20,12 +20,22 @@ const ROLE_LABELS: Record<string, string> = {
   SYSTEM_ADMIN: "System Admin",
   OFFICE_ADMIN: "Office Admin",
   OFFICE_USER: "Office User",
+  VIEWER: "Viewer",
   CONNECTOR: "Connector",
 };
 
 function getNavLinks(role: string) {
   if (role === "CONNECTOR") {
     return allNavLinks.filter((l) => l.href === "/dashboard" || l.href === "/interactions");
+  }
+  if (role === "VIEWER") {
+    return allNavLinks.filter((l) =>
+      l.href === "/people" ||
+      l.href === "/partners" ||
+      l.href === "/relationships" ||
+      l.href === "/interactions" ||
+      l.href === "/happenings"
+    );
   }
   if (role === "OFFICE_USER") {
     return allNavLinks.filter((l) => l.href !== "/settings");

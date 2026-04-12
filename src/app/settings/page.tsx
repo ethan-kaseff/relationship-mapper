@@ -97,6 +97,8 @@ export default function SettingsPage() {
   const [editUserRole, setEditUserRole] = useState("");
   const [editUserOfficeId, setEditUserOfficeId] = useState("");
   const [editUserPassword, setEditUserPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showEditPassword, setShowEditPassword] = useState(false);
 
   // Office management state
   const [offices, setOffices] = useState<Office[]>([]);
@@ -1234,14 +1236,23 @@ export default function SettingsPage() {
                     <label className="block text-xs font-medium text-gray-700 mb-1">
                       Password <span className="text-red-500">*</span>
                     </label>
-                    <input
-                      type="password"
-                      required
-                      value={userPassword}
-                      onChange={(e) => setUserPassword(e.target.value)}
-                      placeholder="Temporary password"
-                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    />
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        required
+                        value={userPassword}
+                        onChange={(e) => setUserPassword(e.target.value)}
+                        placeholder="Temporary password"
+                        className="w-full border border-gray-300 rounded-md px-3 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                      >
+                        {showPassword ? "Hide" : "Show"}
+                      </button>
+                    </div>
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -1254,6 +1265,7 @@ export default function SettingsPage() {
                     >
                       <option value="OFFICE_ADMIN">Office Admin</option>
                       <option value="OFFICE_USER">Office User</option>
+                      <option value="VIEWER">Viewer</option>
                       <option value="CONNECTOR">Connector</option>
                       {isSystemAdmin && <option value="SYSTEM_ADMIN">System Admin</option>}
                     </select>
@@ -1366,13 +1378,22 @@ export default function SettingsPage() {
                             ))}
                           </select>
                           )}
-                          <input
-                            type="password"
-                            value={editUserPassword}
-                            onChange={(e) => setEditUserPassword(e.target.value)}
-                            placeholder="New password (leave blank to keep)"
-                            className="w-full border border-gray-300 rounded px-2 py-1 text-sm mt-1 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                          />
+                          <div className="relative mt-1">
+                            <input
+                              type={showEditPassword ? "text" : "password"}
+                              value={editUserPassword}
+                              onChange={(e) => setEditUserPassword(e.target.value)}
+                              placeholder="New password (leave blank to keep)"
+                              className="w-full border border-gray-300 rounded px-2 py-1 pr-10 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowEditPassword(!showEditPassword)}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs"
+                            >
+                              {showEditPassword ? "Hide" : "Show"}
+                            </button>
+                          </div>
                         </td>
                         <td className="px-4 py-2 text-right">
                           <div className="flex gap-2 justify-end">
@@ -1402,7 +1423,7 @@ export default function SettingsPage() {
                               ? "bg-indigo-900 text-white"
                               : "bg-gray-100 text-gray-700"
                           }`}>
-                            {{ SYSTEM_ADMIN: "System Admin", OFFICE_ADMIN: "Office Admin", OFFICE_USER: "Office User", CONNECTOR: "Connector" }[user.role] || user.role}
+                            {{ SYSTEM_ADMIN: "System Admin", OFFICE_ADMIN: "Office Admin", OFFICE_USER: "Office User", VIEWER: "Viewer", CONNECTOR: "Connector" }[user.role] || user.role}
                           </span>
                         </td>
                         <td className="px-4 py-3 text-gray-600">{user.office?.name ?? "—"}</td>

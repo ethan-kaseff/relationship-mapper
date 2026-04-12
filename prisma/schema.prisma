@@ -32,7 +32,7 @@ model User {
   password  String
   firstName String  @map("first_name")
   lastName  String  @map("last_name")
-  role      String  @default("OFFICE_ADMIN") // "SYSTEM_ADMIN", "OFFICE_ADMIN", "OFFICE_USER", or "CONNECTOR"
+  role      String  @default("OFFICE_ADMIN") // "SYSTEM_ADMIN", "OFFICE_ADMIN", "OFFICE_USER", "VIEWER", or "CONNECTOR"
   officeId  String  @map("office_id")
   office    Office  @relation(fields: [officeId], references: [id])
   events    Event[] @relation("EventCreator")

@@ -66,6 +66,28 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // VIEWER role restrictions
+  if (role === "VIEWER") {
+    // Block dashboard, events, settings — redirect to /people
+    if (!pathname.startsWith("/api/")) {
+      const allowed =
+        pathname.startsWith("/people") ||
+        pathname.startsWith("/partners") ||
+        pathname.startsWith("/relationships") ||
+        pathname.startsWith("/interactions") ||
+        pathname.startsWith("/happenings");
+      if (!allowed) {
+        return NextResponse.redirect(new URL("/people", request.url));
+      }
+    }
+    // API routes: allow GET only (except /api/auth which needs POST for session)
+    if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
+      if (request.method !== "GET") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+  }
+
   return NextResponse.next();
 }
 
