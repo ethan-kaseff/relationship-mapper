@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth } from "@/lib/api-auth";
+import { requireAuth, requireNonViewer } from "@/lib/api-auth";
 import { validateBody, updateConnectionSchema } from "@/lib/validations";
 import { handleApiError, notFound } from "@/lib/api-error";
 
@@ -37,7 +37,7 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth();
+  const authResult = await requireNonViewer();
   if (!authResult.success) return authResult.response;
 
   const validation = await validateBody(request, updateConnectionSchema);
@@ -66,7 +66,7 @@ export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const authResult = await requireAuth();
+  const authResult = await requireNonViewer();
   if (!authResult.success) return authResult.response;
 
   try {

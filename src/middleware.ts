@@ -99,6 +99,6 @@ export const config = {
      * - /api/auth (NextAuth routes)
      * - _next/static, _next/image, favicon.ico
      */
-    "/((?!login|connect|api/auth|api/connect|_next/static|_next/image|favicon\\.ico).*)",
+    "/((?!login|connect(?!ions)|api/auth|api/connect(?!ion)|_next/static|_next/image|favicon\\.ico).*)",
   ],
 };

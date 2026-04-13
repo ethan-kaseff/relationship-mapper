@@ -61,6 +61,21 @@ export async function requireNonConnector(): Promise<AuthResult> {
 }
 
 /**
+ * Require user to NOT be a VIEWER role.
+ * VIEWERs have read-only access — no write operations.
+ */
+export async function requireNonViewer(): Promise<AuthResult> {
+  const authResult = await requireAuth();
+  if (!authResult.success) return authResult;
+
+  if (authResult.session.user.role === ROLES.VIEWER) {
+    return { success: false, response: forbidden() };
+  }
+
+  return authResult;
+}
+
+/**
  * Require OFFICE_ADMIN or SYSTEM_ADMIN role.
  */
 export async function requireAdmin(): Promise<AuthResult> {
