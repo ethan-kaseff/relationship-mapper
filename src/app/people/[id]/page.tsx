@@ -9,6 +9,7 @@ import RemoveRolePersonButton from "@/components/RemoveRolePersonButton";
 import ConnectorLinkSection from "@/components/ConnectorLinkSection";
 import AddHappeningResponseForm from "@/components/AddHappeningResponseForm";
 import HappeningResponseRow from "@/components/HappeningResponseRow";
+import { formatCurrency } from "@/lib/currency";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -69,11 +70,15 @@ export default async function PersonDetailPage({
         orderBy: { createdAt: "desc" },
       },
       eventInvites: {
-        include: { event: true },
+        include: { event: { select: { id: true, title: true, eventDate: true, ticketPrice: true, mealCost: true } } },
         orderBy: { createdAt: "desc" },
       },
       annualEventTypes: {
         include: { annualEventType: true },
+      },
+      donations: {
+        include: { fundraiser: { select: { id: true, title: true } } },
+        orderBy: { donatedAt: "desc" },
       },
     },
   });
@@ -88,6 +93,7 @@ export default async function PersonDetailPage({
   const session = await auth();
   const userRole = session?.user?.role;
   const canEdit = userRole !== "CONNECTOR" && userRole !== "VIEWER";
+  const canSeeDonations = userRole !== "VIEWER";
 
   // Relationships where this person is the target (others connecting to them)
   const targetRelationships = person.targetOfRelationships.map((rel) => ({
@@ -542,6 +548,155 @@ export default async function PersonDetailPage({
           </table>
         )}
       </div>
+
+      {/* Giving History — hidden from Viewer role */}
+      {canSeeDonations && (() => {
+        const ticketInvites = person.eventInvites.filter(
+          (inv) => inv.event.ticketPrice && inv.event.ticketPrice > 0 && inv.rsvpStatus === "YES"
+        );
+        const donationTotal = person.donations.reduce((sum, d) => sum + d.amount, 0);
+        const ticketTotal = ticketInvites.reduce((sum, inv) => sum + (inv.event.ticketPrice ?? 0), 0);
+        const grandTotal = donationTotal + ticketTotal;
+        const hasAnything = person.donations.length > 0 || ticketInvites.length > 0;
+
+        // Tax-deductible totals
+        const donationDeductibleTotal = person.donations.reduce((sum, d) => {
+          return sum + (d.taxDeductibleAmount ?? d.amount);
+        }, 0);
+        const ticketDeductibleTotal = ticketInvites.reduce((sum, inv) => {
+          const override = inv.taxDeductibleOverride;
+          if (override != null) return sum + override;
+          const ticket = inv.event.ticketPrice ?? 0;
+          const meal = inv.event.mealCost ?? 0;
+          return sum + Math.max(0, ticket - meal);
+        }, 0);
+        const grandDeductibleTotal = donationDeductibleTotal + ticketDeductibleTotal;
+
+        return (
+          <div className="bg-white rounded-lg shadow p-6 mb-6">
+            <h2 className="text-lg font-semibold text-indigo-900 mb-4">Giving History</h2>
+            {!hasAnything ? (
+              <p className="text-gray-400 text-sm">No donations or event payments recorded.</p>
+            ) : (
+              <>
+                <div className="mb-4 text-sm text-gray-600">
+                  Total: <span className="font-medium text-gray-900">{formatCurrency(grandTotal)}</span>
+                  {person.donations.length > 0 && ticketInvites.length > 0 && (
+                    <span className="text-gray-400 ml-2">
+                      ({formatCurrency(donationTotal)} donations + {formatCurrency(ticketTotal)} event tickets)
+                    </span>
+                  )}
+                  <br />
+                  Tax-Deductible Total: <span className="font-medium text-gray-900">{formatCurrency(grandDeductibleTotal)}</span>
+                </div>
+
+                {/* Donations */}
+                {person.donations.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Donations</h3>
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="text-left px-4 py-2 font-semibold text-indigo-900">Fundraiser</th>
+                          <th className="text-left px-4 py-2 font-semibold text-indigo-900">Amount</th>
+                          <th className="text-left px-4 py-2 font-semibold text-indigo-900">Tax-Deductible</th>
+                          <th className="text-left px-4 py-2 font-semibold text-indigo-900">Method</th>
+                          <th className="text-left px-4 py-2 font-semibold text-indigo-900">Date</th>
+                          <th className="text-left px-4 py-2 font-semibold text-indigo-900">Tribute</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {person.donations.map((donation) => (
+                          <tr key={donation.id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2">
+                              <Link
+                                href={`/fundraisers/${donation.fundraiser.id}`}
+                                className="text-indigo-600 hover:underline"
+                              >
+                                {donation.fundraiser.title}
+                              </Link>
+                            </td>
+                            <td className="px-4 py-2 font-medium">{formatCurrency(donation.amount)}</td>
+                            <td className="px-4 py-2 text-gray-600">
+                              {formatCurrency(donation.taxDeductibleAmount ?? donation.amount)}
+                            </td>
+                            <td className="px-4 py-2 capitalize text-gray-600">{donation.paymentMethod}</td>
+                            <td className="px-4 py-2 text-gray-600">
+                              {new Date(donation.donatedAt).toLocaleDateString(undefined, { timeZone: "UTC" })}
+                            </td>
+                            <td className="px-4 py-2 text-gray-600">
+                              {donation.tributeType ? (
+                                <span className="text-xs">
+                                  {donation.tributeType === "in_honor_of" ? "In honor of" : "In memory of"}{" "}
+                                  {donation.tributeName}
+                                </span>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Event Tickets */}
+                {ticketInvites.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-700 mb-2">Event Tickets</h3>
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 border-b">
+                        <tr>
+                          <th className="text-left px-4 py-2 font-semibold text-indigo-900">Event</th>
+                          <th className="text-left px-4 py-2 font-semibold text-indigo-900">Ticket Price</th>
+                          <th className="text-left px-4 py-2 font-semibold text-indigo-900">Tax-Deductible</th>
+                          <th className="text-left px-4 py-2 font-semibold text-indigo-900">Event Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {ticketInvites.map((invite) => {
+                          const ticketDeductible = invite.taxDeductibleOverride != null
+                            ? invite.taxDeductibleOverride
+                            : Math.max(0, (invite.event.ticketPrice ?? 0) - (invite.event.mealCost ?? 0));
+                          return (
+                            <tr key={invite.id} className="hover:bg-gray-50">
+                              <td className="px-4 py-2">
+                                <Link
+                                  href={`/events/${invite.event.id}`}
+                                  className="text-indigo-600 hover:underline"
+                                >
+                                  {invite.event.title}
+                                </Link>
+                              </td>
+                              <td className="px-4 py-2 font-medium">
+                                {formatCurrency(invite.event.ticketPrice!)}
+                              </td>
+                              <td className="px-4 py-2 text-gray-600">
+                                {formatCurrency(ticketDeductible)}
+                                {invite.event.mealCost != null && invite.event.mealCost > 0 && invite.taxDeductibleOverride == null && (
+                                  <span className="text-xs text-gray-400 ml-1">
+                                    ({formatCurrency(invite.event.ticketPrice!)} − {formatCurrency(invite.event.mealCost)} meal)
+                                  </span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2 text-gray-600">
+                                {invite.event.eventDate
+                                  ? new Date(invite.event.eventDate).toLocaleDateString(undefined, { timeZone: "UTC" })
+                                  : "—"}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Happening Responses */}
       <div className="bg-white rounded-lg shadow p-6 mb-6">

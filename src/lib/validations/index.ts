@@ -9,6 +9,8 @@ export * from "./user";
 export * from "./event";
 export * from "./event-invite";
 export * from "./annual-event-type";
+export * from "./fundraiser";
+export * from "./donation";
 
 import { z } from "zod";
 import { NextResponse } from "next/server";

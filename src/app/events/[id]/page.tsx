@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import InviteManager from "@/components/events/InviteManager";
@@ -33,6 +33,8 @@ interface EventData {
   location: string | null;
   trackSeating: boolean;
   trackMeals: boolean;
+  ticketPrice: number | null;
+  mealCost: number | null;
   seatingLayout: unknown;
   invites: EventInvite[];
 }
@@ -46,7 +48,7 @@ export default function EventDetailPage() {
   const initialTab = searchParams.get("tab") as "details" | "invites" | "seating" | null;
   const [activeTab, setActiveTab] = useState<"details" | "invites" | "seating">(initialTab || "details");
   const [editing, setEditing] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", eventDate: "", eventTime: "", location: "", trackSeating: true, trackMeals: true });
+  const [form, setForm] = useState({ title: "", description: "", eventDate: "", eventTime: "", location: "", trackSeating: true, trackMeals: true, ticketPriceDollars: "", mealCostDollars: "" });
   const [saving, setSaving] = useState(false);
   const [ccConnected, setCcConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -65,6 +67,8 @@ export default function EventDetailPage() {
         location: data.location || "",
         trackSeating: data.trackSeating ?? true,
         trackMeals: data.trackMeals ?? true,
+        ticketPriceDollars: data.ticketPrice ? (data.ticketPrice / 100).toFixed(2) : "",
+        mealCostDollars: data.mealCost ? (data.mealCost / 100).toFixed(2) : "",
       });
     }
     setLoading(false);
@@ -100,14 +104,24 @@ export default function EventDetailPage() {
     }
   }
 
+  const editTaxDeductible = useMemo(() => {
+    const ticket = parseFloat(form.ticketPriceDollars);
+    const meal = parseFloat(form.mealCostDollars);
+    if (isNaN(ticket) || ticket <= 0) return null;
+    return Math.max(0, ticket - (isNaN(meal) ? 0 : meal));
+  }, [form.ticketPriceDollars, form.mealCostDollars]);
+
   async function handleSave() {
     setSaving(true);
+    const { ticketPriceDollars, mealCostDollars, ...rest } = form;
     const res = await fetch(`/api/events/${id}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        ...form,
+        ...rest,
         eventDate: form.eventDate ? new Date(form.eventDate).toISOString() : null,
+        ticketPrice: ticketPriceDollars ? Math.round(parseFloat(ticketPriceDollars) * 100) : null,
+        mealCost: mealCostDollars ? Math.round(parseFloat(mealCostDollars) * 100) : null,
       }),
     });
     if (res.ok) {
@@ -260,6 +274,37 @@ export default function EventDetailPage() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Ticket Price ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={form.ticketPriceDollars}
+                    onChange={(e) => setForm((f) => ({ ...f, ticketPriceDollars: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Meal Cost ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={form.mealCostDollars}
+                    onChange={(e) => setForm((f) => ({ ...f, mealCostDollars: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              {editTaxDeductible !== null && (
+                <p className="text-sm text-gray-600">
+                  Tax-deductible amount per ticket: <span className="font-medium text-gray-900">${editTaxDeductible.toFixed(2)}</span>
+                </p>
+              )}
               <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
                 <label className="block text-sm font-medium text-gray-700 mb-3">Tracking Options</label>
                 <div className="space-y-2">

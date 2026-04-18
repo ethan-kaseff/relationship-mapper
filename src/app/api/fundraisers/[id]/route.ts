@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
-import { validateBody, updateEventSchema } from "@/lib/validations";
+import { validateBody, updateFundraiserSchema } from "@/lib/validations";
 import { handleApiError, notFound } from "@/lib/api-error";
 
 export async function GET(
@@ -13,17 +13,18 @@ export async function GET(
 
   try {
     const { id } = await params;
-    const event = await prisma.event.findUnique({
+    const fundraiser = await prisma.fundraiser.findUnique({
       where: { id },
       include: {
-        invites: {
-          include: { person: true },
-          orderBy: { createdAt: "asc" },
+        donations: {
+          orderBy: { donatedAt: "desc" },
+          include: { person: { select: { id: true, firstName: true, lastName: true } } },
         },
+        event: { select: { id: true, title: true } },
       },
     });
-    if (!event) return notFound("Event not found");
-    return NextResponse.json(event);
+    if (!fundraiser) return notFound("Fundraiser not found");
+    return NextResponse.json(fundraiser);
   } catch (error) {
     return handleApiError(error);
   }
@@ -36,29 +37,31 @@ export async function PUT(
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
-  const validation = await validateBody(request, updateEventSchema);
+  const validation = await validateBody(request, updateFundraiserSchema);
   if (!validation.success) return validation.response;
 
   try {
     const { id } = await params;
     const data = validation.data;
-    const event = await prisma.event.update({
+    const fundraiser = await prisma.fundraiser.update({
       where: { id },
       data: {
         title: data.title,
         description: data.description,
-        eventDate: data.eventDate !== undefined
-          ? (data.eventDate ? new Date(data.eventDate) : null)
+        goalAmount: data.goalAmount,
+        presetAmounts: data.presetAmounts,
+        slug: data.slug,
+        startDate: data.startDate !== undefined
+          ? (data.startDate ? new Date(data.startDate) : null)
           : undefined,
-        eventTime: data.eventTime,
-        location: data.location,
-        trackSeating: data.trackSeating,
-        trackMeals: data.trackMeals,
-        ticketPrice: data.ticketPrice,
-        mealCost: data.mealCost,
+        endDate: data.endDate !== undefined
+          ? (data.endDate ? new Date(data.endDate) : null)
+          : undefined,
+        isActive: data.isActive,
+        eventId: data.eventId,
       },
     });
-    return NextResponse.json(event);
+    return NextResponse.json(fundraiser);
   } catch (error) {
     return handleApiError(error);
   }
@@ -73,8 +76,8 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    await prisma.event.delete({ where: { id } });
-    return NextResponse.json({ message: "Event deleted" });
+    await prisma.fundraiser.delete({ where: { id } });
+    return NextResponse.json({ message: "Fundraiser deleted" });
   } catch (error) {
     return handleApiError(error);
   }

@@ -121,6 +121,18 @@ export default function SettingsPage() {
   const [ccDisconnecting, setCcDisconnecting] = useState(false);
   const [ccMessage, setCcMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Stripe integration state
+  const [stripeConnected, setStripeConnected] = useState(false);
+  const [stripeLoading, setStripeLoading] = useState(true);
+  const [stripeDisconnecting, setStripeDisconnecting] = useState(false);
+  const [stripeMessage, setStripeMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // QuickBooks integration state
+  const [qbConnected, setQbConnected] = useState(false);
+  const [qbLoading, setQbLoading] = useState(true);
+  const [qbDisconnecting, setQbDisconnecting] = useState(false);
+  const [qbMessage, setQbMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   // Data management state
   const [importType, setImportType] = useState<"people" | "partners" | "roles">("people");
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -229,6 +241,21 @@ export default function SettingsPage() {
       setCcMessage({ type: "error", text: errorMessages[ccError] || "An error occurred." });
     }
 
+    // Stripe OAuth callback params
+    const stripeConnectedParam = params.get("stripe_connected");
+    const stripeError = params.get("stripe_error");
+
+    if (stripeConnectedParam === "true") {
+      setStripeMessage({ type: "success", text: "Stripe connected successfully!" });
+    } else if (stripeError) {
+      const errorMessages: Record<string, string> = {
+        auth_denied: "Authorization was denied.",
+        no_code: "No authorization code received.",
+        token_exchange: "Failed to complete authentication. Please try again.",
+      };
+      setStripeMessage({ type: "error", text: errorMessages[stripeError] || "An error occurred." });
+    }
+
     fetch("/api/constant-contact/status")
       .then((res) => res.json())
       .then((data) => {
@@ -236,7 +263,74 @@ export default function SettingsPage() {
         setCcLoading(false);
       })
       .catch(() => setCcLoading(false));
+
+    fetch("/api/stripe/status")
+      .then((res) => res.json())
+      .then((data) => {
+        setStripeConnected(data.connected);
+        setStripeLoading(false);
+      })
+      .catch(() => setStripeLoading(false));
+
+    // QuickBooks OAuth callback params
+    const qbConnectedParam = params.get("qb_connected");
+    const qbError = params.get("qb_error");
+
+    if (qbConnectedParam === "true") {
+      setQbMessage({ type: "success", text: "QuickBooks connected successfully!" });
+    } else if (qbError) {
+      const errorMessages: Record<string, string> = {
+        auth_denied: "Authorization was denied.",
+        no_code: "No authorization code received.",
+        token_exchange: "Failed to complete authentication. Please try again.",
+      };
+      setQbMessage({ type: "error", text: errorMessages[qbError] || "An error occurred." });
+    }
+
+    fetch("/api/quickbooks/status")
+      .then((res) => res.json())
+      .then((data) => {
+        setQbConnected(data.connected);
+        setQbLoading(false);
+      })
+      .catch(() => setQbLoading(false));
   }, []);
+
+  async function handleQbDisconnect() {
+    if (!confirm("Disconnect QuickBooks? Donations will no longer sync.")) return;
+    setQbDisconnecting(true);
+    try {
+      const res = await fetch("/api/quickbooks/disconnect", { method: "POST" });
+      if (res.ok) {
+        setQbConnected(false);
+        setQbMessage({ type: "success", text: "QuickBooks disconnected." });
+      } else {
+        setQbMessage({ type: "error", text: "Failed to disconnect." });
+      }
+    } catch {
+      setQbMessage({ type: "error", text: "Failed to disconnect." });
+    } finally {
+      setQbDisconnecting(false);
+    }
+  }
+
+  async function handleStripeDisconnect() {
+    if (!confirm("Disconnect Stripe? Donations will no longer go to your connected account.")) return;
+    setStripeDisconnecting(true);
+    try {
+      const res = await fetch("/api/stripe/disconnect", { method: "POST" });
+      if (res.ok) {
+        setStripeConnected(false);
+        setStripeMessage({ type: "success", text: "Stripe disconnected." });
+      } else {
+        setStripeMessage({ type: "error", text: "Failed to disconnect." });
+      }
+    } catch {
+      setStripeMessage({ type: "error", text: "Failed to disconnect." });
+    } finally {
+      setStripeDisconnecting(false);
+    }
+  }
 
   async function handleCcDisconnect() {
     if (!confirm("Disconnect Constant Contact? You can reconnect later.")) return;
@@ -758,6 +852,134 @@ export default function SettingsPage() {
                 ) : (
                   <a
                     href="/api/constant-contact/auth"
+                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  >
+                    Connect
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Stripe Integration */}
+          {stripeMessage && (
+            <div
+              className={`mt-4 p-3 rounded-md text-sm ${
+                stripeMessage.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {stripeMessage.text}
+              <button
+                onClick={() => setStripeMessage(null)}
+                className="float-right text-xs underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <div className="border border-gray-200 rounded-lg p-4 mt-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">Stripe</h3>
+                  <p className="text-sm text-gray-500">
+                    Accept online donations via Stripe Checkout
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {stripeLoading ? (
+                  <span className="text-sm text-gray-400">Checking...</span>
+                ) : stripeConnected ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                      <span className="w-2 h-2 bg-green-500 rounded-full" />
+                      Connected
+                    </span>
+                    <button
+                      onClick={handleStripeDisconnect}
+                      disabled={stripeDisconnecting}
+                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {stripeDisconnecting ? "Disconnecting..." : "Disconnect"}
+                    </button>
+                  </>
+                ) : (
+                  <a
+                    href="/api/stripe/auth"
+                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  >
+                    Connect
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* QuickBooks Integration */}
+          {qbMessage && (
+            <div
+              className={`mt-4 p-3 rounded-md text-sm ${
+                qbMessage.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {qbMessage.text}
+              <button
+                onClick={() => setQbMessage(null)}
+                className="float-right text-xs underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <div className="border border-gray-200 rounded-lg p-4 mt-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">QuickBooks</h3>
+                  <p className="text-sm text-gray-500">
+                    Sync donations as Sales Receipts in QuickBooks
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {qbLoading ? (
+                  <span className="text-sm text-gray-400">Checking...</span>
+                ) : qbConnected ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                      <span className="w-2 h-2 bg-green-500 rounded-full" />
+                      Connected
+                    </span>
+                    <button
+                      onClick={handleQbDisconnect}
+                      disabled={qbDisconnecting}
+                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {qbDisconnecting ? "Disconnecting..." : "Disconnect"}
+                    </button>
+                  </>
+                ) : (
+                  <a
+                    href="/api/quickbooks/auth"
                     className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                   >
                     Connect

@@ -75,6 +75,8 @@ export async function POST(request: Request) {
         location: data.location,
         trackSeating: data.trackSeating ?? true,
         trackMeals: data.trackMeals ?? true,
+        ticketPrice: data.ticketPrice ?? null,
+        mealCost: data.mealCost ?? null,
         seatingLayout: seatingLayout ?? undefined,
         createdById: authResult.session.user.id,
         officeId,

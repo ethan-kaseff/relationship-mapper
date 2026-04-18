@@ -13,6 +13,7 @@ const allNavLinks = [
   { href: "/interactions", label: "Interactions" },
   { href: "/happenings", label: "Responses" },
   { href: "/events", label: "Events" },
+  { href: "/fundraisers", label: "Fundraisers" },
   { href: "/settings", label: "Settings" },
 ];
 

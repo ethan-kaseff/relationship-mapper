@@ -68,7 +68,7 @@ export async function middleware(request: NextRequest) {
 
   // VIEWER role restrictions
   if (role === "VIEWER") {
-    // Block dashboard, events, settings — redirect to /people
+    // Block dashboard, events, fundraisers, settings — redirect to /people
     if (!pathname.startsWith("/api/")) {
       const allowed =
         pathname.startsWith("/people") ||
@@ -99,6 +99,6 @@ export const config = {
      * - /api/auth (NextAuth routes)
      * - _next/static, _next/image, favicon.ico
      */
-    "/((?!login|connect(?!ions)|api/auth|api/connect(?!ion)|_next/static|_next/image|favicon\\.ico).*)",
+    "/((?!login|connect(?!ions)|donate|api/auth|api/connect(?!ion)|api/donate|api/webhooks|_next/static|_next/image|favicon\\.ico).*)",
   ],
 };
