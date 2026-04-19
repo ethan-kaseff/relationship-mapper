@@ -1,0 +1,436 @@
+import { prisma } from "@/lib/prisma";
+
+const ZEFFY_API_BASE = "https://api.zeffy.com/api/v1";
+
+/**
+ * Store a Zeffy API key for an office.
+ */
+export async function storeZeffyApiKey(
+  officeId: string,
+  apiKey: string
+): Promise<void> {
+  await prisma.integrationToken.upsert({
+    where: {
+      officeId_provider: { officeId, provider: "zeffy" },
+    },
+    create: {
+      officeId,
+      provider: "zeffy",
+      accessToken: apiKey,
+      refreshToken: "",
+      expiresAt: new Date("2099-12-31"),
+    },
+    update: {
+      accessToken: apiKey,
+    },
+  });
+}
+
+/**
+ * Check if Zeffy is connected for an office.
+ */
+export async function isZeffyConnected(officeId: string): Promise<boolean> {
+  const token = await prisma.integrationToken.findUnique({
+    where: {
+      officeId_provider: { officeId, provider: "zeffy" },
+    },
+  });
+  return !!token;
+}
+
+/**
+ * Disconnect Zeffy by deleting the stored API key.
+ */
+export async function disconnectZeffy(officeId: string): Promise<void> {
+  await prisma.integrationToken.deleteMany({
+    where: { officeId, provider: "zeffy" },
+  });
+}
+
+/**
+ * Get the stored Zeffy API key for an office.
+ */
+export async function getZeffyApiKey(officeId: string): Promise<string> {
+  const token = await prisma.integrationToken.findUnique({
+    where: {
+      officeId_provider: { officeId, provider: "zeffy" },
+    },
+  });
+  if (!token) throw new Error("Zeffy not connected");
+  return token.accessToken;
+}
+
+/**
+ * Make an authenticated request to the Zeffy API.
+ */
+async function zeffyFetch(
+  apiKey: string,
+  endpoint: string,
+  params?: Record<string, string>
+): Promise<Response> {
+  const url = new URL(`${ZEFFY_API_BASE}${endpoint}`);
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      url.searchParams.set(key, value);
+    }
+  }
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Zeffy API error (${res.status}): ${text}`);
+  }
+
+  return res;
+}
+
+/**
+ * Validate a Zeffy API key by making a test request.
+ */
+export async function validateZeffyApiKey(apiKey: string): Promise<boolean> {
+  try {
+    await zeffyFetch(apiKey, "/payments", { limit: "1" });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+interface ZeffyPaginatedResponse<T = any> {
+  data: T[];
+  has_more: boolean;
+  next_cursor?: string;
+}
+
+/**
+ * Fetch payments from Zeffy API with cursor-based pagination.
+ */
+export async function fetchZeffyPayments(
+  apiKey: string,
+  cursor?: string
+): Promise<ZeffyPaginatedResponse> {
+  const params: Record<string, string> = {};
+  if (cursor) params.cursor = cursor;
+  const res = await zeffyFetch(apiKey, "/payments", params);
+  return res.json();
+}
+
+/**
+ * Fetch contacts from Zeffy API with cursor-based pagination.
+ */
+export async function fetchZeffyContacts(
+  apiKey: string,
+  cursor?: string
+): Promise<ZeffyPaginatedResponse> {
+  const params: Record<string, string> = {};
+  if (cursor) params.cursor = cursor;
+  const res = await zeffyFetch(apiKey, "/contacts", params);
+  return res.json();
+}
+
+/**
+ * Fetch campaigns from Zeffy API with cursor-based pagination.
+ */
+export async function fetchZeffyCampaigns(
+  apiKey: string,
+  cursor?: string
+): Promise<ZeffyPaginatedResponse> {
+  const params: Record<string, string> = {};
+  if (cursor) params.cursor = cursor;
+  const res = await zeffyFetch(apiKey, "/campaigns", params);
+  return res.json();
+}
+
+/**
+ * Find or create a fundraiser for a Zeffy campaign.
+ */
+async function findOrCreateFundraiserForCampaign(
+  officeId: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  campaign: { id: string; title: string; goal_amount?: number }
+): Promise<string> {
+  // Check if fundraiser already exists for this campaign
+  const existing = await prisma.fundraiser.findUnique({
+    where: { zeffyCampaignId: campaign.id },
+    select: { id: true },
+  });
+  if (existing) return existing.id;
+
+  // Create a slug from the campaign name
+  const baseSlug = campaign.title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  const slug = `zeffy-${baseSlug}-${Date.now()}`;
+
+  const fundraiser = await prisma.fundraiser.create({
+    data: {
+      title: campaign.title,
+      goalAmount: campaign.goal_amount ? Math.round(campaign.goal_amount * 100) : 0,
+      slug,
+      zeffyCampaignId: campaign.id,
+      officeId,
+      isActive: true,
+    },
+  });
+
+  return fundraiser.id;
+}
+
+/**
+ * Match a donor email to an existing People record in the office.
+ */
+async function matchPersonByEmail(
+  officeId: string,
+  email: string
+): Promise<string | null> {
+  const person = await prisma.people.findFirst({
+    where: {
+      officeId,
+      OR: [
+        { email1: { equals: email, mode: "insensitive" } },
+        { email2: { equals: email, mode: "insensitive" } },
+      ],
+    },
+    select: { id: true },
+  });
+  return person?.id ?? null;
+}
+
+/**
+ * Sync donations from Zeffy into the database.
+ * Returns a summary of the sync results.
+ */
+export async function syncZeffyDonations(
+  officeId: string
+): Promise<{ synced: number; skipped: number; errors: number }> {
+  const apiKey = await getZeffyApiKey(officeId);
+  let cursor: string | undefined;
+  let synced = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  // First, fetch all campaigns to map campaign IDs to fundraisers
+  const campaignMap = new Map<string, string>();
+  let campaignCursor: string | undefined;
+  do {
+    const campaignsPage = await fetchZeffyCampaigns(apiKey, campaignCursor);
+    for (const campaign of campaignsPage.data) {
+      const fundraiserId = await findOrCreateFundraiserForCampaign(officeId, {
+        id: campaign.id,
+        title: campaign.title,
+        goal_amount: campaign.goal_amount,
+      });
+      campaignMap.set(campaign.id, fundraiserId);
+    }
+    campaignCursor = campaignsPage.has_more ? campaignsPage.next_cursor : undefined;
+  } while (campaignCursor);
+
+  // Fetch and process payments
+  do {
+    const page = await fetchZeffyPayments(apiKey, cursor);
+
+    for (const payment of page.data) {
+      try {
+        const paymentId = payment.id as string;
+
+        // Idempotency: skip if already imported
+        const existing = await prisma.donation.findUnique({
+          where: { zeffyPaymentId: paymentId },
+        });
+        if (existing) {
+          skipped++;
+          continue;
+        }
+
+        // Determine fundraiser
+        let fundraiserId = payment.campaign_id
+          ? campaignMap.get(payment.campaign_id)
+          : undefined;
+
+        // If no campaign mapped, create a default "Zeffy Donations" fundraiser
+        if (!fundraiserId) {
+          fundraiserId = await findOrCreateFundraiserForCampaign(officeId, {
+            id: "zeffy-general",
+            title: "Zeffy Donations",
+          });
+        }
+
+        const donorEmail = payment.buyer?.email as string | undefined;
+        const donorName = [payment.buyer?.first_name, payment.buyer?.last_name]
+          .filter(Boolean)
+          .join(" ") || null;
+        const amount = Math.round((payment.amount ?? 0) * 100); // Convert to cents
+
+        // Match donor to existing person
+        let peopleId: string | null = null;
+        if (donorEmail) {
+          peopleId = await matchPersonByEmail(officeId, donorEmail);
+        }
+
+        await prisma.$transaction(async (tx) => {
+          await tx.donation.create({
+            data: {
+              fundraiserId: fundraiserId!,
+              amount,
+              donorName,
+              donorEmail: donorEmail ?? null,
+              peopleId,
+              paymentMethod: "zeffy",
+              zeffyPaymentId: paymentId,
+              approvalStatus: peopleId ? "AUTO_APPROVED" : "PENDING",
+              donatedAt: payment.created
+                ? new Date(payment.created * 1000)
+                : new Date(),
+            },
+          });
+
+          await tx.fundraiser.update({
+            where: { id: fundraiserId! },
+            data: { currentAmount: { increment: amount } },
+          });
+        });
+
+        synced++;
+      } catch (err) {
+        console.error("Error syncing Zeffy payment:", err);
+        errors++;
+      }
+    }
+
+    cursor = page.has_more ? page.next_cursor : undefined;
+  } while (cursor);
+
+  return { synced, skipped, errors };
+}
+
+/**
+ * Sync contacts from Zeffy into the database as People records.
+ * Returns a summary of the sync results.
+ */
+export async function syncZeffyContacts(
+  officeId: string
+): Promise<{ created: number; skipped: number; errors: number }> {
+  const apiKey = await getZeffyApiKey(officeId);
+  let cursor: string | undefined;
+  let created = 0;
+  let skipped = 0;
+  let errors = 0;
+
+  do {
+    const page = await fetchZeffyContacts(apiKey, cursor);
+
+    for (const contact of page.data) {
+      try {
+        const email = contact.email as string | undefined;
+        if (!email) {
+          skipped++;
+          continue;
+        }
+
+        // Skip if person with this email already exists in office
+        const existingPerson = await matchPersonByEmail(officeId, email);
+        if (existingPerson) {
+          skipped++;
+          continue;
+        }
+
+        const firstName = (contact.first_name as string) || "Unknown";
+        const lastName = (contact.last_name as string) || "Unknown";
+
+        await prisma.people.create({
+          data: {
+            firstName,
+            lastName,
+            email1: email,
+            address: contact.address?.line1 ?? null,
+            city: contact.address?.city ?? null,
+            state: contact.address?.state ?? null,
+            zip: contact.address?.postal_code ?? null,
+            phoneNumber: contact.phone_number ?? null,
+            officeId,
+          },
+        });
+
+        created++;
+      } catch (err) {
+        console.error("Error syncing Zeffy contact:", err);
+        errors++;
+      }
+    }
+
+    cursor = page.has_more ? page.next_cursor : undefined;
+  } while (cursor);
+
+  return { created, skipped, errors };
+}
+
+/**
+ * Process a single Zeffy webhook payment event.
+ */
+export async function processZeffyWebhookPayment(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  payment: any,
+  officeId: string
+): Promise<void> {
+  const paymentId = payment.id as string;
+
+  // Idempotency check
+  const existing = await prisma.donation.findUnique({
+    where: { zeffyPaymentId: paymentId },
+  });
+  if (existing) return;
+
+  // Find or create fundraiser for the campaign
+  let fundraiserId: string;
+  if (payment.campaign_id && payment.campaign) {
+    fundraiserId = await findOrCreateFundraiserForCampaign(officeId, {
+      id: payment.campaign_id,
+      title: payment.campaign.title || payment.campaign.name || "Zeffy Campaign",
+    });
+  } else {
+    fundraiserId = await findOrCreateFundraiserForCampaign(officeId, {
+      id: "zeffy-general",
+      title: "Zeffy Donations",
+    });
+  }
+
+  const donorEmail = payment.buyer?.email as string | undefined;
+  const donorName = [payment.buyer?.first_name, payment.buyer?.last_name]
+    .filter(Boolean)
+    .join(" ") || null;
+  const amount = Math.round((payment.amount ?? 0) * 100);
+
+  let peopleId: string | null = null;
+  if (donorEmail) {
+    peopleId = await matchPersonByEmail(officeId, donorEmail);
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.donation.create({
+      data: {
+        fundraiserId,
+        amount,
+        donorName,
+        donorEmail: donorEmail ?? null,
+        peopleId,
+        paymentMethod: "zeffy",
+        zeffyPaymentId: paymentId,
+        approvalStatus: peopleId ? "AUTO_APPROVED" : "PENDING",
+        donatedAt: payment.created ? new Date(payment.created * 1000) : new Date(),
+      },
+    });
+
+    await tx.fundraiser.update({
+      where: { id: fundraiserId },
+      data: { currentAmount: { increment: amount } },
+    });
+  });
+}
