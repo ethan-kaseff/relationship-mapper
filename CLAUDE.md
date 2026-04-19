@@ -22,13 +22,15 @@
    ```
    Do NOT change it to `prisma-client` or add a custom `output` path. The standard `prisma-client-js` generates into `node_modules/@prisma/client`, which is the only configuration that works reliably on Vercel's serverless environment. The app imports from `@prisma/client` in `src/lib/prisma.ts` — do not change that import path either.
 
-4. **Always build before push.** Run `npm run build` and confirm it succeeds before pushing. A broken build will break the live site on Vercel.
+4. **Never push directly to `main`.** All changes go through a pull request from a feature branch. Branch protection is enabled and will reject direct pushes anyway. Follow the workflow in `claude-helpers/Deploy Changes to Live Site.md`.
 
-5. **Do not change `git config user.email`.** Use whatever email is already configured.
+5. **Always run `npm run lint`, `npm run typecheck`, `npm test`, and `npm run build` before opening a PR.** CI will run these too, but catching them locally is faster and cheaper.
 
-6. **Always pull before push.** Run `git pull origin main` before pushing to avoid overwriting others' work.
+6. **Do not change `git config user.email`.** Use whatever email is already configured.
 
-7. **Never force-push.** Do not use `git push --force` or `git push -f`. If push fails, ask for help.
+7. **Never force-push `main`.** Do not use `git push --force` or `git push -f` against `main`. Force-with-lease is acceptable on your own feature branches (see `claude-helpers/If Something Goes Wrong.md`).
+
+8. **Never commit `.env` or `.env.local`.** Both are gitignored. If you see either staged, unstage it. All production secrets live in Vercel env vars, not in the repo. `.env.example` (tracked) lists every required variable with placeholder values — keep it current when adding new env vars to the app.
 
 ## Project Overview
 
@@ -37,12 +39,45 @@
 - **Database:** PostgreSQL via Prisma ORM (Prisma 6, standard `prisma-client-js` generator)
 - **Auth:** NextAuth.js (v5 beta)
 - **Styling:** Tailwind CSS
-- **Hosting:** Vercel (auto-deploys from `main` branch)
+- **Hosting:** Vercel (auto-deploys from `main` branch; every PR gets a preview URL)
+- **Repository:** Public on GitHub at `ethan-kaseff/relationship-mapper`
+- **Node:** 22.x (see `.github/workflows/ci.yml`)
+
+## Git & Deployment Flow
+
+**Summary:** every change lives on a `work/<slug>` feature branch and reaches production via a PR that passes CI. Vercel auto-deploys `main` and gives every PR a preview URL.
+
+```
+  work/fix-foo  ──push──►  GitHub PR  ──CI passes──►  auto-squash-merge  ──►  main  ──►  Vercel deploys
+                                                                                   └──►  preview URL per PR
+```
+
+Barry and Ethan both use this same flow. Never skip it.
+
+| Barry says | File to read |
+|------------|--------------|
+| "Let's get started" / start of session / "start work" | `claude-helpers/Before Starting Work.md` |
+| "Save" / "commit" | `claude-helpers/Save My Changes Locally.md` |
+| "Push" / "deploy" / "push to live" | `claude-helpers/Deploy Changes to Live Site.md` |
+| "Something broke" / deploy failed / push rejected | `claude-helpers/If Something Goes Wrong.md` |
+
+## Environment Variables
+
+- `.env.example` (tracked) — documents every required variable with placeholder values. Update this whenever the app starts reading a new `process.env.X`.
+- `.env` (gitignored) — local dev values. Real DB/auth credentials live here on each developer's machine.
+- `.env.local` (gitignored) — per-machine overrides; takes precedence over `.env`.
+- **Vercel** — production / preview / development environment variables live in the Vercel project settings. Use `vercel env pull` to sync them into a local `.env.development.local` for dev parity.
+
+When adding a new integration (Stripe, QuickBooks, etc.):
+1. Add the variable to `.env.example` with a placeholder and a short comment.
+2. Add it to Vercel for Production (and Preview/Development if needed): `vercel env add`.
+3. Add it to the local `.env` / `.env.local` with the real dev value.
+4. Reference it in code via `process.env.X`.
 
 ## Commands
 
 | Command | What It Does |
-|---------|-------------|
+|---------|--------------|
 | `npm run dev` | Start local dev server |
 | `npm run build` | Generate Prisma client + build for production |
 | `npm run lint` | Check code for errors (must pass with 0 warnings) |
@@ -51,18 +86,21 @@
 | `npm test` | Run tests once |
 | `npm run db:push` | Sync Prisma schema to database |
 | `npm run db:studio` | Open database browser |
+| `vercel env pull` | Sync Vercel env vars into local `.env.development.local` |
 
 ## Project Structure
 
 ```
 src/
   app/              — Pages and API routes (Next.js App Router)
-    api/            — REST API endpoints (auth, people, partners, events, etc.)
+    api/            — REST API endpoints (auth, people, partners, events, stripe, quickbooks, etc.)
     dashboard/      — Main dashboard
     people/         — People list and detail pages
     partners/       — Partner list and detail pages
     relationships/  — Relationship management
     events/         — Event management with seating charts
+    fundraisers/    — Fundraising campaigns (Stripe-backed)
+    donate/         — Public donation pages
     happenings/     — Ad-hoc event tracking
     interactions/   — Interaction logging
     settings/       — App settings (lookup tables, annual event types)
@@ -76,6 +114,10 @@ src/
     api-auth.ts     — API route authentication helpers
     api-error.ts    — Standardized API error responses
     office-filter.ts — Office-level data scoping
+    stripe.ts       — Stripe client + helpers
+    quickbooks.ts   — QuickBooks OAuth + sync helpers
+    constant-contact.ts — Constant Contact OAuth + sync helpers
+    currency.ts     — Currency formatting helpers
     validations/    — Zod schemas for request validation
   types/            — TypeScript type definitions
   hooks/            — Custom React hooks
@@ -83,6 +125,7 @@ prisma/
   schema.prisma     — Database schema (MUST stay PostgreSQL)
   seed.ts           — Database seeding script
 claude-helpers/     — Step-by-step workflow instructions for Barry
+.github/workflows/  — CI (lint, typecheck, test, build) — required for merge
 ```
 
 ## Key Architecture Patterns
@@ -105,13 +148,3 @@ All API routes follow this pattern:
 - Every API route that accepts a body uses Zod schemas from `src/lib/validations/`
 - Schemas are re-exported from `src/lib/validations/index.ts`
 - When adding new fields to a Prisma model, also update the matching validation schema
-
-## Helper Workflows
-
-Barry has helper instruction files in `claude-helpers/`. When Barry asks to do one of these tasks, read the matching file and follow its instructions:
-
-| Barry Says | File to Read |
-|------------|-------------|
-| "Let's get started" / beginning of session | `claude-helpers/Before Starting Work.md` |
-| "Save" / "commit" | `claude-helpers/Save My Changes Locally.md` |
-| "Push" / "deploy" / "push to live" | `claude-helpers/Deploy Changes to Live Site.md` |

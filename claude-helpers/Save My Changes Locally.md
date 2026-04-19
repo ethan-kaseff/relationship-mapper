@@ -1,35 +1,51 @@
 # Saving
 
-Commits Barry's work locally. Does NOT push to the live site.
+Commits Barry's work locally on the current feature branch. Does NOT push
+or deploy.
 
-1. Check git email is `barry@kaseff.com`. Fix if not.
+## 1. Check the current branch
 
-2. **Verify prisma/schema.prisma is correct:**
-   - Has `provider = "postgresql"` (NOT sqlite)
-   - Has `url = env("DATABASE_URL")` in the datasource block
-   - Has `directUrl = env("DIRECT_URL")` in the datasource block
-   - Generator has `provider = "prisma-client-js"` with NO custom output path
-   Fix any of these if missing.
+```
+git branch --show-current
+```
 
-3. **Verify `src/lib/prisma.ts` imports from `@prisma/client`** (NOT `@/generated/prisma/client`). Fix if wrong.
+- If the branch is `main`, STOP. Barry should be on a `work/...` branch.
+  Run the "Before Starting Work" helper to create one, then continue here.
+- Otherwise continue.
 
-4. Pull latest from GitHub and merge:
-   ```
-   git pull origin main
-   ```
-   If there are merge conflicts, resolve them keeping both sides where possible. Tell Barry what you resolved.
+## 2. Verify `prisma/schema.prisma` is correct
 
-5. Check if there's anything to save:
-   ```
-   git status
-   ```
-   If nothing changed, tell Barry "Nothing new to save" and stop.
+- `provider = "postgresql"` (NOT sqlite)
+- `url = env("DATABASE_URL")` in the datasource block
+- `directUrl = env("DIRECT_URL")` in the datasource block
+- Generator has `provider = "prisma-client-js"` with NO custom output path
 
-6. Stage and commit (do NOT stage `src/generated/` — it's in .gitignore):
-   ```
-   git add -A
-   git commit -m "your message here"
-   ```
-   Write a short plain-English commit message describing what changed.
+Fix any of these if missing.
 
-Tell Barry: "Saved! Say 'push to live' when you're ready to update the website."
+## 3. Verify `src/lib/prisma.ts` imports from `@prisma/client`
+
+Fix if it points anywhere else.
+
+## 4. Check if there's anything to save
+
+```
+git status
+```
+
+If nothing changed, tell Barry "Nothing new to save" and stop.
+
+## 5. Stage and commit
+
+```
+git add -A
+git commit -m "your message here"
+```
+
+Write a short plain-English commit message describing what changed. Do NOT
+stage `src/generated/`, `.env`, or `.env.local` — they should already be
+gitignored.
+
+---
+
+Tell Barry: **"Saved locally on branch `<branch-name>`. Say 'deploy' when
+you're ready to push it live."**
