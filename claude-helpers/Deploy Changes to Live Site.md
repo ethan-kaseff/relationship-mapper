@@ -8,6 +8,13 @@ auto-deploys `main` to the live site.
 anyway. If the user asks to "push to main directly", refuse and follow
 this workflow.
 
+Branch protection does NOT require the feature branch to be up-to-date
+with main (that was intentionally relaxed — semantic conflicts are rare
+at two-person scale and CI-on-main catches anything that slips through).
+So a PR merges as soon as its checks pass, whether it's one commit
+behind main or fifty. Only actual textual conflicts need manual
+intervention — see step 9.
+
 ## 1. Confirm the current branch
 
 ```
@@ -105,10 +112,23 @@ gh pr checks <branch-name> --watch
 ## 9. Confirm the merge
 
 ```
-gh pr view <branch-name> --json state,mergedAt
+gh pr view <branch-name> --json state,mergedAt,mergeStateStatus
 ```
 
-Once `state` is `MERGED`, tell Barry the PR merged.
+- `state: MERGED` → great, continue to step 10.
+- `state: OPEN` → something's preventing the merge. Check `mergeStateStatus`:
+  - `DIRTY` — textual merge conflict with main. Rebase the feature branch
+    onto latest main, resolve conflicts, and force-with-lease push:
+    ```
+    git fetch origin main
+    git rebase origin/main
+    # resolve conflicts, then `git add <files> && git rebase --continue`
+    git push --force-with-lease
+    ```
+    Auto-merge is still armed and will fire once CI re-passes.
+  - `BLOCKED` or `UNSTABLE` — a required check failed or is still running.
+    Re-run step 8 to see what.
+  - Anything else — tell Barry what `gh pr view` shows and stop.
 
 ## 10. Sync local main and clean up
 
