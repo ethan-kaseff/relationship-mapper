@@ -133,6 +133,15 @@ export default function SettingsPage() {
   const [qbDisconnecting, setQbDisconnecting] = useState(false);
   const [qbMessage, setQbMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Zeffy integration state
+  const [zeffyConnected, setZeffyConnected] = useState(false);
+  const [zeffyLoading, setZeffyLoading] = useState(true);
+  const [zeffyApiKey, setZeffyApiKey] = useState("");
+  const [zeffyConnecting, setZeffyConnecting] = useState(false);
+  const [zeffyDisconnecting, setZeffyDisconnecting] = useState(false);
+  const [zeffySyncing, setZeffySyncing] = useState(false);
+  const [zeffyMessage, setZeffyMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   // Data management state
   const [importType, setImportType] = useState<"people" | "partners" | "roles">("people");
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -294,6 +303,14 @@ export default function SettingsPage() {
         setQbLoading(false);
       })
       .catch(() => setQbLoading(false));
+
+    fetch("/api/zeffy/status")
+      .then((res) => res.json())
+      .then((data) => {
+        setZeffyConnected(data.connected);
+        setZeffyLoading(false);
+      })
+      .catch(() => setZeffyLoading(false));
   }, []);
 
   async function handleQbDisconnect() {
@@ -347,6 +364,72 @@ export default function SettingsPage() {
       setCcMessage({ type: "error", text: "Failed to disconnect." });
     } finally {
       setCcDisconnecting(false);
+    }
+  }
+
+  async function handleZeffyConnect(e: React.FormEvent) {
+    e.preventDefault();
+    if (!zeffyApiKey.trim()) return;
+    setZeffyConnecting(true);
+    setZeffyMessage(null);
+    try {
+      const res = await fetch("/api/zeffy/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: zeffyApiKey }),
+      });
+      if (res.ok) {
+        setZeffyConnected(true);
+        setZeffyApiKey("");
+        setZeffyMessage({ type: "success", text: "Zeffy connected successfully!" });
+      } else {
+        const data = await res.json();
+        setZeffyMessage({ type: "error", text: data.error || "Failed to connect." });
+      }
+    } catch {
+      setZeffyMessage({ type: "error", text: "Failed to connect." });
+    } finally {
+      setZeffyConnecting(false);
+    }
+  }
+
+  async function handleZeffyDisconnect() {
+    if (!confirm("Disconnect Zeffy? Donations will no longer sync.")) return;
+    setZeffyDisconnecting(true);
+    try {
+      const res = await fetch("/api/zeffy/disconnect", { method: "POST" });
+      if (res.ok) {
+        setZeffyConnected(false);
+        setZeffyMessage({ type: "success", text: "Zeffy disconnected." });
+      } else {
+        setZeffyMessage({ type: "error", text: "Failed to disconnect." });
+      }
+    } catch {
+      setZeffyMessage({ type: "error", text: "Failed to disconnect." });
+    } finally {
+      setZeffyDisconnecting(false);
+    }
+  }
+
+  async function handleZeffySync() {
+    setZeffySyncing(true);
+    setZeffyMessage(null);
+    try {
+      const res = await fetch("/api/zeffy/sync", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        const parts = [];
+        if (data.donations.synced > 0) parts.push(`${data.donations.synced} donation(s)`);
+        if (data.contacts.created > 0) parts.push(`${data.contacts.created} contact(s)`);
+        if (parts.length === 0) parts.push("Everything is up to date");
+        setZeffyMessage({ type: "success", text: `Synced: ${parts.join(", ")}` });
+      } else {
+        setZeffyMessage({ type: "error", text: "Sync failed." });
+      }
+    } catch {
+      setZeffyMessage({ type: "error", text: "Sync failed." });
+    } finally {
+      setZeffySyncing(false);
     }
   }
 
@@ -984,6 +1067,87 @@ export default function SettingsPage() {
                   >
                     Connect
                   </a>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Zeffy Integration */}
+          {zeffyMessage && (
+            <div
+              className={`mt-4 p-3 rounded-md text-sm ${
+                zeffyMessage.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {zeffyMessage.text}
+              <button
+                onClick={() => setZeffyMessage(null)}
+                className="float-right text-xs underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <div className="border border-gray-200 rounded-lg p-4 mt-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">Zeffy</h3>
+                  <p className="text-sm text-gray-500">
+                    Import donations and contacts from Zeffy
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {zeffyLoading ? (
+                  <span className="text-sm text-gray-400">Checking...</span>
+                ) : zeffyConnected ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                      <span className="w-2 h-2 bg-green-500 rounded-full" />
+                      Connected
+                    </span>
+                    <button
+                      onClick={handleZeffySync}
+                      disabled={zeffySyncing}
+                      className="px-3 py-1.5 text-sm text-indigo-600 border border-indigo-300 rounded-md hover:bg-indigo-50 disabled:opacity-50"
+                    >
+                      {zeffySyncing ? "Syncing..." : "Sync Now"}
+                    </button>
+                    <button
+                      onClick={handleZeffyDisconnect}
+                      disabled={zeffyDisconnecting}
+                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {zeffyDisconnecting ? "Disconnecting..." : "Disconnect"}
+                    </button>
+                  </>
+                ) : (
+                  <form onSubmit={handleZeffyConnect} className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      value={zeffyApiKey}
+                      onChange={(e) => setZeffyApiKey(e.target.value)}
+                      placeholder="Zeffy API Key"
+                      className="border border-gray-300 rounded-md px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <button
+                      type="submit"
+                      disabled={zeffyConnecting || !zeffyApiKey.trim()}
+                      className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {zeffyConnecting ? "Connecting..." : "Connect"}
+                    </button>
+                  </form>
                 )}
               </div>
             </div>

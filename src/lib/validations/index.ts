@@ -11,6 +11,7 @@ export * from "./event-invite";
 export * from "./annual-event-type";
 export * from "./fundraiser";
 export * from "./donation";
+export * from "./zeffy";
 
 import { z } from "zod";
 import { NextResponse } from "next/server";
