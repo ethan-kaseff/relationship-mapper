@@ -7,6 +7,21 @@ on:
     branches: [main]
 
 jobs:
+  env-check:
+    name: Env Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Verify .env.example covers all process.env references
+        run: node scripts/check-env-example.mjs
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
