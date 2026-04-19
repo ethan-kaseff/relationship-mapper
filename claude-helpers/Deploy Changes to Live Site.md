@@ -46,6 +46,7 @@ git commit -m "your message here"
 npm run lint
 npm run typecheck
 npm test
+npm run check:env
 npm run build
 ```
 
