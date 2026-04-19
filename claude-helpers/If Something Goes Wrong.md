@@ -21,36 +21,25 @@ Don't panic. The PR stays open. Fix locally:
 4. CI re-runs automatically. Auto-merge stays queued — once it passes, the
    PR merges itself.
 
-## Push rejected because the branch is behind main
+## Merge conflict in a PR (`mergeStateStatus: DIRTY`)
 
-Someone (probably Ethan) merged something else while you were working.
-Rebase onto the latest main:
+Two changes touched the same lines. Rebase the feature branch onto the
+latest main, resolve conflicts, force-with-lease push:
 
 ```
-git checkout main
-git pull origin main
-git checkout <your-branch>
-git rebase main
-```
-
-If the rebase has conflicts, resolve each file, then:
-```
+git fetch origin main
+git rebase origin/main
+# for each conflicted file, edit to keep the right version, then:
 git add <resolved files>
 git rebase --continue
-```
-
-Then push:
-```
 git push --force-with-lease
 ```
 
-(`--force-with-lease` is safe on your own feature branch. Never use it on
-`main`.)
+Auto-merge stays armed. Once CI re-passes on the rebased commit, the PR
+merges itself.
 
-## Merge conflict in a PR
-
-Same as above — rebase your feature branch on the latest main, resolve
-conflicts, force-with-lease push.
+(`--force-with-lease` is safe on your own feature branch. Never use
+`--force` or force-with-lease on `main`.)
 
 ## The live site is broken after a deploy
 
