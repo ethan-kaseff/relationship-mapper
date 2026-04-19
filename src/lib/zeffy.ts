@@ -153,7 +153,6 @@ export async function fetchZeffyCampaigns(
  */
 async function findOrCreateFundraiserForCampaign(
   officeId: string,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   campaign: { id: string; title: string; goal_amount?: number }
 ): Promise<string> {
   // Check if fundraiser already exists for this campaign
