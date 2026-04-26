@@ -218,6 +218,27 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
   const [syncingAll, setSyncingAll] = useState(false);
   const [form, setForm] = useState({ donorName: "", donorEmail: "", amountDollars: "", paymentMethod: "cash" as string, notes: "", taxDeductibleDollars: "" });
 
+  function exportEmailsCSV() {
+    const rows = [["First Name", "Last Name", "Email"]];
+    for (const d of fundraiser.donations) {
+      if (d.isAnonymous || !d.donorEmail) continue;
+      const name = d.person
+        ? [d.person.firstName, d.person.lastName]
+        : (d.donorName || "").split(" ");
+      const firstName = d.person ? d.person.firstName : (name[0] || "");
+      const lastName = d.person ? d.person.lastName : name.slice(1).join(" ");
+      rows.push([firstName, lastName, d.donorEmail]);
+    }
+    const csv = rows.map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${fundraiser.title.replace(/[^a-z0-9]/gi, "-")}-donors.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   async function handleSyncAll() {
     setSyncingAll(true);
     try {
@@ -267,6 +288,12 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
           All Donations ({fundraiser.donations.length})
         </h3>
         <div className="flex gap-2">
+          <button
+            onClick={exportEmailsCSV}
+            className="text-sm border border-indigo-300 text-indigo-600 px-3 py-1.5 rounded-md hover:bg-indigo-50"
+          >
+            Export Emails (CSV)
+          </button>
           <button
             onClick={handleSyncAll}
             disabled={syncingAll}

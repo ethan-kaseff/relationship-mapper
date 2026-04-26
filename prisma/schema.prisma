@@ -14,13 +14,15 @@ model Office {
   id       String    @id @default(uuid())
   name     String    @unique
   isSiloed Boolean   @default(false) @map("is_siloed")
-  users              User[]
-  people             People[]
-  partners           Partner[]
-  events             Event[]
-  fundraisers        Fundraiser[]
-  annualEventTypes   AnnualEventType[]
-  integrationTokens  IntegrationToken[]
+  users                  User[]
+  people                 People[]
+  partners               Partner[]
+  events                 Event[]
+  fundraisers            Fundraiser[]
+  annualEventTypes       AnnualEventType[]
+  annualFundraiserTypes  AnnualFundraiserType[]
+  integrationTokens      IntegrationToken[]
+  emailCampaigns         EmailCampaign[]
 
   @@map("office")
 }
@@ -76,6 +78,21 @@ model AnnualEventType {
   @@map("annual_event_type")
 }
 
+model AnnualFundraiserType {
+  id       String @id @default(uuid())
+  name     String
+  officeId String @map("office_id")
+  office   Office @relation(fields: [officeId], references: [id])
+
+  peopleAnnualFundraiserTypes      PeopleAnnualFundraiserType[]
+  partnerAnnualFundraiserTypes     PartnerAnnualFundraiserType[]
+  partnerRoleAnnualFundraiserTypes PartnerRoleAnnualFundraiserType[]
+
+  @@unique([name, officeId])
+  @@index([officeId])
+  @@map("annual_fundraiser_type")
+}
+
 // ─── Core Tables ─────────────────────────────────────────────────────────────
 
 model People {
@@ -109,7 +126,9 @@ model People {
   happeningResponses HappeningResponse[]
   eventInvites       EventInvite[]
   annualEventTypes   PeopleAnnualEventType[]
-  donations          Donation[]
+  donations               Donation[]
+  emailRecipients         EmailRecipient[]
+  annualFundraiserTypes   PeopleAnnualFundraiserType[]
 
   @@unique([prefix, firstName, middleInitial, lastName, officeId], map: "people_name_office_unique")
   @@index([officeId])
@@ -135,8 +154,9 @@ model Partner {
   officeId           String            @map("office_id")
   office             Office            @relation(fields: [officeId], references: [id])
 
-  partnerRoles       PartnerRole[]
-  annualEventTypes   PartnerAnnualEventType[]
+  partnerRoles            PartnerRole[]
+  annualEventTypes        PartnerAnnualEventType[]
+  annualFundraiserTypes   PartnerAnnualFundraiserType[]
 
   @@index([officeId])
   @@map("partner")
@@ -152,7 +172,8 @@ model PartnerRole {
   roleAssignments  RoleAssignment[]
   relationships    Relationship[]
   connections      Connection[]
-  annualEventTypes PartnerRoleAnnualEventType[]
+  annualEventTypes        PartnerRoleAnnualEventType[]
+  annualFundraiserTypes   PartnerRoleAnnualFundraiserType[]
 
   @@map("partner_role")
 }
@@ -319,6 +340,39 @@ model PartnerRoleAnnualEventType {
   @@map("partner_role_annual_event_type")
 }
 
+model PeopleAnnualFundraiserType {
+  id                      String               @id @default(uuid())
+  peopleId                String               @map("people_id")
+  person                  People               @relation(fields: [peopleId], references: [id], onDelete: Cascade)
+  annualFundraiserTypeId  String               @map("annual_fundraiser_type_id")
+  annualFundraiserType    AnnualFundraiserType @relation(fields: [annualFundraiserTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([peopleId, annualFundraiserTypeId])
+  @@map("people_annual_fundraiser_type")
+}
+
+model PartnerAnnualFundraiserType {
+  id                      String               @id @default(uuid())
+  partnerId               String               @map("partner_id")
+  partner                 Partner              @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  annualFundraiserTypeId  String               @map("annual_fundraiser_type_id")
+  annualFundraiserType    AnnualFundraiserType @relation(fields: [annualFundraiserTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, annualFundraiserTypeId])
+  @@map("partner_annual_fundraiser_type")
+}
+
+model PartnerRoleAnnualFundraiserType {
+  id                      String               @id @default(uuid())
+  partnerRoleId           String               @map("partner_role_id")
+  partnerRole             PartnerRole          @relation(fields: [partnerRoleId], references: [id], onDelete: Cascade)
+  annualFundraiserTypeId  String               @map("annual_fundraiser_type_id")
+  annualFundraiserType    AnnualFundraiserType @relation(fields: [annualFundraiserTypeId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerRoleId, annualFundraiserTypeId])
+  @@map("partner_role_annual_fundraiser_type")
+}
+
 // ─── Integrations ─────────────────────────────────────────────────────────────
 
 model IntegrationToken {
@@ -398,4 +452,42 @@ model Donation {
   @@index([peopleId])
   @@index([approvalStatus])
   @@map("donation")
+}
+
+// ─── Email Campaigns ─────────────────────────────────────────────────────────
+
+model EmailCampaign {
+  id         String           @id @default(cuid())
+  title      String
+  subject    String
+  body       String           @db.Text
+  theme      String           @default("classic")
+  status     String           @default("draft")
+  sentAt     DateTime?        @map("sent_at")
+  officeId   String           @map("office_id")
+  office     Office           @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  recipients EmailRecipient[]
+  createdAt  DateTime         @default(now()) @map("created_at")
+  updatedAt  DateTime         @updatedAt @map("updated_at")
+
+  @@index([officeId])
+  @@map("email_campaign")
+}
+
+model EmailRecipient {
+  id         String        @id @default(cuid())
+  campaignId String        @map("campaign_id")
+  campaign   EmailCampaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  peopleId   String?       @map("people_id")
+  people     People?       @relation(fields: [peopleId], references: [id], onDelete: SetNull)
+  email      String
+  name       String?
+  token      String        @unique @default(cuid())
+  sentAt     DateTime?     @map("sent_at")
+  openedAt   DateTime?     @map("opened_at")
+  openCount  Int           @default(0) @map("open_count")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  @@index([campaignId])
+  @@map("email_recipient")
 }

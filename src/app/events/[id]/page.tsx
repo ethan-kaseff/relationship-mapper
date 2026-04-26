@@ -21,6 +21,8 @@ interface EventInvite {
     id: string;
     firstName: string;
     lastName: string;
+    email1: string | null;
+    email2: string | null;
   };
 }
 
@@ -53,6 +55,8 @@ export default function EventDetailPage() {
   const [ccConnected, setCcConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportStatuses, setExportStatuses] = useState({ YES: true, NO: false, MAYBE: false, PENDING: false });
 
   const fetchEvent = useCallback(async () => {
     const res = await fetch(`/api/events/${id}`);
@@ -137,6 +141,28 @@ export default function EventDetailPage() {
     if (res.ok) router.push("/events");
   }
 
+  function exportEmailsCSV() {
+    if (!event) return;
+    const selected = Object.entries(exportStatuses).filter(([, v]) => v).map(([k]) => k);
+    const rows = [["First Name", "Last Name", "Email"]];
+    for (const invite of event.invites) {
+      if (!selected.includes(invite.rsvpStatus)) continue;
+      const email = invite.person.email1 || invite.person.email2;
+      if (!email) continue;
+      rows.push([invite.person.firstName, invite.person.lastName, email]);
+    }
+    const csv = rows.map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const statusSuffix = selected.join("-");
+    a.download = `${event.title.replace(/[^a-z0-9]/gi, "-")}-emails-${statusSuffix}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowExportModal(false);
+  }
+
   if (loading) return <div className="text-gray-500 py-8 text-center">Loading...</div>;
   if (!event) return <div className="text-red-500 py-8 text-center">Event not found.</div>;
 
@@ -165,6 +191,12 @@ export default function EventDetailPage() {
           <h1 className="text-2xl font-bold text-indigo-900 mt-1">{event.title}</h1>
         </div>
         <div className="flex gap-2 items-center">
+          <button
+            onClick={() => setShowExportModal(true)}
+            className="px-3 py-1.5 text-sm border border-indigo-300 text-indigo-600 rounded-md hover:bg-indigo-50"
+          >
+            Export Emails (CSV)
+          </button>
           <button
             onClick={handleDelete}
             className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50"
@@ -410,6 +442,50 @@ export default function EventDetailPage() {
           event={event}
           onRefresh={fetchEvent}
         />
+      )}
+
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-80">
+            <h2 className="text-base font-semibold text-gray-900 mb-1">Export Emails</h2>
+            <p className="text-sm text-gray-500 mb-4">Select which RSVP statuses to include:</p>
+            <div className="space-y-2 mb-6">
+              {(["YES", "NO", "MAYBE", "PENDING"] as const).map((status) => {
+                const labels = { YES: "Yes", NO: "No", MAYBE: "Maybe", PENDING: "Pending" };
+                const count = event.invites.filter(
+                  (i) => i.rsvpStatus === status && (i.person.email1 || i.person.email2)
+                ).length;
+                return (
+                  <label key={status} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={exportStatuses[status]}
+                      onChange={(e) => setExportStatuses((s) => ({ ...s, [status]: e.target.checked }))}
+                      className="rounded text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700">{labels[status]}</span>
+                    <span className="text-xs text-gray-400 ml-auto">{count} with email</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={exportEmailsCSV}
+                disabled={!Object.values(exportStatuses).some(Boolean)}
+                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Download CSV
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
