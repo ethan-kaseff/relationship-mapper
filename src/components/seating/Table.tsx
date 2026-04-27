@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Table as TableType, SeatingGuest } from '@/types/seating';
 import { TABLE_COLORS, DEFAULT_TABLE_WIDTH } from '@/lib/seating-constants';
 
@@ -295,8 +295,8 @@ export default function SeatingTable({
         const isAvailableForGuest = selectedGuestId && !guest;
 
         return (
+          <React.Fragment key={index}>
           <div
-            key={index}
             className={`table-seat absolute rounded-full border-2 flex items-center justify-center text-xs font-medium cursor-pointer transition-all ${
               isSelected
                 ? 'bg-indigo-200 border-indigo-500 ring-2 ring-indigo-400'
@@ -345,6 +345,22 @@ export default function SeatingTable({
           >
             {guest ? guest.name.charAt(0).toUpperCase() : ''}
           </div>
+          {guest && (
+            <div
+              className="absolute pointer-events-none text-gray-700 font-medium text-center"
+              style={{
+                left: seatX + seatSize / 2,
+                top: seatY + seatSize + 2,
+                transform: 'translateX(-50%)',
+                fontSize: '8px',
+                lineHeight: 1,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {guest.name}
+            </div>
+          )}
+          </React.Fragment>
         );
       })}
     </div>

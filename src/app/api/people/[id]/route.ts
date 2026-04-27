@@ -51,6 +51,9 @@ export async function GET(
         annualEventTypes: {
           include: { annualEventType: true },
         },
+        annualFundraiserTypes: {
+          include: { annualFundraiserType: true },
+        },
       },
     });
     if (!person) {
@@ -100,6 +103,19 @@ export async function PUT(
           data: data.annualEventTypeIds.map((typeId) => ({
             peopleId: id,
             annualEventTypeId: typeId,
+          })),
+        });
+      }
+    }
+
+    // Handle annual fundraiser type associations
+    if (data.annualFundraiserTypeIds !== undefined) {
+      await prisma.peopleAnnualFundraiserType.deleteMany({ where: { peopleId: id } });
+      if (data.annualFundraiserTypeIds.length > 0) {
+        await prisma.peopleAnnualFundraiserType.createMany({
+          data: data.annualFundraiserTypeIds.map((typeId) => ({
+            peopleId: id,
+            annualFundraiserTypeId: typeId,
           })),
         });
       }

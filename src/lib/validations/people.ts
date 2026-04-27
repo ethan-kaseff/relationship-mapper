@@ -32,6 +32,7 @@ export const updatePeopleSchema = z.object({
   greeting: z.string().max(500).optional().nullable(),
   isConnector: z.boolean().optional(),
   annualEventTypeIds: z.array(z.string().uuid()).optional(),
+  annualFundraiserTypeIds: z.array(z.string().uuid()).optional(),
 });
 
 export type CreatePeopleInput = z.infer<typeof createPeopleSchema>;
