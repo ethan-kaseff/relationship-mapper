@@ -17,6 +17,7 @@ interface EventInvite {
   group: string;
   tableId: string | null;
   seatIndex: number | null;
+  attended: boolean;
   person: {
     id: string;
     firstName: string;

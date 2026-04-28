@@ -46,6 +46,7 @@ interface EventInvite {
   notes: string | null;
   group: string;
   tableId: string | null;
+  attended: boolean;
   person: {
     id: string;
     firstName: string;
@@ -168,6 +169,15 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
     onRefresh();
   }
 
+  async function updateAttended(inviteId: string, attended: boolean) {
+    await fetch(`/api/events/${eventId}/invites/${inviteId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attended }),
+    });
+    onRefresh();
+  }
+
   async function removeInvite(inviteId: string) {
     if (!confirm("Remove this person from the event?")) return;
     await fetch(`/api/events/${eventId}/invites/${inviteId}`, { method: "DELETE" });
@@ -222,7 +232,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
           )}
           <button
             onClick={() => {
-              const headers = ["Last Name", "First Name", "RSVP", "Group", ...(trackMeals ? ["Meal"] : []), ...(trackSeating ? ["Table"] : [])];
+              const headers = ["Last Name", "First Name", "RSVP", "Group", ...(trackMeals ? ["Meal"] : []), ...(trackSeating ? ["Table"] : []), "Attended"];
               const rows = filtered.map((inv) => [
                 inv.person.lastName,
                 inv.person.firstName,
@@ -230,6 +240,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                 inv.group || "",
                 ...(trackMeals ? [inv.meal] : []),
                 ...(trackSeating ? [inv.tableId ? (tableNames[inv.tableId] || "Seated") : ""] : []),
+                inv.attended ? "Yes" : "No",
               ]);
               const csvContent = [headers, ...rows]
                 .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
@@ -272,6 +283,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
               <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("group")}>Group{sortIndicator("group")}</th>
               {trackMeals && <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("meal")}>Meal{sortIndicator("meal")}</th>}
               {trackSeating && <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("seated")}>Table{sortIndicator("seated")}</th>}
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Attended</th>
               <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
             </tr>
           </thead>
@@ -329,6 +341,18 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                     )}
                   </td>
                 )}
+                <td className="px-4 py-3">
+                  <button
+                    onClick={() => updateAttended(inv.id, !inv.attended)}
+                    className={`px-2 py-1 text-xs font-medium rounded border ${
+                      inv.attended
+                        ? "bg-green-100 text-green-700 border-green-200"
+                        : "bg-gray-100 text-gray-500 border-gray-200"
+                    }`}
+                  >
+                    {inv.attended ? "Yes" : "No"}
+                  </button>
+                </td>
                 <td className="px-4 py-3 text-right">
                   <button
                     onClick={() => removeInvite(inv.id)}
@@ -341,7 +365,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={4 + (trackMeals ? 1 : 0) + (trackSeating ? 1 : 0)} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={5 + (trackMeals ? 1 : 0) + (trackSeating ? 1 : 0)} className="px-4 py-8 text-center text-gray-400">
                   {invites.length === 0
                     ? "No invitees yet. Add people using the buttons above."
                     : "No matching invitees."}

@@ -296,6 +296,7 @@ model EventInvite {
   group        String    @default("")
   tableId      String?   @map("table_id")
   seatIndex    Int?      @map("seat_index")
+  attended     Boolean   @default(false)
   taxDeductibleOverride Int? @map("tax_deductible_override")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")

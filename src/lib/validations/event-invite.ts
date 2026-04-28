@@ -10,6 +10,7 @@ export const updateInviteSchema = z.object({
   dietary: z.array(z.string()).optional(),
   notes: z.string().max(1000).optional().nullable(),
   group: z.string().max(100).optional(),
+  attended: z.boolean().optional(),
 });
 
 export const bulkSaveSeatingSchema = z.object({
