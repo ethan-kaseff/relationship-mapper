@@ -76,6 +76,9 @@ export default async function PersonDetailPage({
       annualEventTypes: {
         include: { annualEventType: true },
       },
+      annualFundraiserTypes: {
+        include: { annualFundraiserType: true },
+      },
       donations: {
         include: { fundraiser: { select: { id: true, title: true } } },
         orderBy: { donatedAt: "desc" },
@@ -86,6 +89,11 @@ export default async function PersonDetailPage({
   if (!person) return notFound();
 
   const allAnnualEventTypes = await prisma.annualEventType.findMany({
+    where: { officeId: person.officeId },
+    orderBy: { name: "asc" },
+  });
+
+  const allAnnualFundraiserTypes = await prisma.annualFundraiserType.findMany({
     where: { officeId: person.officeId },
     orderBy: { name: "asc" },
   });
@@ -153,8 +161,10 @@ export default async function PersonDetailPage({
             email2: person.email2,
             isConnector: person.isConnector,
             annualEventTypeIds: person.annualEventTypes.map((a) => a.annualEventType.id),
+          annualFundraiserTypeIds: person.annualFundraiserTypes.map((a) => a.annualFundraiserType.id),
           }}
           allAnnualEventTypes={allAnnualEventTypes}
+          allAnnualFundraiserTypes={allAnnualFundraiserTypes}
         />
       ) : (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -210,6 +220,14 @@ export default async function PersonDetailPage({
                 <span className="font-medium text-gray-500">Annual Events:</span>{" "}
                 <span className="text-gray-800">
                   {person.annualEventTypes.map((a) => a.annualEventType.name).join(", ")}
+                </span>
+              </div>
+            )}
+            {person.annualFundraiserTypes.length > 0 && (
+              <div className="md:col-span-2">
+                <span className="font-medium text-gray-500">Annual Fundraisers:</span>{" "}
+                <span className="text-gray-800">
+                  {person.annualFundraiserTypes.map((a) => a.annualFundraiserType.name).join(", ")}
                 </span>
               </div>
             )}

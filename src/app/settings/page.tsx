@@ -14,6 +14,17 @@ interface AnnualEventType {
   };
 }
 
+interface AnnualFundraiserType {
+  id: string;
+  name: string;
+  office?: { name: string };
+  _count?: {
+    peopleAnnualFundraiserTypes: number;
+    partnerAnnualFundraiserTypes: number;
+    partnerRoleAnnualFundraiserTypes: number;
+  };
+}
+
 interface RelationshipType {
   id: string;
   relationshipDesc: string;
@@ -77,6 +88,18 @@ export default function SettingsPage() {
   const [editAetName, setEditAetName] = useState("");
   const [deletingAetId, setDeletingAetId] = useState<string | null>(null);
   const aetInputRef = useRef<HTMLInputElement>(null);
+
+  // Annual fundraiser types state
+  const [aftTypes, setAftTypes] = useState<AnnualFundraiserType[]>([]);
+  const [aftLoading, setAftLoading] = useState(true);
+  const [showAftForm, setShowAftForm] = useState(false);
+  const [newAftName, setNewAftName] = useState("");
+  const [aftSubmitting, setAftSubmitting] = useState(false);
+  const [aftError, setAftError] = useState("");
+  const [editingAftId, setEditingAftId] = useState<string | null>(null);
+  const [editAftName, setEditAftName] = useState("");
+  const [deletingAftId, setDeletingAftId] = useState<string | null>(null);
+  const aftInputRef = useRef<HTMLInputElement>(null);
 
   // User management state
   const [users, setUsers] = useState<User[]>([]);
@@ -181,6 +204,16 @@ export default function SettingsPage() {
       .catch(() => setAetLoading(false));
   }
 
+  function fetchAftTypes() {
+    fetch("/api/lookup/annual-fundraiser-types")
+      .then((res) => res.json())
+      .then((data) => {
+        setAftTypes(data);
+        setAftLoading(false);
+      })
+      .catch(() => setAftLoading(false));
+  }
+
   function fetchUsers() {
     if (!canManageUsers) return;
     fetch("/api/users")
@@ -220,9 +253,14 @@ export default function SettingsPage() {
   }, [showOfficeForm]);
 
   useEffect(() => {
+    if (showAftForm && aftInputRef.current) aftInputRef.current.focus();
+  }, [showAftForm]);
+
+  useEffect(() => {
     if (isSystemAdmin) {
       fetchTypes();
       fetchAetTypes();
+      fetchAftTypes();
     }
   }, [isSystemAdmin]);
 
@@ -614,6 +652,78 @@ export default function SettingsPage() {
       fetchAetTypes();
     } catch (err: unknown) {
       setAetError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  async function handleCreateAft(e: React.FormEvent) {
+    e.preventDefault();
+    setAftSubmitting(true);
+    setAftError("");
+
+    try {
+      const res = await fetch("/api/lookup/annual-fundraiser-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newAftName }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create");
+      }
+
+      setNewAftName("");
+      setShowAftForm(false);
+      fetchAftTypes();
+    } catch (err: unknown) {
+      setAftError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setAftSubmitting(false);
+    }
+  }
+
+  async function handleUpdateAft(id: string) {
+    setAftSubmitting(true);
+    setAftError("");
+
+    try {
+      const res = await fetch(`/api/lookup/annual-fundraiser-types/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editAftName }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update");
+      }
+
+      setEditingAftId(null);
+      fetchAftTypes();
+    } catch (err: unknown) {
+      setAftError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setAftSubmitting(false);
+    }
+  }
+
+  async function handleDeleteAft(id: string) {
+    setAftError("");
+
+    try {
+      const res = await fetch(`/api/lookup/annual-fundraiser-types/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete");
+      }
+
+      setDeletingAftId(null);
+      fetchAftTypes();
+    } catch (err: unknown) {
+      setAftError(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
@@ -1542,6 +1652,175 @@ export default function SettingsPage() {
                   <tr>
                     <td colSpan={isSystemAdmin ? 4 : 3} className="px-4 py-8 text-center text-gray-400">
                       No annual event types defined.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* Annual Fundraiser Types — SYSTEM_ADMIN only */}
+      {isSystemAdmin && (
+        <div className="bg-white rounded-lg shadow p-6 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-indigo-900">Annual Fundraiser Types</h2>
+            {!showAftForm && (
+              <button
+                onClick={() => { setShowAftForm(true); setEditingAftId(null); }}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
+              >
+                Add Fundraiser Type
+              </button>
+            )}
+          </div>
+
+          {aftError && (
+            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
+              {aftError}
+            </div>
+          )}
+
+          {showAftForm && (
+            <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
+              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Annual Fundraiser Type</h3>
+              <form onSubmit={handleCreateAft} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    ref={aftInputRef}
+                    type="text"
+                    required
+                    value={newAftName}
+                    onChange={(e) => setNewAftName(e.target.value)}
+                    placeholder="e.g. Annual Appeal, Matching Gift Campaign"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={aftSubmitting}
+                    className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
+                  >
+                    {aftSubmitting ? "Saving..." : "Create"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowAftForm(false); setAftError(""); }}
+                    className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {aftLoading ? (
+            <p className="text-gray-400 text-sm">Loading...</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">Name</th>
+                  {isSystemAdmin && <th className="text-left px-4 py-3 font-semibold text-indigo-900">Office</th>}
+                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">In Use</th>
+                  <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {aftTypes.map((aft) => {
+                  const usageCount =
+                    (aft._count?.peopleAnnualFundraiserTypes ?? 0) +
+                    (aft._count?.partnerAnnualFundraiserTypes ?? 0) +
+                    (aft._count?.partnerRoleAnnualFundraiserTypes ?? 0);
+                  return (
+                    <tr key={aft.id} className="hover:bg-gray-50">
+                      {editingAftId === aft.id ? (
+                        <>
+                          <td className="px-4 py-2">
+                            <input
+                              type="text"
+                              value={editAftName}
+                              onChange={(e) => setEditAftName(e.target.value)}
+                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                            />
+                          </td>
+                          {isSystemAdmin && <td className="px-4 py-2 text-gray-600">{aft.office?.name ?? "—"}</td>}
+                          <td className="px-4 py-2 text-gray-600">{usageCount}</td>
+                          <td className="px-4 py-2 text-right">
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                onClick={() => handleUpdateAft(aft.id)}
+                                disabled={aftSubmitting}
+                                className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
+                              >
+                                Save
+                              </button>
+                              <button
+                                onClick={() => setEditingAftId(null)}
+                                className="text-gray-500 hover:text-gray-700 text-xs"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td className="px-4 py-3 font-medium">{aft.name}</td>
+                          {isSystemAdmin && <td className="px-4 py-3 text-gray-600">{aft.office?.name ?? "—"}</td>}
+                          <td className="px-4 py-3">
+                            <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                              {usageCount}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <div className="flex gap-3 justify-end">
+                              <button
+                                onClick={() => { setEditingAftId(aft.id); setEditAftName(aft.name); setDeletingAftId(null); }}
+                                className="text-indigo-600 hover:underline text-xs"
+                              >
+                                Edit
+                              </button>
+                              {deletingAftId === aft.id ? (
+                                <span className="flex items-center gap-2">
+                                  <button
+                                    onClick={() => handleDeleteAft(aft.id)}
+                                    className="text-red-600 hover:underline text-xs font-medium"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletingAftId(null)}
+                                    className="text-gray-500 hover:text-gray-700 text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </span>
+                              ) : (
+                                <button
+                                  onClick={() => setDeletingAftId(aft.id)}
+                                  className="text-red-600 hover:underline text-xs"
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  );
+                })}
+                {aftTypes.length === 0 && (
+                  <tr>
+                    <td colSpan={isSystemAdmin ? 4 : 3} className="px-4 py-8 text-center text-gray-400">
+                      No annual fundraiser types defined.
                     </td>
                   </tr>
                 )}

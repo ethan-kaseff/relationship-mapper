@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface AnnualEventType {
+interface LookupType {
   id: string;
   name: string;
 }
@@ -23,15 +23,17 @@ interface PersonData {
   email2: string | null;
   isConnector: boolean;
   annualEventTypeIds: string[];
+  annualFundraiserTypeIds: string[];
 }
 
 interface Props {
   personId: string;
   person: PersonData;
-  allAnnualEventTypes: AnnualEventType[];
+  allAnnualEventTypes: LookupType[];
+  allAnnualFundraiserTypes: LookupType[];
 }
 
-export default function EditPersonButton({ personId, person, allAnnualEventTypes }: Props) {
+export default function EditPersonButton({ personId, person, allAnnualEventTypes, allAnnualFundraiserTypes }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...person });
@@ -49,6 +51,15 @@ export default function EditPersonButton({ personId, person, allAnnualEventTypes
       annualEventTypeIds: prev.annualEventTypeIds.includes(typeId)
         ? prev.annualEventTypeIds.filter((id) => id !== typeId)
         : [...prev.annualEventTypeIds, typeId],
+    }));
+  }
+
+  function handleAftToggle(typeId: string) {
+    setForm((prev) => ({
+      ...prev,
+      annualFundraiserTypeIds: prev.annualFundraiserTypeIds.includes(typeId)
+        ? prev.annualFundraiserTypeIds.filter((id) => id !== typeId)
+        : [...prev.annualFundraiserTypeIds, typeId],
     }));
   }
 
@@ -81,6 +92,7 @@ export default function EditPersonButton({ personId, person, allAnnualEventTypes
           email2: form.email2 || null,
           isConnector: form.isConnector,
           annualEventTypeIds: form.annualEventTypeIds,
+          annualFundraiserTypeIds: form.annualFundraiserTypeIds,
         }),
       });
 
@@ -163,6 +175,17 @@ export default function EditPersonButton({ personId, person, allAnnualEventTypes
               <span className="text-gray-800">
                 {allAnnualEventTypes
                   .filter((t) => person.annualEventTypeIds.includes(t.id))
+                  .map((t) => t.name)
+                  .join(", ")}
+              </span>
+            </div>
+          )}
+          {person.annualFundraiserTypeIds.length > 0 && (
+            <div className="md:col-span-2">
+              <span className="font-medium text-gray-500">Annual Fundraisers:</span>{" "}
+              <span className="text-gray-800">
+                {allAnnualFundraiserTypes
+                  .filter((t) => person.annualFundraiserTypeIds.includes(t.id))
                   .map((t) => t.name)
                   .join(", ")}
               </span>
@@ -356,6 +379,25 @@ export default function EditPersonButton({ personId, person, allAnnualEventTypes
                     type="checkbox"
                     checked={form.annualEventTypeIds.includes(type.id)}
                     onChange={() => handleAetToggle(type.id)}
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <span className="text-sm text-gray-700">{type.name}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {allAnnualFundraiserTypes.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Annual Fundraiser Invites</label>
+            <div className="flex flex-wrap gap-3">
+              {allAnnualFundraiserTypes.map((type) => (
+                <label key={type.id} className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={form.annualFundraiserTypeIds.includes(type.id)}
+                    onChange={() => handleAftToggle(type.id)}
                     className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                   />
                   <span className="text-sm text-gray-700">{type.name}</span>
