@@ -138,6 +138,9 @@ export default function SettingsPage() {
   // Office dropdown for user form
   const [userOfficeId, setUserOfficeId] = useState("");
 
+  // Email platform toggle
+  const [emailPlatform, setEmailPlatform] = useState<"constant_contact" | "zeffy">("zeffy");
+
   // Constant Contact integration state
   const [ccConnected, setCcConnected] = useState(false);
   const [ccLoading, setCcLoading] = useState(true);
@@ -307,6 +310,7 @@ export default function SettingsPage() {
       .then((res) => res.json())
       .then((data) => {
         setCcConnected(data.connected);
+        if (data.connected) setEmailPlatform("constant_contact");
         setCcLoading(false);
       })
       .catch(() => setCcLoading(false));
@@ -403,6 +407,26 @@ export default function SettingsPage() {
     } finally {
       setCcDisconnecting(false);
     }
+  }
+
+  async function handleSwitchEmailPlatform(platform: "constant_contact" | "zeffy") {
+    if (platform === emailPlatform) return;
+    if (platform === "zeffy" && ccConnected) {
+      if (!confirm("Switching to Zeffy will disconnect Constant Contact. Continue?")) return;
+      try {
+        await fetch("/api/constant-contact/disconnect", { method: "POST" });
+        setCcConnected(false);
+      } catch { /* ignore */ }
+    } else if (platform === "constant_contact" && zeffyConnected) {
+      if (!confirm("Switching to Constant Contact will disconnect Zeffy. Continue?")) return;
+      try {
+        await fetch("/api/zeffy/disconnect", { method: "POST" });
+        setZeffyConnected(false);
+      } catch { /* ignore */ }
+    }
+    setEmailPlatform(platform);
+    setCcMessage(null);
+    setZeffyMessage(null);
   }
 
   async function handleZeffyConnect(e: React.FormEvent) {
@@ -991,26 +1015,43 @@ export default function SettingsPage() {
             Connect third-party services to sync your event data.
           </p>
 
-          {ccMessage && (
-            <div
-              className={`mb-4 p-3 rounded-md text-sm ${
-                ccMessage.type === "success"
-                  ? "bg-green-50 text-green-800 border border-green-200"
-                  : "bg-red-50 text-red-800 border border-red-200"
-              }`}
-            >
-              {ccMessage.text}
-              <button
-                onClick={() => setCcMessage(null)}
-                className="float-right text-xs underline"
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
-
+          {/* Email Platform — Constant Contact or Zeffy toggle */}
           <div className="border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-medium text-gray-900">Email Platform</h3>
+                <p className="text-sm text-gray-500">Choose one platform for email campaigns and fundraising</p>
+              </div>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                <button
+                  onClick={() => handleSwitchEmailPlatform("constant_contact")}
+                  className={`px-4 py-1.5 transition-colors ${emailPlatform === "constant_contact" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  Constant Contact
+                </button>
+                <button
+                  onClick={() => handleSwitchEmailPlatform("zeffy")}
+                  className={`px-4 py-1.5 border-l border-gray-200 transition-colors ${emailPlatform === "zeffy" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  Zeffy
+                </button>
+              </div>
+            </div>
+
+            {emailPlatform === "constant_contact" && ccMessage && (
+              <div className={`mb-3 p-3 rounded-md text-sm ${ccMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                {ccMessage.text}
+                <button onClick={() => setCcMessage(null)} className="float-right text-xs underline">Dismiss</button>
+              </div>
+            )}
+            {emailPlatform === "zeffy" && zeffyMessage && (
+              <div className={`mb-3 p-3 rounded-md text-sm ${zeffyMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                {zeffyMessage.text}
+                <button onClick={() => setZeffyMessage(null)} className="float-right text-xs underline">Dismiss</button>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-1">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
                   <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1018,37 +1059,88 @@ export default function SettingsPage() {
                   </svg>
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-900">Constant Contact</h3>
-                  <p className="text-sm text-gray-500">
-                    Sync event invite lists as email contact lists
-                  </p>
+                  {emailPlatform === "constant_contact" ? (
+                    <>
+                      <p className="font-medium text-gray-900 text-sm">Constant Contact</p>
+                      <p className="text-xs text-gray-500">Sync event invite lists as email contact lists</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium text-gray-900 text-sm">Zeffy</p>
+                      <p className="text-xs text-gray-500">Free fundraising platform — import donations and sync contacts</p>
+                    </>
+                  )}
                 </div>
               </div>
 
               <div className="flex items-center gap-3">
-                {ccLoading ? (
-                  <span className="text-sm text-gray-400">Checking...</span>
-                ) : ccConnected ? (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                      <span className="w-2 h-2 bg-green-500 rounded-full" />
-                      Connected
-                    </span>
-                    <button
-                      onClick={handleCcDisconnect}
-                      disabled={ccDisconnecting}
-                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                {emailPlatform === "constant_contact" ? (
+                  ccLoading ? (
+                    <span className="text-sm text-gray-400">Checking...</span>
+                  ) : ccConnected ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                        <span className="w-2 h-2 bg-green-500 rounded-full" />
+                        Connected
+                      </span>
+                      <button
+                        onClick={handleCcDisconnect}
+                        disabled={ccDisconnecting}
+                        className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {ccDisconnecting ? "Disconnecting..." : "Disconnect"}
+                      </button>
+                    </>
+                  ) : (
+                    <a
+                      href="/api/constant-contact/auth"
+                      className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
                     >
-                      {ccDisconnecting ? "Disconnecting..." : "Disconnect"}
-                    </button>
-                  </>
+                      Connect
+                    </a>
+                  )
                 ) : (
-                  <a
-                    href="/api/constant-contact/auth"
-                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  >
-                    Connect
-                  </a>
+                  zeffyLoading ? (
+                    <span className="text-sm text-gray-400">Checking...</span>
+                  ) : zeffyConnected ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                        <span className="w-2 h-2 bg-green-500 rounded-full" />
+                        Connected
+                      </span>
+                      <button
+                        onClick={handleZeffySync}
+                        disabled={zeffySyncing}
+                        className="px-3 py-1.5 text-sm text-indigo-600 border border-indigo-300 rounded-md hover:bg-indigo-50 disabled:opacity-50"
+                      >
+                        {zeffySyncing ? "Syncing..." : "Sync Now"}
+                      </button>
+                      <button
+                        onClick={handleZeffyDisconnect}
+                        disabled={zeffyDisconnecting}
+                        className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {zeffyDisconnecting ? "Disconnecting..." : "Disconnect"}
+                      </button>
+                    </>
+                  ) : (
+                    <form onSubmit={handleZeffyConnect} className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        value={zeffyApiKey}
+                        onChange={(e) => setZeffyApiKey(e.target.value)}
+                        placeholder="Zeffy API Key"
+                        className="border border-gray-300 rounded-md px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                      <button
+                        type="submit"
+                        disabled={zeffyConnecting || !zeffyApiKey.trim()}
+                        className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        {zeffyConnecting ? "Connecting..." : "Connect"}
+                      </button>
+                    </form>
+                  )
                 )}
               </div>
             </div>
@@ -1182,86 +1274,6 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          {/* Zeffy Integration */}
-          {zeffyMessage && (
-            <div
-              className={`mt-4 p-3 rounded-md text-sm ${
-                zeffyMessage.type === "success"
-                  ? "bg-green-50 text-green-800 border border-green-200"
-                  : "bg-red-50 text-red-800 border border-red-200"
-              }`}
-            >
-              {zeffyMessage.text}
-              <button
-                onClick={() => setZeffyMessage(null)}
-                className="float-right text-xs underline"
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
-
-          <div className="border border-gray-200 rounded-lg p-4 mt-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">Zeffy</h3>
-                  <p className="text-sm text-gray-500">
-                    Import donations and contacts from Zeffy
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {zeffyLoading ? (
-                  <span className="text-sm text-gray-400">Checking...</span>
-                ) : zeffyConnected ? (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                      <span className="w-2 h-2 bg-green-500 rounded-full" />
-                      Connected
-                    </span>
-                    <button
-                      onClick={handleZeffySync}
-                      disabled={zeffySyncing}
-                      className="px-3 py-1.5 text-sm text-indigo-600 border border-indigo-300 rounded-md hover:bg-indigo-50 disabled:opacity-50"
-                    >
-                      {zeffySyncing ? "Syncing..." : "Sync Now"}
-                    </button>
-                    <button
-                      onClick={handleZeffyDisconnect}
-                      disabled={zeffyDisconnecting}
-                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
-                    >
-                      {zeffyDisconnecting ? "Disconnecting..." : "Disconnect"}
-                    </button>
-                  </>
-                ) : (
-                  <form onSubmit={handleZeffyConnect} className="flex items-center gap-2">
-                    <input
-                      type="password"
-                      value={zeffyApiKey}
-                      onChange={(e) => setZeffyApiKey(e.target.value)}
-                      placeholder="Zeffy API Key"
-                      className="border border-gray-300 rounded-md px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    />
-                    <button
-                      type="submit"
-                      disabled={zeffyConnecting || !zeffyApiKey.trim()}
-                      className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                    >
-                      {zeffyConnecting ? "Connecting..." : "Connect"}
-                    </button>
-                  </form>
-                )}
-              </div>
-            </div>
-          </div>
         </div>
       )}
 

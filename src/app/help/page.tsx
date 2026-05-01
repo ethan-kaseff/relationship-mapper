@@ -10,7 +10,8 @@ export default function HelpPage() {
     { id: "events", label: "Events" },
     { id: "fundraisers", label: "Fundraisers" },
     { id: "public-donation", label: "Public Donation Pages" },
-    { id: "integrations", label: "Integrations (Stripe, QuickBooks, Constant Contact)" },
+    { id: "settings", label: "Settings" },
+    { id: "integrations", label: "Integrations (Stripe, QuickBooks, Constant Contact, Zeffy)" },
     { id: "office-toggle", label: "Office Data Toggle" },
   ];
 
@@ -123,8 +124,7 @@ export default function HelpPage() {
             </p>
             <p>
               <strong>Editing:</strong> Click on a person&rsquo;s name to view their detail page.
-              From there you can edit their information inline by clicking the field you want to
-              change.
+              Use the <em>Edit</em> button in the Contact Information card to update any fields.
             </p>
             <p>
               <strong>Search:</strong> Use the search bar at the top of the People list to quickly
@@ -133,6 +133,31 @@ export default function HelpPage() {
             <p>
               <strong>Connector flag:</strong> When a person is marked as a Connector, they can
               receive a special link to log interactions without needing full system access.
+            </p>
+            <div>
+              <strong>Annual Event Types:</strong> You can tag a person with one or more Annual Event
+              Types (e.g., &ldquo;Gala,&rdquo; &ldquo;Golf Tournament&rdquo;). These tags are used
+              when creating a new event &mdash; choosing an Annual Event Type automatically adds
+              everyone tagged with that type to the event&rsquo;s invite list.
+              <ul className="list-disc list-inside mt-1 ml-2 space-y-1">
+                <li>Tags are set in the <em>Edit Contact Information</em> form under <strong>Annual Event Invites</strong>.</li>
+                <li>The available types are managed by a System Admin in Settings.</li>
+              </ul>
+            </div>
+            <div>
+              <strong>Annual Fundraiser Types:</strong> Similarly, you can tag a person with Annual
+              Fundraiser Types (e.g., &ldquo;Annual Appeal,&rdquo; &ldquo;Matching Gift
+              Campaign&rdquo;). These tags help you identify who should be invited or solicited for
+              recurring fundraising campaigns.
+              <ul className="list-disc list-inside mt-1 ml-2 space-y-1">
+                <li>Tags are set in the <em>Edit Contact Information</em> form under <strong>Annual Fundraiser Invites</strong>.</li>
+                <li>The available types are managed by a System Admin in Settings.</li>
+              </ul>
+            </div>
+            <p>
+              <strong>Giving History:</strong> Each person&rsquo;s detail page shows a Giving History
+              section with all donations made by that person across any fundraiser, plus event ticket
+              purchases. It displays a total raised and a tax-deductible total.
             </p>
           </div>
         </section>
@@ -267,6 +292,12 @@ export default function HelpPage() {
               people from an Annual Event Type.
             </p>
             <div>
+              <strong>Auto-inviting from Annual Event Types:</strong> When creating an event, choose
+              an Annual Event Type from the dropdown. Everyone tagged with that type in the People
+              list will be automatically added to the invite list with a Pending RSVP status. You can
+              still add or remove guests manually after creation.
+            </div>
+            <div>
               <strong>Tracking options:</strong> When creating an event you can enable or disable:
               <ul className="list-disc list-inside mt-1 ml-2 space-y-1">
                 <li><strong>Assigned seating</strong> &mdash; Manage a floor plan with tables and seat assignments.</li>
@@ -287,6 +318,16 @@ export default function HelpPage() {
               event has a ticket price and is linked to a fundraiser, ticket purchases are processed
               through Stripe and recorded as donations to that fundraiser.
             </p>
+            <div>
+              <strong>Exporting email lists:</strong> On the event detail page, click{" "}
+              <em>Export Emails (CSV)</em> to download a list of guest emails for use in Zeffy,
+              Constant Contact, or any other email platform.
+              <ul className="list-disc list-inside mt-1 ml-2 space-y-1">
+                <li>A pop-up lets you choose which RSVP statuses to include (Yes, No, Maybe, Pending). Only guests with an email address on file are included.</li>
+                <li>The downloaded file is named with the event title and the selected statuses (e.g., <code>Spring-Gala-emails-YES-MAYBE.csv</code>).</li>
+                <li>Columns: First Name, Last Name, Email.</li>
+              </ul>
+            </div>
             <p>
               <strong>Constant Contact sync:</strong> If Constant Contact is connected (see
               Integrations below), you can sync your event invite list as an email contact list for
@@ -301,7 +342,8 @@ export default function HelpPage() {
           <div className="space-y-3 text-sm text-gray-700">
             <p>
               Fundraisers let you create donation campaigns, track progress toward a goal, accept
-              online payments through Stripe, and sync donation records to QuickBooks.
+              online payments through Stripe, sync donation records to QuickBooks, and import
+              donations from Zeffy.
             </p>
 
             <div>
@@ -311,7 +353,8 @@ export default function HelpPage() {
                 <li><strong>Title</strong> &mdash; The name of the campaign.</li>
                 <li><strong>URL Slug</strong> &mdash; A short, URL-friendly identifier used for the
                   public donation page (e.g., <code>/donate/spring-gala</code>). Auto-generated from
-                  the title but can be customized.</li>
+                  the title but can be customized &mdash; once you manually edit the slug field it
+                  stops auto-filling.</li>
                 <li><strong>Goal Amount</strong> &mdash; The fundraising target in dollars.</li>
                 <li><strong>Preset Donation Amounts</strong> &mdash; Comma-separated dollar values
                   shown as quick-select buttons on the public donation page (default: $25, $50,
@@ -340,10 +383,11 @@ export default function HelpPage() {
                 </li>
                 <li>
                   <strong>Donations</strong> &mdash; A full table of all donations showing donor
-                  name, amount, payment method (Stripe, cash, check, other), approval status, QB
-                  sync status, and date. Use <em>Add Manual Donation</em> to record offline
+                  name, amount, payment method (Stripe, Zeffy, cash, check, other), approval status,
+                  QB sync status, and date. Use <em>Add Manual Donation</em> to record offline
                   donations (cash, check, etc.). Use <em>Sync All to QB</em> to batch-sync
-                  unsynced donations to QuickBooks.
+                  unsynced donations to QuickBooks. Use <em>Export Emails (CSV)</em> to download
+                  donor emails.
                 </li>
                 <li>
                   <strong>Approvals</strong> &mdash; Shows donations from unknown donors that need
@@ -358,6 +402,15 @@ export default function HelpPage() {
                   fundraiser permanently removes all associated donation records.
                 </li>
               </ul>
+            </div>
+
+            <div>
+              <strong>Exporting donor email lists:</strong> On the Donations tab, click{" "}
+              <em>Export Emails (CSV)</em> to download a CSV of all non-anonymous donors who have an
+              email address on file. The file is named after the fundraiser title (e.g.,{" "}
+              <code>Spring-Appeal-donors.csv</code>) and includes First Name, Last Name, and Email
+              columns. Use this to import donors into Zeffy, Constant Contact, or any other email
+              platform.
             </div>
 
             <div>
@@ -395,6 +448,13 @@ export default function HelpPage() {
                   retry.</li>
               </ul>
             </div>
+
+            <p>
+              <strong>Zeffy sync:</strong> If Zeffy is connected (see Integrations below), donations
+              collected through your Zeffy campaigns are automatically imported into the matching
+              fundraiser. Zeffy campaigns are matched by name. Donor contact information is synced
+              as well and matched to existing people by email where possible.
+            </p>
 
             <p>
               <strong>Tribute gifts:</strong> Donors on the public donation page can designate their
@@ -457,9 +517,85 @@ export default function HelpPage() {
           </div>
         </section>
 
+        {/* Settings */}
+        <section id="settings" className="bg-white rounded-lg shadow p-6 scroll-mt-4">
+          <h2 className="text-xl font-semibold text-navy mb-3">11. Settings</h2>
+          <div className="space-y-3 text-sm text-gray-700">
+            <p>
+              The Settings page is available to System Admins and Office Admins. It is divided into
+              several sections.
+            </p>
+
+            <div className="border-l-4 border-indigo-300 pl-4 mt-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Relationship Types</h3>
+              <p>
+                Define the vocabulary used to describe how a person connects to a partner role (e.g.,
+                &ldquo;Mentors,&rdquo; &ldquo;Collaborates With,&rdquo; &ldquo;Refers To&rdquo;).
+                System Admins can add, rename, and delete relationship types. Deleting a type that is
+                in use will prompt you to reassign its relationships to a different type first.
+              </p>
+            </div>
+
+            <div className="border-l-4 border-indigo-300 pl-4 mt-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Annual Event Types</h3>
+              <p>
+                Define recurring event categories (e.g., &ldquo;Gala,&rdquo; &ldquo;Golf
+                Tournament,&rdquo; &ldquo;Annual Dinner&rdquo;). Once created, these types can be
+                assigned to people on their detail pages. When you create a new event and select one
+                of these types, everyone tagged with it is automatically added to the invite list.
+              </p>
+              <p className="mt-1">
+                The <strong>In Use</strong> column shows the total number of people, partners, and
+                roles tagged with each type. Only System Admins can manage these types.
+              </p>
+            </div>
+
+            <div className="border-l-4 border-indigo-300 pl-4 mt-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Annual Fundraiser Types</h3>
+              <p>
+                Define recurring fundraising campaign categories (e.g., &ldquo;Annual
+                Appeal,&rdquo; &ldquo;Matching Gift Campaign,&rdquo; &ldquo;High Holy Day
+                Appeal&rdquo;). Once created, these types can be assigned to people on their detail
+                pages under <em>Annual Fundraiser Invites</em>. Use them to identify who should be
+                solicited for each recurring campaign.
+              </p>
+              <p className="mt-1">
+                The <strong>In Use</strong> column shows the total number of people, partners, and
+                roles tagged with each type. Only System Admins can manage these types.
+              </p>
+            </div>
+
+            <div className="border-l-4 border-indigo-300 pl-4 mt-4">
+              <h3 className="font-semibold text-gray-900 mb-2">User Management</h3>
+              <p>
+                System Admins and Office Admins can add, edit, and remove users. When adding a user
+                you set their name, email, password, role, and office assignment. You can change a
+                user&rsquo;s password at any time by editing their record.
+              </p>
+            </div>
+
+            <div className="border-l-4 border-indigo-300 pl-4 mt-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Office Management</h3>
+              <p>
+                System Admins can create and manage offices. Each office can be marked as{" "}
+                <strong>Siloed</strong>, which means its data is hidden from users of other offices
+                (even other System Admins in the normal All Offices view).
+              </p>
+            </div>
+
+            <div className="border-l-4 border-indigo-300 pl-4 mt-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Data Management</h3>
+              <p>
+                Import people, partners, or partner roles in bulk from a CSV file, or export your
+                entire database as a ZIP archive containing separate CSV files for each data type.
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* Integrations */}
         <section id="integrations" className="bg-white rounded-lg shadow p-6 scroll-mt-4">
-          <h2 className="text-xl font-semibold text-navy mb-3">11. Integrations</h2>
+          <h2 className="text-xl font-semibold text-navy mb-3">12. Integrations</h2>
           <div className="space-y-3 text-sm text-gray-700">
             <p>
               Integrations are managed from the <strong>Settings</strong> page (available to System
@@ -476,23 +612,15 @@ export default function HelpPage() {
               <div className="mt-2">
                 <strong>Setup:</strong>
                 <ol className="list-decimal list-inside mt-1 ml-2 space-y-1">
-                  <li>Go to <strong>Settings</strong> and find the Stripe card under
-                    Integrations.</li>
-                  <li>Click <em>Connect</em> &mdash; you will be redirected to Stripe to authorize
-                    access.</li>
-                  <li>After authorizing, you are returned to Settings and will see a green
-                    &ldquo;Connected&rdquo; badge.</li>
+                  <li>Go to <strong>Settings</strong> and find the Stripe card under Integrations.</li>
+                  <li>Click <em>Connect</em> &mdash; you will be redirected to Stripe to authorize access.</li>
+                  <li>After authorizing, you are returned to Settings and will see a green &ldquo;Connected&rdquo; badge.</li>
                 </ol>
               </div>
               <p className="mt-2">
                 <strong>Disconnecting:</strong> Click <em>Disconnect</em> next to the Connected
                 badge. Donations will no longer be routed to your connected Stripe account until you
                 reconnect.
-              </p>
-              <p className="mt-2">
-                <strong>Note:</strong> Stripe can be used without connecting a Stripe account (using
-                the platform&rsquo;s default account), but connecting your own account ensures funds
-                go directly to your organization.
               </p>
             </div>
 
@@ -505,21 +633,16 @@ export default function HelpPage() {
               <div className="mt-2">
                 <strong>Setup:</strong>
                 <ol className="list-decimal list-inside mt-1 ml-2 space-y-1">
-                  <li>Go to <strong>Settings</strong> and find the QuickBooks card under
-                    Integrations.</li>
-                  <li>Click <em>Connect</em> &mdash; you will be redirected to Intuit to authorize
-                    access.</li>
-                  <li>After authorizing, you are returned to Settings and will see a green
-                    &ldquo;Connected&rdquo; badge.</li>
+                  <li>Go to <strong>Settings</strong> and find the QuickBooks card under Integrations.</li>
+                  <li>Click <em>Connect</em> &mdash; you will be redirected to Intuit to authorize access.</li>
+                  <li>After authorizing, you are returned to Settings and will see a green &ldquo;Connected&rdquo; badge.</li>
                 </ol>
               </div>
               <div className="mt-2">
                 <strong>Syncing donations:</strong>
                 <ul className="list-disc list-inside mt-1 ml-2 space-y-1">
-                  <li><strong>Individual sync:</strong> On the Donations tab of a fundraiser, click
-                    the <em>Sync</em> button in the QB column for any unsynced donation.</li>
-                  <li><strong>Batch sync:</strong> Click <em>Sync All to QB</em> at the top of the
-                    Donations tab to sync all approved, unsynced donations at once.</li>
+                  <li><strong>Individual sync:</strong> On the Donations tab of a fundraiser, click the <em>Sync</em> button in the QB column for any unsynced donation.</li>
+                  <li><strong>Batch sync:</strong> Click <em>Sync All to QB</em> at the top of the Donations tab to sync all approved, unsynced donations at once.</li>
                 </ul>
               </div>
               <p className="mt-2">
@@ -542,16 +665,48 @@ export default function HelpPage() {
               <div className="mt-2">
                 <strong>Setup:</strong>
                 <ol className="list-decimal list-inside mt-1 ml-2 space-y-1">
-                  <li>Go to <strong>Settings</strong> and find the Constant Contact card under
-                    Integrations.</li>
-                  <li>Click <em>Connect</em> &mdash; you will be redirected to Constant Contact to
-                    authorize access.</li>
-                  <li>After authorizing, you are returned to Settings and will see a green
-                    &ldquo;Connected&rdquo; badge.</li>
+                  <li>Go to <strong>Settings</strong> and find the Constant Contact card under Integrations.</li>
+                  <li>Click <em>Connect</em> &mdash; you will be redirected to Constant Contact to authorize access.</li>
+                  <li>After authorizing, you are returned to Settings and will see a green &ldquo;Connected&rdquo; badge.</li>
                 </ol>
               </div>
               <p className="mt-2">
                 Once connected, you can sync event invite lists from the event detail page.
+              </p>
+            </div>
+
+            <div className="border-l-4 border-indigo-300 pl-4 mt-4">
+              <h3 className="font-semibold text-gray-900 mb-2">Zeffy</h3>
+              <p>
+                Zeffy is a free fundraising platform. Connecting Zeffy lets you import donation
+                records from your Zeffy campaigns directly into this application, keeping your donor
+                history in one place.
+              </p>
+              <div className="mt-2">
+                <strong>Setup:</strong>
+                <ol className="list-decimal list-inside mt-1 ml-2 space-y-1">
+                  <li>Get your API key from the Zeffy platform (Settings &rarr; API).</li>
+                  <li>In this app, go to <strong>Settings</strong> and find the Zeffy card under Integrations.</li>
+                  <li>Paste your API key and click <em>Connect</em>. A green &ldquo;Connected&rdquo; badge will appear.</li>
+                </ol>
+              </div>
+              <div className="mt-2">
+                <strong>Syncing:</strong> Once connected, click <em>Sync Now</em> on the Zeffy card
+                to pull in the latest donations from all your Zeffy campaigns. The system:
+                <ul className="list-disc list-inside mt-1 ml-2 space-y-1">
+                  <li>Matches each Zeffy campaign to a fundraiser by name and links them.</li>
+                  <li>Creates donation records for any new payments not already imported.</li>
+                  <li>Attempts to match each donor to an existing person by email. Unmatched donors go to the Approvals queue.</li>
+                </ul>
+              </div>
+              <p className="mt-2">
+                <strong>Tip:</strong> You can also export email lists from the fundraiser&rsquo;s
+                Donations tab (see Fundraisers above) and import them directly into Zeffy for
+                campaign targeting, without needing the integration.
+              </p>
+              <p className="mt-2">
+                <strong>Disconnecting:</strong> Click <em>Disconnect</em> on the Zeffy card.
+                Previously imported donations are not affected.
               </p>
             </div>
           </div>
@@ -559,7 +714,7 @@ export default function HelpPage() {
 
         {/* Office Toggle */}
         <section id="office-toggle" className="bg-white rounded-lg shadow p-6 scroll-mt-4">
-          <h2 className="text-xl font-semibold text-navy mb-3">12. Office Data Toggle</h2>
+          <h2 className="text-xl font-semibold text-navy mb-3">13. Office Data Toggle</h2>
           <div className="space-y-3 text-sm text-gray-700">
             <p>
               If your account has access to multiple offices, you will see a toggle button in the
