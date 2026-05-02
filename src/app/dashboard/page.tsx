@@ -71,7 +71,7 @@ export default async function Dashboard() {
         },
       },
     },
-    include: { organizationType: true, partnerRoles: { include: { _count: { select: { relationships: true } } } } },
+    include: { organizationType: true, partnerRoles: { include: { _count: { select: { relationships: true } }, person: { select: { id: true, firstName: true, lastName: true } } } } },
     orderBy: { organizationName: "asc" },
   });
 

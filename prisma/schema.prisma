@@ -38,7 +38,8 @@ model User {
   role      String  @default("OFFICE_ADMIN") // "SYSTEM_ADMIN", "OFFICE_ADMIN", "OFFICE_USER", "VIEWER", or "CONNECTOR"
   officeId  String  @map("office_id")
   office    Office  @relation(fields: [officeId], references: [id])
-  events    Event[] @relation("EventCreator")
+  events      Event[] @relation("EventCreator")
+  personNotes PersonNote[]
 
   @@index([officeId])
   @@map("user")
@@ -132,6 +133,7 @@ model People {
   donations               Donation[]
   emailRecipients         EmailRecipient[]
   annualFundraiserTypes   PeopleAnnualFundraiserType[]
+  personNotes             PersonNote[]
 
   @@unique([prefix, firstName, middleInitial, lastName, officeId], map: "people_name_office_unique")
   @@index([officeId])
@@ -494,4 +496,19 @@ model EmailRecipient {
 
   @@index([campaignId])
   @@map("email_recipient")
+}
+
+// ─── Person Notes ─────────────────────────────────────────────────────────────
+
+model PersonNote {
+  id        String   @id @default(uuid())
+  content   String
+  createdAt DateTime @default(now()) @map("created_at")
+  peopleId  String   @map("people_id")
+  people    People   @relation(fields: [peopleId], references: [id], onDelete: Cascade)
+  authorId  String   @map("author_id")
+  author    User     @relation(fields: [authorId], references: [id])
+
+  @@index([peopleId])
+  @@map("person_note")
 }

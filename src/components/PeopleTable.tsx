@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Pagination, { usePagination } from "./Pagination";
@@ -19,7 +19,13 @@ interface Person {
 
 export default function PeopleTable({ people }: { people: Person[] }) {
   const router = useRouter();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() =>
+    typeof window !== "undefined" ? (sessionStorage.getItem("people-search") ?? "") : ""
+  );
+
+  useEffect(() => {
+    sessionStorage.setItem("people-search", search);
+  }, [search]);
 
   const filtered = search
     ? people.filter((p) => {

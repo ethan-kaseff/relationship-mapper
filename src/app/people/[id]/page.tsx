@@ -11,6 +11,7 @@ import AddHappeningResponseForm from "@/components/AddHappeningResponseForm";
 import HappeningResponseRow from "@/components/HappeningResponseRow";
 import { formatCurrency } from "@/lib/currency";
 import MarkDeceasedButton from "@/components/MarkDeceasedButton";
+import PersonNotesSection from "@/components/PersonNotesSection";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -83,6 +84,10 @@ export default async function PersonDetailPage({
       donations: {
         include: { fundraiser: { select: { id: true, title: true } } },
         orderBy: { donatedAt: "desc" },
+      },
+      personNotes: {
+        include: { author: { select: { firstName: true, lastName: true } } },
+        orderBy: { createdAt: "desc" },
       },
     },
   });
@@ -251,6 +256,20 @@ export default async function PersonDetailPage({
             )}
           </div>
         </div>
+      )}
+
+      {/* Notes */}
+      {(canEdit || person.personNotes.length > 0) && (
+        <PersonNotesSection
+          personId={person.id}
+          notes={person.personNotes.map((n) => ({
+            id: n.id,
+            content: n.content,
+            createdAt: n.createdAt.toISOString(),
+            author: n.author,
+          }))}
+          canEdit={canEdit}
+        />
       )}
 
       {/* Partner Roles */}
