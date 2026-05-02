@@ -92,6 +92,9 @@ export async function PUT(
         email1: data.email1 || null,
         email2: data.email2 || null,
         isConnector: data.isConnector,
+        isDeceased: data.isDeceased,
+        deceasedDate: data.isDeceased === false ? null : (data.deceasedDate ? new Date(data.deceasedDate) : undefined),
+        forwardingEmail: data.forwardingEmail || null,
       },
     });
 

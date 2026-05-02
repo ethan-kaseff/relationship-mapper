@@ -10,6 +10,7 @@ import ConnectorLinkSection from "@/components/ConnectorLinkSection";
 import AddHappeningResponseForm from "@/components/AddHappeningResponseForm";
 import HappeningResponseRow from "@/components/HappeningResponseRow";
 import { formatCurrency } from "@/lib/currency";
+import MarkDeceasedButton from "@/components/MarkDeceasedButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -141,6 +142,23 @@ export default async function PersonDetailPage({
           Back to People
         </Link>
       </div>
+
+      {/* Deceased banner */}
+      {person.isDeceased && (
+        <div className="mb-6 bg-red-50 border border-red-200 rounded-lg px-4 py-3 flex flex-wrap items-center gap-x-6 gap-y-1">
+          <span className="text-red-700 font-semibold text-sm">Deceased</span>
+          {person.deceasedDate && (
+            <span className="text-red-600 text-sm">
+              {new Date(person.deceasedDate).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+            </span>
+          )}
+          {person.forwardingEmail && (
+            <span className="text-red-600 text-sm">
+              Forwarding: <span className="font-medium">{person.forwardingEmail}</span>
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Contact Info — editable for non-Connector roles */}
       {canEdit ? (
@@ -769,9 +787,16 @@ export default async function PersonDetailPage({
         />
       )}
 
-      {/* Delete */}
+      {/* Deceased / Delete */}
       {canEdit && (
-        <div className="border-t border-gray-200 pt-6 mt-6">
+        <div className="border-t border-gray-200 pt-6 mt-6 flex items-center justify-between">
+          <MarkDeceasedButton
+            personId={person.id}
+            personName={`${person.firstName} ${person.lastName}`}
+            isDeceased={person.isDeceased}
+            deceasedDate={person.deceasedDate ? person.deceasedDate.toISOString() : null}
+            forwardingEmail={person.forwardingEmail ?? null}
+          />
           <DeletePersonButton personId={person.id} />
         </div>
       )}

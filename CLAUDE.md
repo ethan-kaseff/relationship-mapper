@@ -32,6 +32,8 @@
 
 8. **Never commit `.env` or `.env.local`.** Both are gitignored. If you see either staged, unstage it. All production secrets live in Vercel env vars, not in the repo. `.env.example` (tracked) lists every required variable with placeholder values — keep it current when adding new env vars to the app.
 
+9. **Before opening or merging any PR, always run `git status` and show Barry the full list of uncommitted and untracked files.** Ask explicitly: "These files have local changes that are NOT in the PR — should any of them be included?" Do not proceed with the merge until Barry has answered. This prevents changes that exist only on the local machine from being left out of production. Barry is not a developer and may not know that unsaved local changes don't automatically go into a PR.
+
 ## Project Overview
 
 - **App:** Relationship Mapper — tracks people, partners, and connections across offices
