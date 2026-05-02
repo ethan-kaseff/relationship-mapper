@@ -18,6 +18,7 @@ interface PersonNotesSectionProps {
 
 export default function PersonNotesSection({ personId, notes, canEdit }: PersonNotesSectionProps) {
   const router = useRouter();
+  const [adding, setAdding] = useState(false);
   const [text, setText] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +40,7 @@ export default function PersonNotesSection({ personId, notes, canEdit }: PersonN
       return;
     }
     setText("");
+    setAdding(false);
     router.refresh();
   }
 
@@ -88,7 +90,16 @@ export default function PersonNotesSection({ personId, notes, canEdit }: PersonN
         </div>
       )}
 
-      {canEdit && (
+      {canEdit && !adding && (
+        <button
+          onClick={() => setAdding(true)}
+          className="text-sm text-indigo-600 hover:underline"
+        >
+          + Add Note
+        </button>
+      )}
+
+      {canEdit && adding && (
         <div className="space-y-2">
           <textarea
             value={text}
@@ -96,15 +107,24 @@ export default function PersonNotesSection({ personId, notes, canEdit }: PersonN
             rows={3}
             className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent resize-y"
             placeholder="Add a note..."
+            autoFocus
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            onClick={handleAdd}
-            disabled={saving || !text.trim()}
-            className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm disabled:opacity-50"
-          >
-            {saving ? "Saving..." : "Add Note"}
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={() => { setAdding(false); setText(""); setError(null); }}
+              className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAdd}
+              disabled={saving || !text.trim()}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm disabled:opacity-50"
+            >
+              {saving ? "Saving..." : "Save Note"}
+            </button>
+          </div>
         </div>
       )}
     </div>

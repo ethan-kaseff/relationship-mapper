@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Pagination, { usePagination } from "./Pagination";
@@ -18,7 +18,13 @@ interface Partner {
 
 export default function PartnersTable({ partners }: { partners: Partner[] }) {
   const router = useRouter();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() =>
+    typeof window !== "undefined" ? (sessionStorage.getItem("partners-search") ?? "") : ""
+  );
+
+  useEffect(() => {
+    sessionStorage.setItem("partners-search", search);
+  }, [search]);
 
   const filtered = search
     ? partners.filter((p) => {

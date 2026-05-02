@@ -7,6 +7,7 @@ import ExportPartnersButton from "@/components/ExportPartnersButton";
 interface PartnerRole {
   roleDescription: string;
   _count: { relationships: number };
+  person: { id: string; firstName: string; lastName: string } | null;
 }
 
 interface Partner {
@@ -64,6 +65,7 @@ export default function PartnersWithoutRelationships({ partners }: { partners: P
             <tr className="text-left border-b text-gray-500">
               <th className="pb-2">Partner</th>
               <th className="pb-2">Priority</th>
+              <th className="pb-2">Person</th>
               <th className="pb-2">Role(s)</th>
               <th className="pb-2">Type</th>
               <th className="pb-2">City</th>
@@ -79,6 +81,23 @@ export default function PartnersWithoutRelationships({ partners }: { partners: P
                   </Link>
                 </td>
                 <td className="py-2 text-gray-600">{p.priority ?? "—"}</td>
+                <td className="py-2 text-gray-600">
+                  {(() => {
+                    const rolesWithout = p.partnerRoles.filter((r) => r._count.relationships === 0);
+                    const people = rolesWithout
+                      .map((r) => r.person)
+                      .filter((person, i, arr) =>
+                        person && arr.findIndex((x) => x?.id === person.id) === i
+                      );
+                    return people.length > 0
+                      ? people.map((person) => (
+                          <Link key={person!.id} href={`/people/${person!.id}`} className="text-indigo-600 hover:underline block">
+                            {person!.firstName} {person!.lastName}
+                          </Link>
+                        ))
+                      : "—";
+                  })()}
+                </td>
                 <td className="py-2 text-gray-600">
                   {(() => {
                     const rolesWithout = p.partnerRoles.filter((r) => r._count.relationships === 0);
