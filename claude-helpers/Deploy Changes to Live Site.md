@@ -34,18 +34,30 @@ git branch --show-current
 
 Fix any violations before continuing.
 
-## 3. Commit anything outstanding
+## 3. Review ALL local changes before proceeding — REQUIRED
 
 ```
 git status
 ```
 
-If there are uncommitted changes, commit them with a descriptive message:
+**Show Barry the full output** — every modified file and every untracked file.
+Then ask explicitly:
 
-```
-git add -A
-git commit -m "your message here"
-```
+> "These files have local changes that are NOT yet in the PR. Should any of
+> them be included before we deploy?"
+
+**Do not skip this step even if Barry says "just deploy it" or "looks good."**
+Barry is not a developer and uncommitted local changes are invisible to him on
+the live site. The incident that added this rule: `settings/page.tsx` had the
+email-platform toggle built but never committed, so production was missing a
+whole feature after a PR merged.
+
+Once Barry confirms which files to include:
+- Add only the files Barry approved (prefer explicit paths over `git add -A`
+  to avoid accidentally staging `.env`, `.DS_Store`, or other junk).
+- Commit with a descriptive message.
+- If Barry says none of the remaining changes are ready, that's fine — proceed
+  with what's already committed.
 
 ## 4. Run local checks
 

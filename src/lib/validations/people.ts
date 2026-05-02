@@ -31,6 +31,9 @@ export const updatePeopleSchema = z.object({
   prefix: z.string().max(50).optional().nullable(),
   greeting: z.string().max(500).optional().nullable(),
   isConnector: z.boolean().optional(),
+  isDeceased: z.boolean().optional(),
+  deceasedDate: z.string().datetime({ offset: true }).optional().nullable().or(z.literal("")),
+  forwardingEmail: z.string().email().optional().nullable().or(z.literal("")),
   annualEventTypeIds: z.array(z.string().uuid()).optional(),
   annualFundraiserTypeIds: z.array(z.string().uuid()).optional(),
 });
