@@ -4,6 +4,12 @@ import { processZeffyWebhookPayment } from "@/lib/zeffy";
 
 export async function POST(request: Request) {
   try {
+    const { searchParams } = new URL(request.url);
+    const secret = process.env.ZEFFY_WEBHOOK_SECRET;
+    if (secret && searchParams.get("token") !== secret) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const body = await request.json();
 
     // Zeffy webhook sends payment events with a type field

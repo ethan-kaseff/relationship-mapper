@@ -41,7 +41,20 @@ In addition to the manual sync, Zeffy can send the app a notification the moment
 
 If Zeffy is configured to send webhooks to this app, new donations will appear automatically without needing to click Sync Now. The webhook uses the same logic as the manual sync — idempotency, donor matching, and fundraiser linking all work the same way.
 
-The webhook URL is: `https://<your-domain>/api/webhooks/zeffy`
+### Setup (one-time)
+
+1. Generate a secret token by running this command in a terminal:
+   ```
+   openssl rand -hex 32
+   ```
+2. Add it to Vercel as an environment variable named `ZEFFY_WEBHOOK_SECRET` (Settings → Environment Variables in the Vercel dashboard).
+3. In Zeffy's dashboard, go to Settings → Webhooks and enter this URL (replacing `<secret>` with the token you generated):
+   ```
+   https://<your-domain>/api/webhooks/zeffy?token=<secret>
+   ```
+4. Set the event type to `payment.completed`.
+
+The app will reject any webhook request that doesn't include the correct token, so fake or accidental requests are ignored.
 
 ---
 
@@ -87,4 +100,4 @@ Go to **Settings**, find the Zeffy section, and click **Disconnect**. This remov
 
 **Connect fails with an error** — The API key is wrong or expired. Get a fresh one from Zeffy account settings.
 
-**Webhook donations not appearing** — Check that the webhook URL is correctly configured in Zeffy. The URL must point to `/api/webhooks/zeffy` on your live domain (not localhost).
+**Webhook donations not appearing** — Check that the webhook URL in Zeffy includes the `?token=...` query parameter and matches the `ZEFFY_WEBHOOK_SECRET` value set in Vercel. Also confirm the URL points to your live domain (not localhost).

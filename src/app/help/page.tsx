@@ -699,6 +699,17 @@ export default function HelpPage() {
                   <li>Attempts to match each donor to an existing person by email. Unmatched donors go to the Approvals queue.</li>
                 </ul>
               </div>
+              <div className="mt-2">
+                <strong>Real-time webhooks (optional):</strong> Instead of clicking Sync Now, you
+                can configure Zeffy to notify this app automatically the moment a donation is made.
+                Ask your administrator to set up the <code>ZEFFY_WEBHOOK_SECRET</code> environment
+                variable and enter the following URL in Zeffy&rsquo;s webhook settings:
+                <div className="mt-1 ml-2 font-mono text-xs bg-gray-100 rounded px-2 py-1 break-all">
+                  https://jcrb-relationship-mapper.vercel.app/api/webhooks/zeffy?token=&lt;secret&gt;
+                </div>
+                Set the event type to <code>payment.completed</code>. The app will reject any
+                webhook request that does not include the correct token.
+              </div>
               <p className="mt-2">
                 <strong>Tip:</strong> You can also export email lists from the fundraiser&rsquo;s
                 Donations tab (see Fundraisers above) and import them directly into Zeffy for
