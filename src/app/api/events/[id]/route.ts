@@ -20,6 +20,17 @@ export async function GET(
           include: { person: true },
           orderBy: { createdAt: "asc" },
         },
+        fundraisers: {
+          select: {
+            id: true,
+            title: true,
+            goalAmount: true,
+            currentAmount: true,
+            _count: { select: { donations: true } },
+            donations: { where: { approvalStatus: "PENDING" }, select: { id: true } },
+          },
+          take: 1,
+        },
       },
     });
     if (!event) return notFound("Event not found");

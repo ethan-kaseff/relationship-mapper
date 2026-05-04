@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import InviteManager from "@/components/events/InviteManager";
 import SeatingChartWrapper from "@/components/events/SeatingChartWrapper";
+import EventFundraiserSection from "@/components/events/EventFundraiserSection";
 
 interface EventInvite {
   id: string;
@@ -40,6 +41,13 @@ interface EventData {
   mealCost: number | null;
   seatingLayout: unknown;
   invites: EventInvite[];
+  fundraisers: {
+    id: string;
+    title: string;
+    goalAmount: number;
+    currentAmount: number;
+    donations: { id: string }[];
+  }[];
 }
 
 export default function EventDetailPage() {
@@ -257,7 +265,8 @@ export default function EventDetailPage() {
 
       {/* Tab content */}
       {activeTab === "details" && (
-        <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
+        <div className="max-w-2xl">
+        <div className="bg-white rounded-lg shadow p-6">
           {editing ? (
             <div className="space-y-4">
               <div>
@@ -416,6 +425,21 @@ export default function EventDetailPage() {
               </dl>
             </div>
           )}
+        </div>
+        <EventFundraiserSection
+          eventId={event.id}
+          eventTitle={event.title}
+          ticketPrice={event.ticketPrice}
+          rsvpYesCount={event.invites.filter((i) => i.rsvpStatus === "YES").length}
+          fundraiser={event.fundraisers[0] ? {
+            id: event.fundraisers[0].id,
+            title: event.fundraisers[0].title,
+            goalAmount: event.fundraisers[0].goalAmount,
+            currentAmount: event.fundraisers[0].currentAmount,
+            pendingCount: event.fundraisers[0].donations.length,
+          } : null}
+          onCreated={fetchEvent}
+        />
         </div>
       )}
 
