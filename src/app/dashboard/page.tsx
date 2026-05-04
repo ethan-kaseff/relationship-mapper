@@ -75,6 +75,29 @@ export default async function Dashboard() {
     orderBy: { organizationName: "asc" },
   });
 
+  const pendingDonationsByFundraiser = await prisma.donation.groupBy({
+    by: ["fundraiserId"],
+    where: {
+      approvalStatus: "PENDING",
+      fundraiser: officeFilter.officeId ? { officeId: officeFilter.officeId } : undefined,
+    },
+    _count: { id: true },
+  });
+
+  const pendingFundraiserIds = pendingDonationsByFundraiser.map((g) => g.fundraiserId);
+  const pendingFundraisers = pendingFundraiserIds.length > 0
+    ? await prisma.fundraiser.findMany({
+        where: { id: { in: pendingFundraiserIds } },
+        select: { id: true, title: true },
+      })
+    : [];
+
+  const pendingByFundraiser = pendingDonationsByFundraiser.map((g) => ({
+    fundraiserId: g.fundraiserId,
+    count: g._count.id,
+    title: pendingFundraisers.find((f) => f.id === g.fundraiserId)?.title ?? "Unknown Fundraiser",
+  }));
+
   const recentConnections = await prisma.connection.findMany({
     where: personFilter,
     take: 5,
@@ -120,6 +143,31 @@ export default async function Dashboard() {
           </Link>
         ))}
       </div>
+
+      {pendingByFundraiser.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-yellow-800 mb-1">
+                {pendingByFundraiser.reduce((s, g) => s + g.count, 0)} donation(s) awaiting approval
+              </p>
+              <ul className="space-y-0.5">
+                {pendingByFundraiser.map((g) => (
+                  <li key={g.fundraiserId} className="text-sm text-yellow-700">
+                    <Link href={`/fundraisers/${g.fundraiserId}`} className="hover:underline font-medium">
+                      {g.title}
+                    </Link>
+                    {" — "}{g.count} pending
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PartnersWithoutRelationships partners={JSON.parse(JSON.stringify(partnersWithoutRelationships))} />
 

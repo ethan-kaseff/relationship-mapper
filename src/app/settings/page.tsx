@@ -166,7 +166,10 @@ export default function SettingsPage() {
   const [zeffyConnecting, setZeffyConnecting] = useState(false);
   const [zeffyDisconnecting, setZeffyDisconnecting] = useState(false);
   const [zeffySyncing, setZeffySyncing] = useState(false);
-  const [zeffyMessage, setZeffyMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [zeffyMessage, setZeffyMessage] = useState<{ type: "success" | "error"; text: string } | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { return JSON.parse(sessionStorage.getItem("zeffy-sync-message") ?? "null"); } catch { return null; }
+  });
 
   // Data management state
   const [importType, setImportType] = useState<"people" | "partners" | "roles">("people");
@@ -475,24 +478,33 @@ export default function SettingsPage() {
 
   async function handleZeffySync() {
     setZeffySyncing(true);
-    setZeffyMessage(null);
+    saveZeffyMessage(null);
     try {
       const res = await fetch("/api/zeffy/sync", { method: "POST" });
       if (res.ok) {
         const data = await res.json();
-        const parts = [];
-        if (data.donations.synced > 0) parts.push(`${data.donations.synced} donation(s)`);
-        if (data.contacts.created > 0) parts.push(`${data.contacts.created} contact(s)`);
+        const parts: string[] = [];
+        if (data.donations.synced > 0) parts.push(`${data.donations.synced} donation(s) synced`);
+        if (data.contacts.created > 0) parts.push(`${data.contacts.created} contact(s) created`);
         if (parts.length === 0) parts.push("Everything is up to date");
-        setZeffyMessage({ type: "success", text: `Synced: ${parts.join(", ")}` });
+        const totalErrors = (data.donations.errors ?? 0) + (data.contacts.errors ?? 0);
+        const errorSuffix = totalErrors > 0 ? ` — ${totalErrors} item(s) had errors and were skipped` : "";
+        const msg = { type: totalErrors > 0 && parts[0] === "Everything is up to date" ? "error" as const : "success" as const, text: parts.join(", ") + errorSuffix };
+        saveZeffyMessage(msg);
       } else {
-        setZeffyMessage({ type: "error", text: "Sync failed." });
+        saveZeffyMessage({ type: "error", text: "Sync failed. Check server logs for details." });
       }
     } catch {
-      setZeffyMessage({ type: "error", text: "Sync failed." });
+      saveZeffyMessage({ type: "error", text: "Sync failed. Check server logs for details." });
     } finally {
       setZeffySyncing(false);
     }
+  }
+
+  function saveZeffyMessage(msg: { type: "success" | "error"; text: string } | null) {
+    setZeffyMessage(msg);
+    if (msg) sessionStorage.setItem("zeffy-sync-message", JSON.stringify(msg));
+    else sessionStorage.removeItem("zeffy-sync-message");
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -1047,7 +1059,7 @@ export default function SettingsPage() {
             {emailPlatform === "zeffy" && zeffyMessage && (
               <div className={`mb-3 p-3 rounded-md text-sm ${zeffyMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
                 {zeffyMessage.text}
-                <button onClick={() => setZeffyMessage(null)} className="float-right text-xs underline">Dismiss</button>
+                <button onClick={() => saveZeffyMessage(null)} className="float-right text-xs underline">Dismiss</button>
               </div>
             )}
 
