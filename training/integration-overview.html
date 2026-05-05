@@ -197,13 +197,10 @@
     <h2 style="color:#1e3a5f; margin-bottom:4px;">The Ecosystem at a Glance</h2>
     <p class="subtitle" style="color:#64748b;">How the four systems work together</p>
 
-    <svg viewBox="0 0 760 380" width="760" height="380" style="max-width:100%;">
+    <svg viewBox="0 0 760 340" width="760" height="340" style="max-width:100%;">
       <defs>
         <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
           <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
-        </marker>
-        <marker id="arrowhead-blue" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
-          <polygon points="0 0, 8 3, 0 6" fill="#2563eb"/>
         </marker>
         <marker id="arrowhead-purple" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
           <polygon points="0 0, 8 3, 0 6" fill="#7c3aed"/>
@@ -217,53 +214,51 @@
       </defs>
 
       <!-- Center: App -->
-      <rect x="290" y="145" width="180" height="80" rx="14" class="box-app"/>
-      <text x="380" y="177" text-anchor="middle" class="box-label">JCRB Platform</text>
-      <text x="380" y="197" text-anchor="middle" class="box-sub">People · Events · Fundraisers</text>
+      <rect x="270" y="120" width="220" height="90" rx="14" class="box-app"/>
+      <text x="380" y="152" text-anchor="middle" class="box-label">JCRB Platform</text>
+      <text x="380" y="170" text-anchor="middle" class="box-sub">People · Events · Fundraisers</text>
+      <text x="380" y="186" text-anchor="middle" class="box-sub">Public donation page</text>
 
       <!-- Zeffy (left) -->
-      <rect x="40" y="145" width="150" height="80" rx="14" class="box-zeffy"/>
-      <text x="115" y="181" text-anchor="middle" class="box-label">Zeffy</text>
-      <text x="115" y="199" text-anchor="middle" class="box-sub">Free fundraising</text>
+      <rect x="30" y="120" width="150" height="90" rx="14" class="box-zeffy"/>
+      <text x="105" y="157" text-anchor="middle" class="box-label">Zeffy</text>
+      <text x="105" y="175" text-anchor="middle" class="box-sub">Free fundraising</text>
+      <text x="105" y="191" text-anchor="middle" class="box-sub">platform</text>
 
       <!-- Arrow Zeffy → App (import donations) -->
-      <path d="M192 177 L288 177" class="arrow-purple"/>
-      <text x="238" y="170" text-anchor="middle" class="label-tag label-tag-purple">Import donations</text>
+      <path d="M182 148 L268 148" class="arrow-purple"/>
+      <text x="223" y="141" text-anchor="middle" class="label-tag label-tag-purple">Import donations</text>
       <!-- Arrow App → Zeffy (export emails) -->
-      <path d="M291 197 L193 197" class="arrow-purple"/>
-      <text x="238" y="213" text-anchor="middle" class="label-tag label-tag-purple">Export email lists</text>
+      <path d="M271 170 L183 170" class="arrow-purple"/>
+      <text x="225" y="185" text-anchor="middle" class="label-tag label-tag-purple">Export email lists</text>
 
       <!-- Stripe (bottom) -->
-      <rect x="290" y="295" width="180" height="72" rx="14" class="box-stripe"/>
-      <text x="380" y="326" text-anchor="middle" class="box-label">Stripe</text>
-      <text x="380" y="346" text-anchor="middle" class="box-sub">Online payments</text>
+      <rect x="270" y="270" width="220" height="60" rx="14" class="box-stripe"/>
+      <text x="380" y="296" text-anchor="middle" class="box-label">Stripe</text>
+      <text x="380" y="314" text-anchor="middle" class="box-sub">Processes online credit card payments</text>
 
-      <!-- Arrow Donor → Stripe (simplified, show donor icon) -->
       <!-- Arrow Stripe → App (payment confirmed) -->
-      <path d="M380 293 L380 227" class="arrow-green"/>
-      <text x="413" y="265" text-anchor="middle" class="label-tag label-tag-green">Payment confirmed</text>
-      <!-- Arrow App → Stripe (create checkout) -->
-      <path d="M358 227 L358 293" class="arrow-green"/>
-      <text x="322" y="265" text-anchor="middle" class="label-tag label-tag-green">Create checkout</text>
+      <path d="M400 268 L400 212" class="arrow-green"/>
+      <text x="435" y="245" text-anchor="middle" class="label-tag label-tag-green">Payment confirmed</text>
+      <!-- Arrow App → Stripe (donor clicks donate) -->
+      <path d="M370 212 L370 268" class="arrow-green"/>
+      <text x="318" y="245" text-anchor="middle" class="label-tag label-tag-green">Donor clicks Donate</text>
 
       <!-- QuickBooks (right) -->
-      <rect x="530" y="145" width="160" height="80" rx="14" class="box-qb"/>
-      <text x="610" y="181" text-anchor="middle" class="box-label">QuickBooks</text>
-      <text x="610" y="199" text-anchor="middle" class="box-sub">Accounting</text>
+      <rect x="540" y="120" width="180" height="90" rx="14" class="box-qb"/>
+      <text x="630" y="157" text-anchor="middle" class="box-label">QuickBooks</text>
+      <text x="630" y="175" text-anchor="middle" class="box-sub">Accounting</text>
+      <text x="630" y="191" text-anchor="middle" class="box-sub">(cash/check only)</text>
 
-      <!-- Arrow App → QB (sync donations) -->
-      <path d="M471 177 L528 177" class="arrow-amber"/>
-      <text x="499" y="168" text-anchor="middle" class="label-tag label-tag-amber">Sync donations</text>
-      <text x="499" y="182" text-anchor="middle" class="label-tag label-tag-amber">as receipts</text>
+      <!-- Arrow App → QB -->
+      <path d="M491 155 L538 155" class="arrow-amber"/>
+      <text x="514" y="146" text-anchor="middle" class="label-tag label-tag-amber">Sync manual</text>
+      <text x="514" y="160" text-anchor="middle" class="label-tag label-tag-amber">donations</text>
 
-      <!-- Donor (top) -->
-      <rect x="305" y="20" width="150" height="60" rx="14" class="box-donor"/>
-      <text x="380" y="47" text-anchor="middle" class="box-label">Donor</text>
-      <text x="380" y="65" text-anchor="middle" class="box-sub">Public donation page</text>
-
-      <!-- Arrow Donor → Stripe -->
-      <path d="M380 82 L380 142" class="arrow"/>
-      <text x="408" y="118" text-anchor="start" class="label-tag">Pays online</text>
+      <!-- Bank deposit note -->
+      <rect x="30" y="270" width="220" height="50" rx="10" fill="#f1f5f9" stroke="#cbd5e1" stroke-width="1.5"/>
+      <text x="140" y="291" text-anchor="middle" fill="#64748b" font-size="11" font-weight="600">Zeffy &amp; Stripe → bank deposit</text>
+      <text x="140" y="308" text-anchor="middle" fill="#94a3b8" font-size="10">QB sees totals automatically</text>
     </svg>
   </div>
 
