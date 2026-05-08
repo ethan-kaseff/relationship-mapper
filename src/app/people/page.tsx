@@ -12,6 +12,18 @@ export default async function PeoplePage() {
   const officeFilter = await getOfficeFilter();
   const people = await prisma.people.findMany({
     where: officeFilter,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      city: true,
+      state: true,
+      phoneNumber: true,
+      email1: true,
+      email2: true,
+      isConnector: true,
+      status: true,
+    },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
   });
 

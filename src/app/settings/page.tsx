@@ -49,12 +49,20 @@ interface User {
   office?: { name: string };
 }
 
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+}
+
 export default function SettingsPage() {
   const { data: session, status: sessionStatus } = useSession();
   const role = session?.user?.role;
   const isSystemAdmin = role === "SYSTEM_ADMIN";
   const isOfficeAdmin = role === "OFFICE_ADMIN";
   const canManageUsers = isSystemAdmin || isOfficeAdmin;
+  const canEditTemplates = role !== "CONNECTOR" && role !== "VIEWER" && !!role;
 
   const [relTypes, setRelTypes] = useState<RelationshipType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,6 +108,21 @@ export default function SettingsPage() {
   const [editAftName, setEditAftName] = useState("");
   const [deletingAftId, setDeletingAftId] = useState<string | null>(null);
   const aftInputRef = useRef<HTMLInputElement>(null);
+
+  // Email templates state
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateSubject, setNewTemplateSubject] = useState("");
+  const [newTemplateBody, setNewTemplateBody] = useState("");
+  const [templateSubmitting, setTemplateSubmitting] = useState(false);
+  const [templateError, setTemplateError] = useState("");
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [editTemplateName, setEditTemplateName] = useState("");
+  const [editTemplateSubject, setEditTemplateSubject] = useState("");
+  const [editTemplateBody, setEditTemplateBody] = useState("");
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
 
   // User management state
   const [users, setUsers] = useState<User[]>([]);
@@ -242,6 +265,16 @@ export default function SettingsPage() {
       .catch(() => setOfficesLoading(false));
   }
 
+  function fetchEmailTemplates() {
+    fetch("/api/email-templates")
+      .then((res) => res.json())
+      .then((data) => {
+        setEmailTemplates(Array.isArray(data) ? data : []);
+        setTemplatesLoading(false);
+      })
+      .catch(() => setTemplatesLoading(false));
+  }
+
   useEffect(() => {
     if (showForm && relTypeInputRef.current) relTypeInputRef.current.focus();
   }, [showForm]);
@@ -276,6 +309,10 @@ export default function SettingsPage() {
       fetchOffices();
     }
   }, [canManageUsers]);
+
+  useEffect(() => {
+    if (canEditTemplates) fetchEmailTemplates();
+  }, [canEditTemplates]);
 
   // Constant Contact: check status & handle OAuth callback params
   useEffect(() => {
@@ -760,6 +797,64 @@ export default function SettingsPage() {
       fetchAftTypes();
     } catch (err: unknown) {
       setAftError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  async function handleCreateTemplate(e: React.FormEvent) {
+    e.preventDefault();
+    setTemplateSubmitting(true);
+    setTemplateError("");
+    try {
+      const res = await fetch("/api/email-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newTemplateName, subject: newTemplateSubject, body: newTemplateBody }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create template");
+      }
+      setNewTemplateName(""); setNewTemplateSubject(""); setNewTemplateBody("");
+      setShowTemplateForm(false);
+      fetchEmailTemplates();
+    } catch (err: unknown) {
+      setTemplateError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setTemplateSubmitting(false);
+    }
+  }
+
+  async function handleSaveTemplate(id: string) {
+    setTemplateError("");
+    try {
+      const res = await fetch(`/api/email-templates/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editTemplateName, subject: editTemplateSubject, body: editTemplateBody }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update template");
+      }
+      setEditingTemplateId(null);
+      fetchEmailTemplates();
+    } catch (err: unknown) {
+      setTemplateError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  async function handleDeleteTemplate(id: string) {
+    setTemplateError("");
+    try {
+      const res = await fetch(`/api/email-templates/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete template");
+      }
+      setDeletingTemplateId(null);
+      fetchEmailTemplates();
+    } catch (err: unknown) {
+      setTemplateError(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
@@ -1850,6 +1945,149 @@ export default function SettingsPage() {
                 )}
               </tbody>
             </table>
+          )}
+        </div>
+      )}
+
+      {/* Email Templates */}
+      {canEditTemplates && (
+        <div className="bg-white rounded-lg shadow p-6 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-indigo-900">Email Templates</h2>
+            {!showTemplateForm && (
+              <button
+                onClick={() => setShowTemplateForm(true)}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
+              >
+                Add Template
+              </button>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Templates are used when reaching out to prospects. Use <code className="bg-gray-100 px-1 rounded text-xs">{"{{firstName}}"}</code>, <code className="bg-gray-100 px-1 rounded text-xs">{"{{senderName}}"}</code>, or <code className="bg-gray-100 px-1 rounded text-xs">{"{{senderFirstName}}"}</code> as placeholders.
+          </p>
+
+          {templateError && (
+            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">{templateError}</div>
+          )}
+
+          {showTemplateForm && (
+            <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
+              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Template</h3>
+              <form onSubmit={handleCreateTemplate} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Name <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                    required
+                    placeholder="e.g. Initial Outreach"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Subject <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={newTemplateSubject}
+                    onChange={(e) => setNewTemplateSubject(e.target.value)}
+                    required
+                    placeholder="e.g. Connecting with {{firstName}}"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Body <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={newTemplateBody}
+                    onChange={(e) => setNewTemplateBody(e.target.value)}
+                    required
+                    rows={6}
+                    placeholder={"Dear {{firstName}},\n\nI wanted to reach out..."}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button type="submit" disabled={templateSubmitting}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50">
+                    {templateSubmitting ? "Saving…" : "Save Template"}
+                  </button>
+                  <button type="button" onClick={() => { setShowTemplateForm(false); setTemplateError(""); }}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {templatesLoading ? (
+            <p className="text-sm text-gray-400">Loading templates…</p>
+          ) : (
+            <div className="space-y-3">
+              {emailTemplates.map((t) => (
+                <div key={t.id} className="border border-gray-200 rounded-md p-4">
+                  {editingTemplateId === t.id ? (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+                        <input type="text" value={editTemplateName} onChange={(e) => setEditTemplateName(e.target.value)}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Subject</label>
+                        <input type="text" value={editTemplateSubject} onChange={(e) => setEditTemplateSubject(e.target.value)}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Body</label>
+                        <textarea value={editTemplateBody} onChange={(e) => setEditTemplateBody(e.target.value)}
+                          rows={6}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 font-mono" />
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleSaveTemplate(t.id)}
+                          className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700">
+                          Save
+                        </button>
+                        <button onClick={() => setEditingTemplateId(null)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-medium text-gray-900 text-sm">{t.name}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">Subject: {t.subject}</div>
+                        </div>
+                        <div className="flex gap-3 text-xs">
+                          <button
+                            onClick={() => { setEditingTemplateId(t.id); setEditTemplateName(t.name); setEditTemplateSubject(t.subject); setEditTemplateBody(t.body); }}
+                            className="text-indigo-600 hover:underline"
+                          >Edit</button>
+                          {deletingTemplateId === t.id ? (
+                            <span className="flex items-center gap-2">
+                              <button onClick={() => handleDeleteTemplate(t.id)} className="text-red-600 hover:underline font-medium">Confirm</button>
+                              <button onClick={() => setDeletingTemplateId(null)} className="text-gray-500 hover:text-gray-700">Cancel</button>
+                            </span>
+                          ) : (
+                            <button onClick={() => setDeletingTemplateId(t.id)} className="text-red-600 hover:underline">Delete</button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-400 whitespace-pre-wrap line-clamp-3">{t.body}</div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {emailTemplates.length === 0 && (
+                <p className="text-sm text-gray-400">No email templates defined. Add one above.</p>
+              )}
+            </div>
           )}
         </div>
       )}
