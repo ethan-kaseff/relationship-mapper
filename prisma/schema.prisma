@@ -8,6 +8,15 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum PeopleStatus {
+  ACTIVE
+  PROSPECT
+  INACTIVE
+  DECEASED
+}
+
 // ─── Office ──────────────────────────────────────────────────────────────────
 
 model Office {
@@ -23,6 +32,7 @@ model Office {
   annualFundraiserTypes  AnnualFundraiserType[]
   integrationTokens      IntegrationToken[]
   emailCampaigns         EmailCampaign[]
+  emailTemplates         EmailTemplate[]
 
   @@map("office")
 }
@@ -38,8 +48,9 @@ model User {
   role      String  @default("OFFICE_ADMIN") // "SYSTEM_ADMIN", "OFFICE_ADMIN", "OFFICE_USER", "VIEWER", or "CONNECTOR"
   officeId  String  @map("office_id")
   office    Office  @relation(fields: [officeId], references: [id])
-  events      Event[] @relation("EventCreator")
-  personNotes PersonNote[]
+  events             Event[] @relation("EventCreator")
+  personNotes        PersonNote[]
+  assignedProspects  People[] @relation("ProspectAssignments")
 
   @@index([officeId])
   @@map("user")
@@ -110,10 +121,15 @@ model People {
   phoneNumber   String?  @map("phone_number")
   email1         String?  @map("email_1")
   email2         String?  @map("email_2")
-  isConnector    Boolean  @default(false) @map("is_connector")
-  isDeceased     Boolean  @default(false) @map("is_deceased")
-  deceasedDate   DateTime? @map("deceased_date")
-  forwardingEmail String?  @map("forwarding_email")
+  isConnector     Boolean      @default(false) @map("is_connector")
+  status          PeopleStatus @default(ACTIVE) @map("status")
+  deceasedDate    DateTime?    @map("deceased_date")
+  forwardingEmail String?      @map("forwarding_email")
+  assignedToId    String?      @map("assigned_to_id")
+  assignedTo      User?        @relation("ProspectAssignments", fields: [assignedToId], references: [id])
+  assignedDate    DateTime?    @map("assigned_date")
+  emailTemplateId String?      @map("email_template_id")
+  emailTemplate   EmailTemplate? @relation(fields: [emailTemplateId], references: [id])
   connectorToken String?  @unique @map("connector_token")
   ccContactId1   String?  @map("cc_contact_id_1")
   ccContactId2   String?  @map("cc_contact_id_2")
@@ -511,4 +527,18 @@ model PersonNote {
 
   @@index([peopleId])
   @@map("person_note")
+}
+
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  name      String
+  subject   String
+  body      String
+  officeId  String   @map("office_id")
+  office    Office   @relation(fields: [officeId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+  people    People[]
+
+  @@index([officeId])
+  @@map("email_template")
 }

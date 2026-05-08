@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import PartnersWithoutRelationships from "@/components/PartnersWithoutRelationships";
 import { getOfficeFilter } from "@/lib/office-filter";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,8 @@ function StatIcon({ label }: { label: string }) {
 }
 
 export default async function Dashboard() {
+  const session = await auth();
+  const userId = (session?.user as { id?: string } | undefined)?.id;
   const officeFilter = await getOfficeFilter();
   const personFilter = officeFilter.officeId ? { person: { officeId: officeFilter.officeId } } : {};
 
@@ -97,6 +100,21 @@ export default async function Dashboard() {
     count: g._count.id,
     title: pendingFundraisers.find((f) => f.id === g.fundraiserId)?.title ?? "Unknown Fundraiser",
   }));
+
+  const myProspects = userId
+    ? await prisma.people.findMany({
+        where: { ...officeFilter, status: "PROSPECT", assignedToId: userId },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email1: true,
+          assignedDate: true,
+          emailTemplateId: true,
+        },
+        orderBy: { assignedDate: "desc" },
+      })
+    : [];
 
   const recentConnections = await prisma.connection.findMany({
     where: personFilter,
@@ -170,6 +188,36 @@ export default async function Dashboard() {
       )}
 
       <PartnersWithoutRelationships partners={JSON.parse(JSON.stringify(partnersWithoutRelationships))} />
+
+      {myProspects.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-indigo-900">My Prospects</h2>
+            <Link href="/people?status=PROSPECT" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+              View all &rarr;
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {myProspects.map((p) => (
+              <div key={p.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                <div>
+                  <Link href={`/people/${p.id}`} className="text-indigo-600 hover:underline font-medium text-sm">
+                    {p.firstName} {p.lastName}
+                  </Link>
+                  {p.assignedDate && (
+                    <span className="text-xs text-gray-400 ml-2">
+                      assigned {new Date(p.assignedDate).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                  )}
+                </div>
+                {p.email1 && p.emailTemplateId && (
+                  <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">has template</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">

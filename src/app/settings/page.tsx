@@ -49,12 +49,20 @@ interface User {
   office?: { name: string };
 }
 
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+}
+
 export default function SettingsPage() {
   const { data: session, status: sessionStatus } = useSession();
   const role = session?.user?.role;
   const isSystemAdmin = role === "SYSTEM_ADMIN";
   const isOfficeAdmin = role === "OFFICE_ADMIN";
   const canManageUsers = isSystemAdmin || isOfficeAdmin;
+  const canEditTemplates = role !== "CONNECTOR" && role !== "VIEWER" && !!role;
 
   const [relTypes, setRelTypes] = useState<RelationshipType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,6 +108,21 @@ export default function SettingsPage() {
   const [editAftName, setEditAftName] = useState("");
   const [deletingAftId, setDeletingAftId] = useState<string | null>(null);
   const aftInputRef = useRef<HTMLInputElement>(null);
+
+  // Email templates state
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateSubject, setNewTemplateSubject] = useState("");
+  const [newTemplateBody, setNewTemplateBody] = useState("");
+  const [templateSubmitting, setTemplateSubmitting] = useState(false);
+  const [templateError, setTemplateError] = useState("");
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [editTemplateName, setEditTemplateName] = useState("");
+  const [editTemplateSubject, setEditTemplateSubject] = useState("");
+  const [editTemplateBody, setEditTemplateBody] = useState("");
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
 
   // User management state
   const [users, setUsers] = useState<User[]>([]);
@@ -242,6 +265,16 @@ export default function SettingsPage() {
       .catch(() => setOfficesLoading(false));
   }
 
+  function fetchEmailTemplates() {
+    fetch("/api/email-templates")
+      .then((res) => res.json())
+      .then((data) => {
+        setEmailTemplates(Array.isArray(data) ? data : []);
+        setTemplatesLoading(false);
+      })
+      .catch(() => setTemplatesLoading(false));
+  }
+
   useEffect(() => {
     if (showForm && relTypeInputRef.current) relTypeInputRef.current.focus();
   }, [showForm]);
@@ -276,6 +309,10 @@ export default function SettingsPage() {
       fetchOffices();
     }
   }, [canManageUsers]);
+
+  useEffect(() => {
+    if (canEditTemplates) fetchEmailTemplates();
+  }, [canEditTemplates]);
 
   // Constant Contact: check status & handle OAuth callback params
   useEffect(() => {
@@ -763,6 +800,64 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleCreateTemplate(e: React.FormEvent) {
+    e.preventDefault();
+    setTemplateSubmitting(true);
+    setTemplateError("");
+    try {
+      const res = await fetch("/api/email-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: newTemplateName, subject: newTemplateSubject, body: newTemplateBody }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create template");
+      }
+      setNewTemplateName(""); setNewTemplateSubject(""); setNewTemplateBody("");
+      setShowTemplateForm(false);
+      fetchEmailTemplates();
+    } catch (err: unknown) {
+      setTemplateError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setTemplateSubmitting(false);
+    }
+  }
+
+  async function handleSaveTemplate(id: string) {
+    setTemplateError("");
+    try {
+      const res = await fetch(`/api/email-templates/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editTemplateName, subject: editTemplateSubject, body: editTemplateBody }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update template");
+      }
+      setEditingTemplateId(null);
+      fetchEmailTemplates();
+    } catch (err: unknown) {
+      setTemplateError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  async function handleDeleteTemplate(id: string) {
+    setTemplateError("");
+    try {
+      const res = await fetch(`/api/email-templates/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete template");
+      }
+      setDeletingTemplateId(null);
+      fetchEmailTemplates();
+    } catch (err: unknown) {
+      setTemplateError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
   async function handleCreateUser(e: React.FormEvent) {
     e.preventDefault();
     setUserSubmitting(true);
@@ -1019,502 +1114,148 @@ export default function SettingsPage() {
     <div>
       <h1 className="text-2xl font-bold text-indigo-900 mb-6">Settings</h1>
 
-      {/* Constant Contact Integration */}
-      {(isSystemAdmin || isOfficeAdmin) && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold text-indigo-900 mb-1">Integrations</h2>
+      {/* Email Templates */}
+      {canEditTemplates && (
+        <div className="bg-white rounded-lg shadow p-6 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-indigo-900">Email Templates</h2>
+            {!showTemplateForm && (
+              <button
+                onClick={() => setShowTemplateForm(true)}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
+              >
+                Add Template
+              </button>
+            )}
+          </div>
           <p className="text-sm text-gray-500 mb-4">
-            Connect third-party services to sync your event data.
+            Templates are used when reaching out to prospects. Use <code className="bg-gray-100 px-1 rounded text-xs">{"{{firstName}}"}</code>, <code className="bg-gray-100 px-1 rounded text-xs">{"{{senderName}}"}</code>, or <code className="bg-gray-100 px-1 rounded text-xs">{"{{senderFirstName}}"}</code> as placeholders.
           </p>
 
-          {/* Email Platform — Constant Contact or Zeffy toggle */}
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h3 className="font-medium text-gray-900">Email Platform</h3>
-                <p className="text-sm text-gray-500">Choose one platform for email campaigns and fundraising</p>
-              </div>
-              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-                <button
-                  onClick={() => handleSwitchEmailPlatform("constant_contact")}
-                  className={`px-4 py-1.5 transition-colors ${emailPlatform === "constant_contact" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                >
-                  Constant Contact
-                </button>
-                <button
-                  onClick={() => handleSwitchEmailPlatform("zeffy")}
-                  className={`px-4 py-1.5 border-l border-gray-200 transition-colors ${emailPlatform === "zeffy" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
-                >
-                  Zeffy
-                </button>
-              </div>
-            </div>
+          {templateError && (
+            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">{templateError}</div>
+          )}
 
-            {emailPlatform === "constant_contact" && ccMessage && (
-              <div className={`mb-3 p-3 rounded-md text-sm ${ccMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
-                {ccMessage.text}
-                <button onClick={() => setCcMessage(null)} className="float-right text-xs underline">Dismiss</button>
-              </div>
-            )}
-            {emailPlatform === "zeffy" && zeffyMessage && (
-              <div className={`mb-3 p-3 rounded-md text-sm ${zeffyMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
-                {zeffyMessage.text}
-                <button onClick={() => saveZeffyMessage(null)} className="float-right text-xs underline">Dismiss</button>
-              </div>
-            )}
-
-            <div className="flex items-center justify-between pt-1">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
+          {showTemplateForm && (
+            <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
+              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Template</h3>
+              <form onSubmit={handleCreateTemplate} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Name <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                    required
+                    placeholder="e.g. Initial Outreach"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
                 </div>
                 <div>
-                  {emailPlatform === "constant_contact" ? (
-                    <>
-                      <p className="font-medium text-gray-900 text-sm">Constant Contact</p>
-                      <p className="text-xs text-gray-500">Sync event invite lists as email contact lists</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="font-medium text-gray-900 text-sm">Zeffy</p>
-                      <p className="text-xs text-gray-500">Free fundraising platform — import donations and sync contacts</p>
-                    </>
-                  )}
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Subject <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={newTemplateSubject}
+                    onChange={(e) => setNewTemplateSubject(e.target.value)}
+                    required
+                    placeholder="e.g. Connecting with {{firstName}}"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
                 </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {emailPlatform === "constant_contact" ? (
-                  ccLoading ? (
-                    <span className="text-sm text-gray-400">Checking...</span>
-                  ) : ccConnected ? (
-                    <>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                        <span className="w-2 h-2 bg-green-500 rounded-full" />
-                        Connected
-                      </span>
-                      <button
-                        onClick={handleCcDisconnect}
-                        disabled={ccDisconnecting}
-                        className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {ccDisconnecting ? "Disconnecting..." : "Disconnect"}
-                      </button>
-                    </>
-                  ) : (
-                    <a
-                      href="/api/constant-contact/auth"
-                      className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                    >
-                      Connect
-                    </a>
-                  )
-                ) : (
-                  zeffyLoading ? (
-                    <span className="text-sm text-gray-400">Checking...</span>
-                  ) : zeffyConnected ? (
-                    <>
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                        <span className="w-2 h-2 bg-green-500 rounded-full" />
-                        Connected
-                      </span>
-                      <button
-                        onClick={handleZeffySync}
-                        disabled={zeffySyncing}
-                        className="px-3 py-1.5 text-sm text-indigo-600 border border-indigo-300 rounded-md hover:bg-indigo-50 disabled:opacity-50"
-                      >
-                        {zeffySyncing ? "Syncing..." : "Sync Now"}
-                      </button>
-                      <button
-                        onClick={handleZeffyDisconnect}
-                        disabled={zeffyDisconnecting}
-                        className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
-                      >
-                        {zeffyDisconnecting ? "Disconnecting..." : "Disconnect"}
-                      </button>
-                    </>
-                  ) : (
-                    <form onSubmit={handleZeffyConnect} className="flex items-center gap-2">
-                      <input
-                        type="password"
-                        value={zeffyApiKey}
-                        onChange={(e) => setZeffyApiKey(e.target.value)}
-                        placeholder="Zeffy API Key"
-                        className="border border-gray-300 rounded-md px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                      />
-                      <button
-                        type="submit"
-                        disabled={zeffyConnecting || !zeffyApiKey.trim()}
-                        className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
-                      >
-                        {zeffyConnecting ? "Connecting..." : "Connect"}
-                      </button>
-                    </form>
-                  )
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Stripe Integration */}
-          {stripeMessage && (
-            <div
-              className={`mt-4 p-3 rounded-md text-sm ${
-                stripeMessage.type === "success"
-                  ? "bg-green-50 text-green-800 border border-green-200"
-                  : "bg-red-50 text-red-800 border border-red-200"
-              }`}
-            >
-              {stripeMessage.text}
-              <button
-                onClick={() => setStripeMessage(null)}
-                className="float-right text-xs underline"
-              >
-                Dismiss
-              </button>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Body <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={newTemplateBody}
+                    onChange={(e) => setNewTemplateBody(e.target.value)}
+                    required
+                    rows={6}
+                    placeholder={"Dear {{firstName}},\n\nI wanted to reach out..."}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button type="submit" disabled={templateSubmitting}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50">
+                    {templateSubmitting ? "Saving…" : "Save Template"}
+                  </button>
+                  <button type="button" onClick={() => { setShowTemplateForm(false); setTemplateError(""); }}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 
-          <div className="border border-gray-200 rounded-lg p-4 mt-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">Stripe</h3>
-                  <p className="text-sm text-gray-500">
-                    Accept online donations via Stripe Checkout
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {stripeLoading ? (
-                  <span className="text-sm text-gray-400">Checking...</span>
-                ) : stripeConnected ? (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                      <span className="w-2 h-2 bg-green-500 rounded-full" />
-                      Connected
-                    </span>
-                    <button
-                      onClick={handleStripeDisconnect}
-                      disabled={stripeDisconnecting}
-                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
-                    >
-                      {stripeDisconnecting ? "Disconnecting..." : "Disconnect"}
-                    </button>
-                  </>
-                ) : (
-                  <a
-                    href="/api/stripe/auth"
-                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  >
-                    Connect
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* QuickBooks Integration */}
-          {qbMessage && (
-            <div
-              className={`mt-4 p-3 rounded-md text-sm ${
-                qbMessage.type === "success"
-                  ? "bg-green-50 text-green-800 border border-green-200"
-                  : "bg-red-50 text-red-800 border border-red-200"
-              }`}
-            >
-              {qbMessage.text}
-              <button
-                onClick={() => setQbMessage(null)}
-                className="float-right text-xs underline"
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
-
-          <div className="border border-gray-200 rounded-lg p-4 mt-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">QuickBooks</h3>
-                  <p className="text-sm text-gray-500">
-                    Sync donations as Sales Receipts in QuickBooks
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {qbLoading ? (
-                  <span className="text-sm text-gray-400">Checking...</span>
-                ) : qbConnected ? (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                      <span className="w-2 h-2 bg-green-500 rounded-full" />
-                      Connected
-                    </span>
-                    <button
-                      onClick={handleQbDisconnect}
-                      disabled={qbDisconnecting}
-                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
-                    >
-                      {qbDisconnecting ? "Disconnecting..." : "Disconnect"}
-                    </button>
-                  </>
-                ) : (
-                  <a
-                    href="/api/quickbooks/auth"
-                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  >
-                    Connect
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-
-        </div>
-      )}
-
-      {/* Relationship Types — SYSTEM_ADMIN only */}
-      {isSystemAdmin && <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-indigo-900">Relationship Types</h2>
-          {!showForm && (
-            <button
-              onClick={() => { setShowForm(true); setEditingId(null); }}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
-            >
-              Add Relationship Type
-            </button>
-          )}
-        </div>
-
-        {error && (
-          <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* Add form */}
-        {showForm && (
-          <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
-            <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Relationship Type</h3>
-            <form onSubmit={handleCreate} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Description <span className="text-red-500">*</span>
-                </label>
-                <input
-                  ref={relTypeInputRef}
-                  type="text"
-                  required
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="e.g. Board Member"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Notes
-                </label>
-                <input
-                  type="text"
-                  value={newNotes}
-                  onChange={(e) => setNewNotes(e.target.value)}
-                  placeholder="Optional description of this relationship type"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
-                >
-                  {submitting ? "Saving..." : "Create"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowForm(false); setError(""); }}
-                  className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Table */}
-        {loading ? (
-          <p className="text-gray-400 text-sm">Loading...</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="text-left px-4 py-3 font-semibold text-indigo-900">Description</th>
-                <th className="text-left px-4 py-3 font-semibold text-indigo-900">Notes</th>
-                <th className="text-left px-4 py-3 font-semibold text-indigo-900">In Use</th>
-                <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {relTypes.map((rt) => (
-                <tr key={rt.id} className="hover:bg-gray-50">
-                  {editingId === rt.id ? (
-                    <>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          value={editDesc}
-                          onChange={(e) => setEditDesc(e.target.value)}
-                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          value={editNotes}
-                          onChange={(e) => setEditNotes(e.target.value)}
-                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-gray-600">
-                        {rt._count?.relationships ?? 0}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <div className="flex gap-2 justify-end">
-                          <button
-                            onClick={() => handleUpdate(rt.id)}
-                            disabled={submitting}
-                            className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="text-gray-500 hover:text-gray-700 text-xs"
-                          >
-                            Cancel
-                          </button>
+          {templatesLoading ? (
+            <p className="text-sm text-gray-400">Loading templates…</p>
+          ) : (
+            <div className="space-y-3">
+              {emailTemplates.map((t) => (
+                <div key={t.id} className="border border-gray-200 rounded-md p-4">
+                  {editingTemplateId === t.id ? (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+                        <input type="text" value={editTemplateName} onChange={(e) => setEditTemplateName(e.target.value)}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Subject</label>
+                        <input type="text" value={editTemplateSubject} onChange={(e) => setEditTemplateSubject(e.target.value)}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Body</label>
+                        <textarea value={editTemplateBody} onChange={(e) => setEditTemplateBody(e.target.value)}
+                          rows={6}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 font-mono" />
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleSaveTemplate(t.id)}
+                          className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700">
+                          Save
+                        </button>
+                        <button onClick={() => setEditingTemplateId(null)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="font-medium text-gray-900 text-sm">{t.name}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">Subject: {t.subject}</div>
                         </div>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-4 py-3 font-medium">{rt.relationshipDesc}</td>
-                      <td className="px-4 py-3 text-gray-600">{rt.notes ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                          {rt._count?.relationships ?? 0}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex gap-3 justify-end">
+                        <div className="flex gap-3 text-xs">
                           <button
-                            onClick={() => startEdit(rt)}
-                            className="text-indigo-600 hover:underline text-xs"
-                          >
-                            Edit
-                          </button>
-                          {deletingId === rt.id ? (
-                            reassignNeeded?.id === rt.id ? (
-                              <div className="flex flex-col items-end gap-2">
-                                <span className="text-amber-700 text-xs">
-                                  {reassignNeeded.count} relationship(s) use this type. Move them to:
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <select
-                                    value={reassignTo}
-                                    onChange={(e) => setReassignTo(e.target.value)}
-                                    className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                  >
-                                    <option value="">Select type...</option>
-                                    {relTypes
-                                      .filter((t) => t.id !== rt.id)
-                                      .map((t) => (
-                                        <option key={t.id} value={t.id}>
-                                          {t.relationshipDesc}
-                                        </option>
-                                      ))}
-                                  </select>
-                                  <button
-                                    onClick={handleDeleteWithReassign}
-                                    disabled={!reassignTo}
-                                    className="text-red-600 hover:underline text-xs font-medium disabled:opacity-50"
-                                  >
-                                    Move &amp; Delete
-                                  </button>
-                                  <button
-                                    onClick={() => { setDeletingId(null); setReassignNeeded(null); setDeleteError(""); }}
-                                    className="text-gray-500 hover:text-gray-700 text-xs"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                                {deleteError && (
-                                  <span className="text-red-600 text-xs">{deleteError}</span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="flex items-center gap-2">
-                                {deleteError && (
-                                  <span className="text-red-600 text-xs">{deleteError}</span>
-                                )}
-                                <button
-                                  onClick={() => handleDelete(rt.id)}
-                                  className="text-red-600 hover:underline text-xs font-medium"
-                                >
-                                  Confirm
-                                </button>
-                                <button
-                                  onClick={() => { setDeletingId(null); setDeleteError(""); }}
-                                  className="text-gray-500 hover:text-gray-700 text-xs"
-                                >
-                                  Cancel
-                                </button>
-                              </span>
-                            )
+                            onClick={() => { setEditingTemplateId(t.id); setEditTemplateName(t.name); setEditTemplateSubject(t.subject); setEditTemplateBody(t.body); }}
+                            className="text-indigo-600 hover:underline"
+                          >Edit</button>
+                          {deletingTemplateId === t.id ? (
+                            <span className="flex items-center gap-2">
+                              <button onClick={() => handleDeleteTemplate(t.id)} className="text-red-600 hover:underline font-medium">Confirm</button>
+                              <button onClick={() => setDeletingTemplateId(null)} className="text-gray-500 hover:text-gray-700">Cancel</button>
+                            </span>
                           ) : (
-                            <button
-                              onClick={() => { setDeletingId(rt.id); setReassignNeeded(null); setDeleteError(""); }}
-                              className="text-red-600 hover:underline text-xs"
-                            >
-                              Delete
-                            </button>
+                            <button onClick={() => setDeletingTemplateId(t.id)} className="text-red-600 hover:underline">Delete</button>
                           )}
                         </div>
-                      </td>
-                    </>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-400 whitespace-pre-wrap line-clamp-3">{t.body}</div>
+                    </div>
                   )}
-                </tr>
+                </div>
               ))}
-              {relTypes.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
-                    No relationship types defined.
-                  </td>
-                </tr>
+              {emailTemplates.length === 0 && (
+                <p className="text-sm text-gray-400">No email templates defined. Add one above.</p>
               )}
-            </tbody>
-          </table>
-        )}
-      </div>}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Annual Event Types — SYSTEM_ADMIN only */}
       {isSystemAdmin && (
@@ -2168,6 +1909,233 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* Relationship Types — SYSTEM_ADMIN only */}
+      {isSystemAdmin && <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-indigo-900">Relationship Types</h2>
+          {!showForm && (
+            <button
+              onClick={() => { setShowForm(true); setEditingId(null); }}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
+            >
+              Add Relationship Type
+            </button>
+          )}
+        </div>
+
+        {error && (
+          <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Add form */}
+        {showForm && (
+          <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
+            <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Relationship Type</h3>
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={relTypeInputRef}
+                  type="text"
+                  required
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
+                  placeholder="e.g. Board Member"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <input
+                  type="text"
+                  value={newNotes}
+                  onChange={(e) => setNewNotes(e.target.value)}
+                  placeholder="Optional description of this relationship type"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
+                >
+                  {submitting ? "Saving..." : "Create"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); setError(""); }}
+                  className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Table */}
+        {loading ? (
+          <p className="text-gray-400 text-sm">Loading...</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold text-indigo-900">Description</th>
+                <th className="text-left px-4 py-3 font-semibold text-indigo-900">Notes</th>
+                <th className="text-left px-4 py-3 font-semibold text-indigo-900">In Use</th>
+                <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {relTypes.map((rt) => (
+                <tr key={rt.id} className="hover:bg-gray-50">
+                  {editingId === rt.id ? (
+                    <>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          value={editDesc}
+                          onChange={(e) => setEditDesc(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          value={editNotes}
+                          onChange={(e) => setEditNotes(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-gray-600">
+                        {rt._count?.relationships ?? 0}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => handleUpdate(rt.id)}
+                            disabled={submitting}
+                            className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="text-gray-500 hover:text-gray-700 text-xs"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-3 font-medium">{rt.relationshipDesc}</td>
+                      <td className="px-4 py-3 text-gray-600">{rt.notes ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                          {rt._count?.relationships ?? 0}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex gap-3 justify-end">
+                          <button
+                            onClick={() => startEdit(rt)}
+                            className="text-indigo-600 hover:underline text-xs"
+                          >
+                            Edit
+                          </button>
+                          {deletingId === rt.id ? (
+                            reassignNeeded?.id === rt.id ? (
+                              <div className="flex flex-col items-end gap-2">
+                                <span className="text-amber-700 text-xs">
+                                  {reassignNeeded.count} relationship(s) use this type. Move them to:
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={reassignTo}
+                                    onChange={(e) => setReassignTo(e.target.value)}
+                                    className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  >
+                                    <option value="">Select type...</option>
+                                    {relTypes
+                                      .filter((t) => t.id !== rt.id)
+                                      .map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                          {t.relationshipDesc}
+                                        </option>
+                                      ))}
+                                  </select>
+                                  <button
+                                    onClick={handleDeleteWithReassign}
+                                    disabled={!reassignTo}
+                                    className="text-red-600 hover:underline text-xs font-medium disabled:opacity-50"
+                                  >
+                                    Move &amp; Delete
+                                  </button>
+                                  <button
+                                    onClick={() => { setDeletingId(null); setReassignNeeded(null); setDeleteError(""); }}
+                                    className="text-gray-500 hover:text-gray-700 text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                                {deleteError && (
+                                  <span className="text-red-600 text-xs">{deleteError}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="flex items-center gap-2">
+                                {deleteError && (
+                                  <span className="text-red-600 text-xs">{deleteError}</span>
+                                )}
+                                <button
+                                  onClick={() => handleDelete(rt.id)}
+                                  className="text-red-600 hover:underline text-xs font-medium"
+                                >
+                                  Confirm
+                                </button>
+                                <button
+                                  onClick={() => { setDeletingId(null); setDeleteError(""); }}
+                                  className="text-gray-500 hover:text-gray-700 text-xs"
+                                >
+                                  Cancel
+                                </button>
+                              </span>
+                            )
+                          ) : (
+                            <button
+                              onClick={() => { setDeletingId(rt.id); setReassignNeeded(null); setDeleteError(""); }}
+                              className="text-red-600 hover:underline text-xs"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+              {relTypes.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                    No relationship types defined.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>}
+
       {/* Data Management — SYSTEM_ADMIN and OFFICE_ADMIN */}
       {canManageUsers && (
         <div className="bg-white rounded-lg shadow p-6 mt-6">
@@ -2477,6 +2445,276 @@ export default function SettingsPage() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* Constant Contact Integration */}
+      {(isSystemAdmin || isOfficeAdmin) && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6 mt-6">
+          <h2 className="text-lg font-semibold text-indigo-900 mb-1">Integrations</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Connect third-party services to sync your event data.
+          </p>
+
+          {/* Email Platform — Constant Contact or Zeffy toggle */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-medium text-gray-900">Email Platform</h3>
+                <p className="text-sm text-gray-500">Choose one platform for email campaigns and fundraising</p>
+              </div>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                <button
+                  onClick={() => handleSwitchEmailPlatform("constant_contact")}
+                  className={`px-4 py-1.5 transition-colors ${emailPlatform === "constant_contact" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  Constant Contact
+                </button>
+                <button
+                  onClick={() => handleSwitchEmailPlatform("zeffy")}
+                  className={`px-4 py-1.5 border-l border-gray-200 transition-colors ${emailPlatform === "zeffy" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  Zeffy
+                </button>
+              </div>
+            </div>
+
+            {emailPlatform === "constant_contact" && ccMessage && (
+              <div className={`mb-3 p-3 rounded-md text-sm ${ccMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                {ccMessage.text}
+                <button onClick={() => setCcMessage(null)} className="float-right text-xs underline">Dismiss</button>
+              </div>
+            )}
+            {emailPlatform === "zeffy" && zeffyMessage && (
+              <div className={`mb-3 p-3 rounded-md text-sm ${zeffyMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                {zeffyMessage.text}
+                <button onClick={() => saveZeffyMessage(null)} className="float-right text-xs underline">Dismiss</button>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  {emailPlatform === "constant_contact" ? (
+                    <>
+                      <p className="font-medium text-gray-900 text-sm">Constant Contact</p>
+                      <p className="text-xs text-gray-500">Sync event invite lists as email contact lists</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium text-gray-900 text-sm">Zeffy</p>
+                      <p className="text-xs text-gray-500">Free fundraising platform — import donations and sync contacts</p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {emailPlatform === "constant_contact" ? (
+                  ccLoading ? (
+                    <span className="text-sm text-gray-400">Checking...</span>
+                  ) : ccConnected ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                        <span className="w-2 h-2 bg-green-500 rounded-full" />
+                        Connected
+                      </span>
+                      <button
+                        onClick={handleCcDisconnect}
+                        disabled={ccDisconnecting}
+                        className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {ccDisconnecting ? "Disconnecting..." : "Disconnect"}
+                      </button>
+                    </>
+                  ) : (
+                    <a
+                      href="/api/constant-contact/auth"
+                      className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                    >
+                      Connect
+                    </a>
+                  )
+                ) : (
+                  zeffyLoading ? (
+                    <span className="text-sm text-gray-400">Checking...</span>
+                  ) : zeffyConnected ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                        <span className="w-2 h-2 bg-green-500 rounded-full" />
+                        Connected
+                      </span>
+                      <button
+                        onClick={handleZeffySync}
+                        disabled={zeffySyncing}
+                        className="px-3 py-1.5 text-sm text-indigo-600 border border-indigo-300 rounded-md hover:bg-indigo-50 disabled:opacity-50"
+                      >
+                        {zeffySyncing ? "Syncing..." : "Sync Now"}
+                      </button>
+                      <button
+                        onClick={handleZeffyDisconnect}
+                        disabled={zeffyDisconnecting}
+                        className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {zeffyDisconnecting ? "Disconnecting..." : "Disconnect"}
+                      </button>
+                    </>
+                  ) : (
+                    <form onSubmit={handleZeffyConnect} className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        value={zeffyApiKey}
+                        onChange={(e) => setZeffyApiKey(e.target.value)}
+                        placeholder="Zeffy API Key"
+                        className="border border-gray-300 rounded-md px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                      <button
+                        type="submit"
+                        disabled={zeffyConnecting || !zeffyApiKey.trim()}
+                        className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        {zeffyConnecting ? "Connecting..." : "Connect"}
+                      </button>
+                    </form>
+                  )
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Stripe Integration */}
+          {stripeMessage && (
+            <div
+              className={`mt-4 p-3 rounded-md text-sm ${
+                stripeMessage.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {stripeMessage.text}
+              <button
+                onClick={() => setStripeMessage(null)}
+                className="float-right text-xs underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <div className="border border-gray-200 rounded-lg p-4 mt-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">Stripe</h3>
+                  <p className="text-sm text-gray-500">
+                    Accept online donations via Stripe Checkout
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {stripeLoading ? (
+                  <span className="text-sm text-gray-400">Checking...</span>
+                ) : stripeConnected ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                      <span className="w-2 h-2 bg-green-500 rounded-full" />
+                      Connected
+                    </span>
+                    <button
+                      onClick={handleStripeDisconnect}
+                      disabled={stripeDisconnecting}
+                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {stripeDisconnecting ? "Disconnecting..." : "Disconnect"}
+                    </button>
+                  </>
+                ) : (
+                  <a
+                    href="/api/stripe/auth"
+                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  >
+                    Connect
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* QuickBooks Integration */}
+          {qbMessage && (
+            <div
+              className={`mt-4 p-3 rounded-md text-sm ${
+                qbMessage.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {qbMessage.text}
+              <button
+                onClick={() => setQbMessage(null)}
+                className="float-right text-xs underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <div className="border border-gray-200 rounded-lg p-4 mt-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">QuickBooks</h3>
+                  <p className="text-sm text-gray-500">
+                    Sync donations as Sales Receipts in QuickBooks
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {qbLoading ? (
+                  <span className="text-sm text-gray-400">Checking...</span>
+                ) : qbConnected ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                      <span className="w-2 h-2 bg-green-500 rounded-full" />
+                      Connected
+                    </span>
+                    <button
+                      onClick={handleQbDisconnect}
+                      disabled={qbDisconnecting}
+                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {qbDisconnecting ? "Disconnecting..." : "Disconnect"}
+                    </button>
+                  </>
+                ) : (
+                  <a
+                    href="/api/quickbooks/auth"
+                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  >
+                    Connect
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
     </div>
