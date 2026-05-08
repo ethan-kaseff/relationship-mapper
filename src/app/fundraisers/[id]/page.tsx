@@ -413,7 +413,11 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
                     <StatusBadge status={d.approvalStatus} />
                   </td>
                   <td className="px-4 py-2">
-                    <QBSyncBadge status={d.qbSyncStatus} />
+                    {d.paymentMethod === "zeffy"
+                      ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-purple-100 text-purple-700">Via Zeffy</span>
+                      : d.paymentMethod === "stripe"
+                      ? <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-700">Via Stripe</span>
+                      : <QBSyncBadge status={d.qbSyncStatus} />}
                   </td>
                   <td className="px-4 py-2 text-gray-500">
                     {new Date(d.donatedAt).toLocaleDateString()}

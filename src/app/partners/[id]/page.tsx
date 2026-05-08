@@ -29,6 +29,7 @@ export default async function PartnerDetailPage({
           include: { annualEventType: true },
         },
         partnerRoles: {
+          orderBy: { roleDescription: "asc" },
           include: {
             person: true,
             roleAssignments: {
