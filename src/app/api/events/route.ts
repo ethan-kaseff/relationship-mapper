@@ -96,6 +96,7 @@ export async function POST(request: Request) {
           partnerRole: {
             peopleId: { not: null },
             partner: { officeId },
+            person: { status: "ACTIVE" },
           },
         },
         select: {
@@ -146,7 +147,7 @@ export async function POST(request: Request) {
           const lastName = nameParts.slice(1).join(" ") || "";
           if (firstName && lastName) {
             const person = await prisma.people.findFirst({
-              where: { firstName, lastName, officeId },
+              where: { firstName, lastName, officeId, status: "ACTIVE" },
               select: { id: true },
             });
             if (person && !peopleGroupMap.has(person.id)) {
@@ -160,7 +161,7 @@ export async function POST(request: Request) {
       const peopleJoins = await prisma.peopleAnnualEventType.findMany({
         where: {
           annualEventTypeId: typeId,
-          person: { officeId },
+          person: { officeId, status: "ACTIVE" },
         },
         select: { peopleId: true },
       });

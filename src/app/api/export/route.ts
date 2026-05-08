@@ -19,7 +19,7 @@ export async function GET(request: Request) {
     const [people, partners, relationships, interactions, roles] = await Promise.all([
       format === "xlsx" || type === "people"
         ? prisma.people.findMany({
-            where: officeFilter,
+            where: { ...officeFilter, status: "ACTIVE" },
             include: { office: { select: { name: true } } },
             orderBy: { lastName: "asc" },
           })

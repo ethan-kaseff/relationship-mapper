@@ -6,6 +6,7 @@ interface Person {
   id: string;
   firstName: string;
   lastName: string;
+  status: string;
 }
 
 interface AddPeopleModalProps {
@@ -34,7 +35,7 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
       .then((data) => {
         setPeople(
           data
-            .filter((p: Person) => !existingPeopleIds.includes(p.id))
+            .filter((p: Person) => p.status === "ACTIVE" && !existingPeopleIds.includes(p.id))
             .sort((a: Person, b: Person) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
         );
         setLoading(false);

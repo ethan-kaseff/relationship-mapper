@@ -26,7 +26,7 @@ export async function POST(
     const group = partner?.organizationName || "";
 
     // Get partner roles, optionally filtered
-    const where: Record<string, unknown> = { partnerId, peopleId: { not: null } };
+    const where: Record<string, unknown> = { partnerId, peopleId: { not: null }, person: { status: "ACTIVE" } };
     if (roleIds && roleIds.length > 0) {
       where.id = { in: roleIds };
     }
