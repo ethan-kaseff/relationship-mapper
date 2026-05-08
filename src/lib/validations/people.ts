@@ -14,6 +14,10 @@ export const createPeopleSchema = z.object({
   prefix: z.string().max(50).optional().nullable(),
   greeting: z.string().max(500).optional().nullable(),
   isConnector: z.boolean().default(false),
+  status: z.enum(["ACTIVE", "PROSPECT", "INACTIVE", "DECEASED"]).optional(),
+  assignedToId: z.string().uuid().optional().nullable(),
+  assignedDate: z.string().datetime({ offset: true }).optional().nullable(),
+  emailTemplateId: z.string().uuid().optional().nullable(),
   officeId: z.string().uuid().optional(), // System admins can specify
 });
 
