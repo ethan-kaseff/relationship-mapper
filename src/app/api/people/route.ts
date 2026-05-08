@@ -71,6 +71,8 @@ export async function POST(request: Request) {
         firstName: data.firstName,
         middleInitial: data.middleInitial || null,
         lastName: data.lastName,
+        prefix: data.prefix || null,
+        greeting: data.greeting || null,
         address: data.address,
         city: data.city,
         state: data.state,

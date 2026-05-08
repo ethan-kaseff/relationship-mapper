@@ -90,6 +90,7 @@ export default async function PersonDetailPage({
         orderBy: { createdAt: "desc" },
       },
       assignedTo: { select: { firstName: true, lastName: true } },
+      emailTemplate: { select: { subject: true, body: true } },
     },
   });
 
@@ -153,7 +154,8 @@ export default async function PersonDetailPage({
       <PeopleStatusSection
         personId={person.id}
         personName={`${person.firstName} ${person.lastName}`}
-        email={person.email1}
+        greeting={person.greeting ?? null}
+        email={person.email1 ?? person.email2}
         status={person.status}
         deceasedDate={person.deceasedDate ? person.deceasedDate.toISOString() : null}
         forwardingEmail={person.forwardingEmail ?? null}
@@ -161,9 +163,10 @@ export default async function PersonDetailPage({
         assignedTo={person.assignedTo ?? null}
         assignedDate={person.assignedDate ? person.assignedDate.toISOString() : null}
         emailTemplateId={person.emailTemplateId ?? null}
+        emailTemplate={person.emailTemplate ?? null}
+        assignedToName={person.assignedTo ? `${person.assignedTo.firstName} ${person.assignedTo.lastName}` : null}
         createdAt={person.createdAt.toISOString()}
         canEdit={canEdit}
-        onSaved={() => {}}
       />
 
       {/* Contact Info — editable for non-Connector roles */}

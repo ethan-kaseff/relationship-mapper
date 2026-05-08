@@ -34,12 +34,13 @@ const STATUS_COLORS: Record<string, string> = {
 
 export default function PeopleTable({ people }: { people: Person[] }) {
   const router = useRouter();
-  const [search, setSearch] = useState(() =>
-    typeof window !== "undefined" ? (sessionStorage.getItem("people-search") ?? "") : ""
-  );
-  const [statusFilter, setStatusFilter] = useState(() =>
-    typeof window !== "undefined" ? (sessionStorage.getItem("people-status-filter") ?? "") : ""
-  );
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+
+  useEffect(() => {
+    setSearch(sessionStorage.getItem("people-search") ?? "");
+    setStatusFilter(sessionStorage.getItem("people-status-filter") ?? "");
+  }, []);
 
   useEffect(() => {
     sessionStorage.setItem("people-search", search);

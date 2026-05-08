@@ -9,17 +9,19 @@ interface EmailTemplate { id: string; name: string; subject: string; body: strin
 interface Props {
   personId: string;
   personName: string;
+  greeting: string | null;
   email: string | null;
   status: string;
   deceasedDate: string | null;
   forwardingEmail: string | null;
   assignedToId: string | null;
   assignedTo: { firstName: string; lastName: string } | null;
+  assignedToName: string | null;
   assignedDate: string | null;
   emailTemplateId: string | null;
+  emailTemplate: { subject: string; body: string } | null;
   createdAt: string;
   canEdit: boolean;
-  onSaved: () => void;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -44,11 +46,13 @@ function fillTemplate(text: string, firstName: string, senderName: string) {
 }
 
 export default function PeopleStatusSection({
-  personId, personName, email, status: initialStatus,
+  personId, personName, greeting, email, status: initialStatus,
   deceasedDate: initialDeceasedDate, forwardingEmail: initialForwardingEmail,
   assignedToId: initialAssignedToId, assignedTo: initialAssignedTo,
+  assignedToName: initialAssignedToName,
   assignedDate: initialAssignedDate, emailTemplateId: initialTemplateId,
-  createdAt, canEdit, onSaved,
+  emailTemplate: initialEmailTemplate,
+  createdAt, canEdit,
 }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -106,8 +110,21 @@ export default function PeopleStatusSection({
     }
     setEditing(false);
     router.refresh();
-    onSaved();
   }
+
+  // Build mailto href directly from server-provided template data
+  function buildMailtoHref() {
+    if (!email || !initialEmailTemplate) return null;
+    const firstName = greeting || personName.split(" ")[0];
+    const senderName = initialAssignedToName ?? "";
+    const subject = fillTemplate(initialEmailTemplate.subject, firstName, senderName);
+    const body = fillTemplate(initialEmailTemplate.body, firstName, senderName);
+    return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  }
+
+  const mailtoHref = initialStatus === "PROSPECT" && email && initialEmailTemplate
+    ? buildMailtoHref()
+    : null;
 
   const displayAssignedTo = initialAssignedTo
     ? `${initialAssignedTo.firstName} ${initialAssignedTo.lastName}` : null;
@@ -147,8 +164,11 @@ export default function PeopleStatusSection({
               {initialAssignedDate && (
                 <div>Since: <span className="font-medium">{new Date(initialAssignedDate).toLocaleDateString("en-US", { timeZone: "UTC" })}</span></div>
               )}
-              {initialTemplateId && email && (
-                <ProspectEmailButton personId={personId} personName={personName} email={email} templateId={initialTemplateId} assignedToId={initialAssignedToId} />
+              {mailtoHref && (
+                <a href={mailtoHref}
+                  className="inline-flex items-center gap-1.5 text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 mt-1">
+                  ✉ Send Outreach Email
+                </a>
               )}
             </div>
           )}
@@ -233,36 +253,5 @@ export default function PeopleStatusSection({
         </div>
       )}
     </div>
-  );
-}
-
-function ProspectEmailButton({ personId, personName, email, templateId, assignedToId }: {
-  personId: string; personName: string; email: string;
-  templateId: string; assignedToId: string | null;
-}) {
-  const [href, setHref] = useState<string | null>(null);
-
-  useEffect(() => {
-    Promise.all([
-      fetch(`/api/email-templates`).then(r => r.json()),
-      assignedToId ? fetch(`/api/users/assignable`).then(r => r.json()) : Promise.resolve([]),
-    ]).then(([templates, users]) => {
-      const t = (templates as EmailTemplate[]).find((x: EmailTemplate) => x.id === templateId);
-      if (!t) return;
-      const u = (users as User[]).find((x: User) => x.id === assignedToId);
-      const senderName = u ? `${u.firstName} ${u.lastName}` : "";
-      const firstName = personName.split(" ")[0];
-      const subject = fillTemplate(t.subject, firstName, senderName);
-      const body = fillTemplate(t.body, firstName, senderName);
-      setHref(`mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`);
-    }).catch(() => {});
-  }, [personId, templateId, assignedToId, email]);
-
-  if (!href) return null;
-  return (
-    <a href={href}
-      className="inline-flex items-center gap-1.5 text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 mt-1">
-      ✉ Send Outreach Email
-    </a>
   );
 }
