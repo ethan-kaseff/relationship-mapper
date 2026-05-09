@@ -12,6 +12,8 @@ import HappeningResponseRow from "@/components/HappeningResponseRow";
 import { formatCurrency } from "@/lib/currency";
 import PersonNotesSection from "@/components/PersonNotesSection";
 import PeopleStatusSection from "@/components/PeopleStatusSection";
+import TagToggle from "@/components/TagToggle";
+import { isCrossOfficeView } from "@/lib/office-filter";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -98,10 +100,10 @@ export default async function PersonDetailPage({
     orderBy: { name: "asc" },
   });
 
-  const session = await auth();
+  const [session, crossOffice] = await Promise.all([auth(), isCrossOfficeView()]);
   const userRole = session?.user?.role;
-  const canEdit = userRole !== "CONNECTOR" && userRole !== "VIEWER";
-  const canSeeDonations = userRole !== "VIEWER";
+  const canEdit = userRole !== "CONNECTOR" && userRole !== "VIEWER" && !crossOffice;
+  const canSeeDonations = userRole !== "VIEWER" && !crossOffice;
 
   // Relationships where this person is the target (others connecting to them)
   const targetRelationships = person.targetOfRelationships.map((rel) => ({
@@ -132,17 +134,16 @@ export default async function PersonDetailPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between mb-0">
         <h1 className="text-2xl font-bold text-indigo-900">{person.firstName} {person.lastName}</h1>
         <Link
           href="/people"
-          className="text-indigo-600 hover:underline text-sm"
+          className="text-indigo-600 hover:underline text-sm mt-1"
         >
           Back to People
         </Link>
       </div>
 
-      {/* Status */}
       <PeopleStatusSection
         personId={person.id}
         personName={`${person.firstName} ${person.lastName}`}
@@ -181,7 +182,6 @@ export default async function PersonDetailPage({
             isConnector: person.isConnector,
             tagIds: person.tags.map((t) => t.tag.id),
           }}
-          allTags={allTags}
         />
       ) : (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -232,15 +232,24 @@ export default async function PersonDetailPage({
                 </span>
               </div>
             )}
-            {person.tags.length > 0 && (
-              <div className="md:col-span-3">
-                <span className="font-medium text-gray-500">Tags:</span>{" "}
-                <span className="text-gray-800">
-                  {person.tags.map((t) => t.tag.name).join(", ")}
-                </span>
-              </div>
-            )}
           </div>
+        </div>
+      )}
+
+      {/* Tags — inline for all roles, editable for canEdit */}
+      {allTags.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-semibold text-indigo-900 mb-3">Tags</h2>
+          <TagToggle
+            entityId={person.id}
+            entityType="person"
+            initialTagIds={person.tags.map((t) => t.tag.id)}
+            allTags={allTags}
+            readOnly={!canEdit}
+          />
+          {!canEdit && person.tags.length === 0 && (
+            <p className="text-sm text-gray-400">No tags assigned.</p>
+          )}
         </div>
       )}
 

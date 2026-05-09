@@ -129,52 +129,53 @@ export default function PeopleStatusSection({
   const displayAssignedTo = initialAssignedTo
     ? `${initialAssignedTo.firstName} ${initialAssignedTo.lastName}` : null;
 
+  const addedDate = new Date(createdAt).toLocaleDateString("en-US", { timeZone: "UTC", year: "numeric", month: "long", day: "numeric" });
+
+  if (!editing) {
+    return (
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mt-1 flex-wrap">
+          <span className="text-xs text-gray-400">{addedDate}</span>
+          <span className={`inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full ${STATUS_COLORS[initialStatus] ?? "bg-gray-100 text-gray-500"}`}>
+            {STATUS_LABELS[initialStatus] ?? initialStatus}
+          </span>
+          {canEdit && (
+            <button onClick={() => setEditing(true)} className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">
+              Edit
+            </button>
+          )}
+        </div>
+        {initialStatus === "DECEASED" && (initialDeceasedDate || initialForwardingEmail) && (
+          <div className="flex gap-4 mt-1 text-xs text-gray-500 flex-wrap">
+            {initialDeceasedDate && (
+              <span>Passed: {new Date(initialDeceasedDate).toLocaleDateString("en-US", { timeZone: "UTC", year: "numeric", month: "long", day: "numeric" })}</span>
+            )}
+            {initialForwardingEmail && (
+              <span>Forwarding to: {initialForwardingEmail}</span>
+            )}
+          </div>
+        )}
+        {initialStatus === "PROSPECT" && (
+          <div className="flex gap-4 mt-1 text-xs text-gray-500 flex-wrap items-center">
+            {displayAssignedTo && <span>Assigned to: <span className="text-gray-700 font-medium">{displayAssignedTo}</span></span>}
+            {initialAssignedDate && <span>Since: {new Date(initialAssignedDate).toLocaleDateString("en-US", { timeZone: "UTC" })}</span>}
+            {mailtoHref && (
+              <a href={mailtoHref} className="inline-flex items-center gap-1 text-xs bg-indigo-600 text-white px-2.5 py-1 rounded-md hover:bg-indigo-700">
+                ✉ Send Outreach Email
+              </a>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white rounded-lg shadow p-6 mb-6">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold text-indigo-900">Status</h2>
-        {canEdit && !editing && (
-          <button onClick={() => setEditing(true)} className="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
-            Edit
-          </button>
-        )}
+        <h2 className="text-lg font-semibold text-indigo-900">Edit Status</h2>
       </div>
-
-      {!editing ? (
-        <div className="space-y-2">
-          <div className="flex items-center gap-3">
-            <span className={`inline-block text-xs font-semibold px-3 py-1 rounded-full ${STATUS_COLORS[initialStatus] ?? "bg-gray-100 text-gray-500"}`}>
-              {STATUS_LABELS[initialStatus] ?? initialStatus}
-            </span>
-            <span className="text-xs text-gray-400">Added {new Date(createdAt).toLocaleDateString("en-US", { timeZone: "UTC", year: "numeric", month: "long", day: "numeric" })}</span>
-          </div>
-          {initialStatus === "DECEASED" && (
-            <div className="text-sm text-gray-600 space-y-1">
-              {initialDeceasedDate && (
-                <div>Date of passing: <span className="font-medium">{new Date(initialDeceasedDate).toLocaleDateString("en-US", { timeZone: "UTC", year: "numeric", month: "long", day: "numeric" })}</span></div>
-              )}
-              {initialForwardingEmail && (
-                <div>Forwarding email: <span className="font-medium">{initialForwardingEmail}</span></div>
-              )}
-            </div>
-          )}
-          {initialStatus === "PROSPECT" && (
-            <div className="text-sm text-gray-600 space-y-1">
-              {displayAssignedTo && <div>Assigned to: <span className="font-medium">{displayAssignedTo}</span></div>}
-              {initialAssignedDate && (
-                <div>Since: <span className="font-medium">{new Date(initialAssignedDate).toLocaleDateString("en-US", { timeZone: "UTC" })}</span></div>
-              )}
-              {mailtoHref && (
-                <a href={mailtoHref}
-                  className="inline-flex items-center gap-1.5 text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 mt-1">
-                  ✉ Send Outreach Email
-                </a>
-              )}
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="space-y-4 max-w-sm">
+      <div className="space-y-4 max-w-sm">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select
@@ -250,8 +251,7 @@ export default function PeopleStatusSection({
               {saving ? "Saving…" : "Save"}
             </button>
           </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 }

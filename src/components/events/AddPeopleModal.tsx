@@ -2,11 +2,17 @@
 
 import { useState, useEffect } from "react";
 
+interface Tag {
+  id: string;
+  name: string;
+}
+
 interface Person {
   id: string;
   firstName: string;
   lastName: string;
   status: string;
+  tags: { tagId: string }[];
 }
 
 interface AddPeopleModalProps {
@@ -18,7 +24,9 @@ interface AddPeopleModalProps {
 
 export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, onAdded }: AddPeopleModalProps) {
   const [people, setPeople] = useState<Person[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [search, setSearch] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -30,31 +38,34 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
   const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/people")
-      .then((r) => r.json())
-      .then((data) => {
-        setPeople(
-          data
-            .filter((p: Person) => p.status === "ACTIVE" && !existingPeopleIds.includes(p.id))
-            .sort((a: Person, b: Person) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
-        );
-        setLoading(false);
-      });
+    Promise.all([
+      fetch("/api/people").then((r) => r.json()),
+      fetch("/api/tags").then((r) => r.json()),
+    ]).then(([peopleData, tagsData]) => {
+      setPeople(
+        peopleData
+          .filter((p: Person) => p.status === "ACTIVE" && !existingPeopleIds.includes(p.id))
+          .sort((a: Person, b: Person) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+      );
+      setTags(Array.isArray(tagsData) ? tagsData : []);
+      setLoading(false);
+    });
   }, [existingPeopleIds]);
 
-  const filtered = people.filter((p) => {
-    const name = `${p.firstName} ${p.lastName}`.toLowerCase();
-    return name.includes(search.toLowerCase());
-  });
-
-  // Pre-fill create form from search term when switching to create mode
-  function openCreateForm() {
-    const parts = search.trim().split(/\s+/);
-    setNewFirst(parts[0] || "");
-    setNewLast(parts.slice(1).join(" ") || "");
-    setCreateError(null);
-    setShowCreate(true);
+  function toggleTag(tagId: string) {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+    setSelected(new Set());
   }
+
+  const filtered = people.filter((p) => {
+    if (selectedTagIds.length > 0 && !selectedTagIds.every((tid) => p.tags.some((t) => t.tagId === tid))) return false;
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return `${p.firstName} ${p.lastName}`.toLowerCase().includes(q) ||
+      `${p.lastName}, ${p.firstName}`.toLowerCase().includes(q);
+  });
 
   function toggle(id: string) {
     setSelected((prev) => {
@@ -63,6 +74,23 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
       else next.add(id);
       return next;
     });
+  }
+
+  function selectAll() {
+    setSelected(new Set(filtered.map((p) => p.id)));
+  }
+
+  function clearAll() {
+    setSelected(new Set());
+  }
+
+  // Pre-fill create form from search term when switching to create mode
+  function openCreateForm() {
+    const parts = search.trim().split(/\s+/);
+    setNewFirst(parts[0] || "");
+    setNewLast(parts.slice(1).join(" ") || "");
+    setCreateError(null);
+    setShowCreate(true);
   }
 
   async function handleAdd() {
@@ -105,20 +133,39 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
     onClose();
   }
 
+  const allFilteredSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[85vh] flex flex-col">
         <div className="p-4 border-b">
           <h2 className="text-lg font-semibold text-gray-900">Add People to Event</h2>
           {!showCreate && (
-            <input
-              type="text"
-              placeholder="Search people..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="mt-3 w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-              autoFocus
-            />
+            <>
+              <input
+                type="text"
+                placeholder="Search people..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="mt-3 w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                autoFocus
+              />
+              {tags.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {tags.map((tag) => (
+                    <label key={tag.id} className="inline-flex items-center gap-1 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={selectedTagIds.includes(tag.id)}
+                        onChange={() => toggleTag(tag.id)}
+                        className="accent-indigo-600 w-3.5 h-3.5"
+                      />
+                      <span className="text-xs font-medium text-gray-700">{tag.name}</span>
+                    </label>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
 
@@ -167,6 +214,15 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
               </div>
             ) : (
               <>
+                <div className="px-3 py-1.5 flex items-center justify-between border-b mb-1">
+                  <span className="text-xs text-gray-500">{filtered.length} people</span>
+                  <button
+                    onClick={allFilteredSelected ? clearAll : selectAll}
+                    className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                  >
+                    {allFilteredSelected ? "Deselect all" : "Select all"}
+                  </button>
+                </div>
                 {filtered.map((p) => (
                   <label
                     key={p.id}

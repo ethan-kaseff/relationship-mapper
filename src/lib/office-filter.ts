@@ -46,6 +46,27 @@ export async function getOfficeFilter(): Promise<OfficeFilter> {
 }
 
 /**
+ * Returns true when the current user is viewing data from other offices
+ * (i.e. viewAllOffices cookie is set and they are not a SYSTEM_ADMIN or in a siloed office).
+ * Used to suppress edit/add/delete UI in cross-office view.
+ */
+export async function isCrossOfficeView(): Promise<boolean> {
+  const session = await auth();
+  if (!session?.user) return false;
+  if (session.user.role === "SYSTEM_ADMIN") return false;
+
+  const officeId = session.user.officeId;
+  const office = await prisma.office.findUnique({
+    where: { id: officeId },
+    select: { isSiloed: true },
+  });
+  if (office?.isSiloed) return false;
+
+  const cookieStore = await cookies();
+  return cookieStore.get("viewAllOffices")?.value === "true";
+}
+
+/**
  * Same logic but for API routes that receive a Request object.
  * Reads the cookie from the request headers.
  */

@@ -6,7 +6,7 @@ import { useSession } from "next-auth/react";
 interface Tag {
   id: string;
   name: string;
-  office?: { name: string };
+  office?: { id: string; name: string };
   _count?: { personTags: number; partnerTags: number; partnerRoleTags: number };
 }
 
@@ -75,10 +75,12 @@ export default function SettingsPage() {
   const [tagsLoading, setTagsLoading] = useState(true);
   const [showTagForm, setShowTagForm] = useState(false);
   const [newTagName, setNewTagName] = useState("");
+  const [newTagOfficeId, setNewTagOfficeId] = useState("");
   const [tagSubmitting, setTagSubmitting] = useState(false);
   const [tagError, setTagError] = useState("");
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editTagName, setEditTagName] = useState("");
+  const [editTagOfficeId, setEditTagOfficeId] = useState("");
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
   const tagInputRef = useRef<HTMLInputElement>(null);
 
@@ -621,10 +623,13 @@ export default function SettingsPage() {
     setTagError("");
 
     try {
+      const body: { name: string; officeId?: string } = { name: newTagName };
+      if (isSystemAdmin && newTagOfficeId) body.officeId = newTagOfficeId;
+
       const res = await fetch("/api/tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newTagName }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -633,6 +638,7 @@ export default function SettingsPage() {
       }
 
       setNewTagName("");
+      setNewTagOfficeId("");
       setShowTagForm(false);
       fetchTags();
     } catch (err: unknown) {
@@ -647,10 +653,13 @@ export default function SettingsPage() {
     setTagError("");
 
     try {
+      const body: { name: string; officeId?: string } = { name: editTagName };
+      if (isSystemAdmin && editTagOfficeId) body.officeId = editTagOfficeId;
+
       const res = await fetch(`/api/tags/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editTagName }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -659,6 +668,7 @@ export default function SettingsPage() {
       }
 
       setEditingTagId(null);
+      setEditTagOfficeId("");
       fetchTags();
     } catch (err: unknown) {
       setTagError(err instanceof Error ? err.message : "An error occurred");
@@ -1186,6 +1196,24 @@ export default function SettingsPage() {
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
+                {isSystemAdmin && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Office <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={newTagOfficeId}
+                      onChange={(e) => setNewTagOfficeId(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option value="">Select an office…</option>
+                      {offices.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button
                     type="submit"
@@ -1196,7 +1224,7 @@ export default function SettingsPage() {
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowTagForm(false); setTagError(""); }}
+                    onClick={() => { setShowTagForm(false); setTagError(""); setNewTagOfficeId(""); }}
                     className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
                   >
                     Cancel
@@ -1236,7 +1264,20 @@ export default function SettingsPage() {
                               className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                             />
                           </td>
-                          {isSystemAdmin && <td className="px-4 py-2 text-gray-600">{tag.office?.name ?? "—"}</td>}
+                          {isSystemAdmin && (
+                            <td className="px-4 py-2">
+                              <select
+                                value={editTagOfficeId}
+                                onChange={(e) => setEditTagOfficeId(e.target.value)}
+                                className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              >
+                                <option value="">Select office…</option>
+                                {offices.map((o) => (
+                                  <option key={o.id} value={o.id}>{o.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                          )}
                           <td className="px-4 py-2 text-gray-600">{usageCount}</td>
                           <td className="px-4 py-2 text-right">
                             <div className="flex gap-2 justify-end">
@@ -1268,7 +1309,7 @@ export default function SettingsPage() {
                           <td className="px-4 py-3 text-right">
                             <div className="flex gap-3 justify-end">
                               <button
-                                onClick={() => { setEditingTagId(tag.id); setEditTagName(tag.name); setDeletingTagId(null); }}
+                                onClick={() => { setEditingTagId(tag.id); setEditTagName(tag.name); setEditTagOfficeId(tag.office?.id ?? ""); setDeletingTagId(null); }}
                                 className="text-indigo-600 hover:underline text-xs"
                               >
                                 Edit

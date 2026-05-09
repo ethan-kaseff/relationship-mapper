@@ -22,6 +22,7 @@ export async function GET(request: Request) {
         },
         relationships: true,
         connections: true,
+        tags: { select: { tagId: true } },
       },
     });
     return NextResponse.json(people);

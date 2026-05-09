@@ -38,6 +38,7 @@ export async function middleware(request: NextRequest) {
   }
 
   const role = token.role as string | undefined;
+  const viewAllOffices = request.cookies.get("viewAllOffices")?.value === "true";
 
   // Settings page: SYSTEM_ADMIN and OFFICE_ADMIN only
   if (pathname.startsWith("/settings")) {
@@ -66,23 +67,57 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // VIEWER role restrictions
-  if (role === "VIEWER") {
-    // Block dashboard, events, fundraisers, settings — redirect to /people
+  // Cross-office restriction: non-SYSTEM_ADMIN in "All Offices" mode — relationship data only
+  if (viewAllOffices && role !== "SYSTEM_ADMIN" && role !== "VIEWER" && role !== "CONNECTOR") {
     if (!pathname.startsWith("/api/")) {
       const allowed =
         pathname.startsWith("/people") ||
         pathname.startsWith("/partners") ||
-        pathname.startsWith("/relationships") ||
-        pathname.startsWith("/interactions") ||
-        pathname.startsWith("/happenings");
+        pathname.startsWith("/relationships");
       if (!allowed) {
         return NextResponse.redirect(new URL("/people", request.url));
       }
     }
-    // API routes: allow GET only (except /api/auth which needs POST for session)
+    if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
+      // Block all writes in cross-office mode
+      if (request.method !== "GET") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      // Block certain read-only APIs too
+      const blockedApis =
+        pathname.startsWith("/api/connections") ||
+        pathname.startsWith("/api/happenings") ||
+        pathname.startsWith("/api/events") ||
+        pathname.startsWith("/api/fundraisers");
+      if (blockedApis) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    }
+  }
+
+  // VIEWER role restrictions — relationship data only
+  if (role === "VIEWER") {
+    if (!pathname.startsWith("/api/")) {
+      const allowed =
+        pathname.startsWith("/people") ||
+        pathname.startsWith("/partners") ||
+        pathname.startsWith("/relationships");
+      if (!allowed) {
+        return NextResponse.redirect(new URL("/people", request.url));
+      }
+    }
+    // API routes: block all writes and block non-relationship endpoints
     if (pathname.startsWith("/api/") && !pathname.startsWith("/api/auth")) {
       if (request.method !== "GET") {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      // Block interaction, happening, event, fundraiser API reads
+      const blockedApis =
+        pathname.startsWith("/api/connections") ||
+        pathname.startsWith("/api/happenings") ||
+        pathname.startsWith("/api/events") ||
+        pathname.startsWith("/api/fundraisers");
+      if (blockedApis) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
     }

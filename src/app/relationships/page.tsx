@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getOfficeFilter } from "@/lib/office-filter";
+import { getOfficeFilter, isCrossOfficeView } from "@/lib/office-filter";
 import { auth } from "@/lib/auth";
 import OfficeDataToggle from "@/components/OfficeDataToggle";
 import RelationshipSearch from "@/components/RelationshipSearch";
@@ -38,9 +38,9 @@ export default async function RelationshipsPage() {
     lastReviewedDate: rel.lastReviewedDate ? rel.lastReviewedDate.toISOString() : null,
   }));
 
-  const session = await auth();
+  const [session, crossOffice] = await Promise.all([auth(), isCrossOfficeView()]);
   const role = session?.user?.role;
-  const canWrite = role !== "CONNECTOR" && role !== "VIEWER";
+  const canWrite = role !== "CONNECTOR" && role !== "VIEWER" && !crossOffice;
 
   return (
     <div>

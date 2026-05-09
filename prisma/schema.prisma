@@ -131,6 +131,7 @@ model People {
   eventInvites       EventInvite[]
   tags               PersonTag[]
   donations               Donation[]
+  solicitations           FundraiserSolicitation[]
   emailRecipients         EmailRecipient[]
   personNotes             PersonNote[]
 
@@ -153,6 +154,7 @@ model Partner {
   email              String?
   website            String?
   priority           Int               @default(5)
+  status             String            @default("ACTIVE")
   createdAt          DateTime          @default(now()) @map("created_at")
   updatedAt          DateTime          @updatedAt @map("updated_at")
   officeId           String            @map("office_id")
@@ -382,12 +384,29 @@ model Fundraiser {
   officeId        String     @map("office_id")
   office          Office     @relation(fields: [officeId], references: [id])
   donations       Donation[]
+  solicitations   FundraiserSolicitation[]
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
 
   @@index([officeId])
   @@index([slug])
   @@map("fundraiser")
+}
+
+model FundraiserSolicitation {
+  id           String     @id @default(uuid())
+  fundraiserId String     @map("fundraiser_id")
+  fundraiser   Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  peopleId     String     @map("people_id")
+  person       People     @relation(fields: [peopleId], references: [id], onDelete: Cascade)
+  status       String     @default("PENDING") @map("status") // PENDING, SENT, DONATED, DECLINED
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  @@unique([fundraiserId, peopleId])
+  @@index([fundraiserId])
+  @@index([peopleId])
+  @@map("fundraiser_solicitation")
 }
 
 model Donation {

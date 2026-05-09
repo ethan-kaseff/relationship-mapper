@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireNonViewer } from "@/lib/api-auth";
+import { requireNonViewer } from "@/lib/api-auth";
 import { validateBody, createConnectionSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/api-error";
 import { getOfficeFilterFromRequest } from "@/lib/office-filter";
 
 export async function GET(request: Request) {
-  const authResult = await requireAuth();
+  const authResult = await requireNonViewer();
   if (!authResult.success) return authResult.response;
 
   try {

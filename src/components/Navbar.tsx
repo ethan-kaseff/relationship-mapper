@@ -25,18 +25,18 @@ const ROLE_LABELS: Record<string, string> = {
   CONNECTOR: "Connector",
 };
 
-function getNavLinks(role: string) {
+const RELATIONSHIP_ONLY_LINKS = ["/people", "/partners", "/relationships"];
+
+function getNavLinks(role: string, viewAll: boolean) {
   if (role === "CONNECTOR") {
     return allNavLinks.filter((l) => l.href === "/dashboard" || l.href === "/interactions");
   }
   if (role === "VIEWER") {
-    return allNavLinks.filter((l) =>
-      l.href === "/people" ||
-      l.href === "/partners" ||
-      l.href === "/relationships" ||
-      l.href === "/interactions" ||
-      l.href === "/happenings"
-    );
+    return allNavLinks.filter((l) => RELATIONSHIP_ONLY_LINKS.includes(l.href));
+  }
+  // Non-SYSTEM_ADMIN in All Offices mode: relationship data only
+  if (viewAll && role !== "SYSTEM_ADMIN") {
+    return allNavLinks.filter((l) => RELATIONSHIP_ONLY_LINKS.includes(l.href));
   }
   if (role === "OFFICE_USER") {
     return allNavLinks.filter((l) => l.href !== "/settings");
@@ -61,7 +61,7 @@ export default function Navbar() {
   if (!mounted || pathname === "/" || pathname === "/login" || status !== "authenticated") return null;
 
   const role = session.user.role;
-  const navLinks = getNavLinks(role);
+  const navLinks = getNavLinks(role, viewAll);
   const isSiloed = (session.user as { isSiloed?: boolean }).isSiloed;
   const showToggle = role !== "SYSTEM_ADMIN" && !isSiloed;
 

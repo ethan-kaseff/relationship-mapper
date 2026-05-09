@@ -9,6 +9,7 @@ import RemoveRolePersonButton from "@/components/RemoveRolePersonButton";
 import AssignRolePersonButton from "@/components/AssignRolePersonButton";
 import DeleteRoleButton from "@/components/DeleteRoleButton";
 import TagToggle from "@/components/TagToggle";
+import { isCrossOfficeView } from "@/lib/office-filter";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -52,25 +53,33 @@ export default async function PartnerDetailPage({
 
   if (!partner) return notFound();
 
-  const [session, allTags] = await Promise.all([
+  const [session, allTags, crossOffice] = await Promise.all([
     auth(),
     prisma.tag.findMany({ where: { officeId: partner.officeId }, orderBy: { name: "asc" } }),
+    isCrossOfficeView(),
   ]);
 
   const userRole = session?.user?.role;
-  const canEdit = userRole !== "CONNECTOR" && userRole !== "VIEWER";
+  const canEdit = userRole !== "CONNECTOR" && userRole !== "VIEWER" && !crossOffice;
 
   const partnerTagIds = partner.tags.map((t) => t.tag.id);
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-indigo-900">
-          {partner.organizationName ?? "Partner Detail"}
-        </h1>
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-indigo-900">
+            {partner.organizationName ?? "Partner Detail"}
+          </h1>
+          {partner.status === "INACTIVE" && (
+            <span className="inline-block mt-1 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-500">
+              Inactive
+            </span>
+          )}
+        </div>
         <Link
           href="/partners"
-          className="text-indigo-600 hover:underline text-sm"
+          className="text-indigo-600 hover:underline text-sm mt-1"
         >
           Back to Partners
         </Link>
@@ -92,6 +101,7 @@ export default async function PartnerDetailPage({
           email: partner.email,
           website: partner.website,
           priority: partner.priority,
+          status: partner.status,
         }}
         tagIds={partner.orgPeopleFlag === "P" ? partnerTagIds : undefined}
         allTags={allTags}
@@ -102,7 +112,7 @@ export default async function PartnerDetailPage({
       {partner.orgPeopleFlag === "O" && <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-indigo-900">Roles</h2>
-          {canEdit && <AddRoleForm partnerId={partner.id} allTags={allTags} />}
+          {canEdit && <AddRoleForm partnerId={partner.id} />}
         </div>
         {partner.partnerRoles.length === 0 ? (
           <p className="text-gray-400 text-sm">No roles defined for this partner.</p>

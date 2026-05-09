@@ -152,17 +152,48 @@ export async function DELETE(
 
   try {
     const { id } = await params;
+    const force = new URL(request.url).searchParams.get("force") === "true";
 
-    // Delete related records first (no cascade in schema)
+    // Count meaningful related data
+    const [eventInvites, notes, roles, relationships, connections, happenings, donations] = await Promise.all([
+      prisma.eventInvite.count({ where: { peopleId: id } }),
+      prisma.personNote.count({ where: { peopleId: id } }),
+      prisma.partnerRole.count({ where: { peopleId: id } }),
+      prisma.relationship.count({ where: { OR: [{ peopleId: id }, { targetPersonId: id }] } }),
+      prisma.connection.count({ where: { peopleId: id } }),
+      prisma.happeningResponse.count({ where: { peopleId: id } }),
+      prisma.donation.count({ where: { peopleId: id } }),
+    ]);
+
+    // Financial data is a hard block — cannot delete
+    if (donations > 0) {
+      return NextResponse.json(
+        { error: "financial_data", donations },
+        { status: 409 }
+      );
+    }
+
+    const hasRelatedData = eventInvites + notes + roles + relationships + connections + happenings > 0;
+
+    if (hasRelatedData && !force) {
+      return NextResponse.json(
+        {
+          error: "related_data",
+          related: { eventInvites, notes, roles, relationships, connections, happenings },
+        },
+        { status: 409 }
+      );
+    }
+
+    // Clean up all related records
+    await prisma.personTag.deleteMany({ where: { personId: id } });
+    await prisma.personNote.deleteMany({ where: { peopleId: id } });
+    await prisma.eventInvite.deleteMany({ where: { peopleId: id } });
+    await prisma.fundraiserSolicitation.deleteMany({ where: { peopleId: id } });
     await prisma.happeningResponse.deleteMany({ where: { peopleId: id } });
     await prisma.connection.deleteMany({ where: { peopleId: id } });
-    await prisma.relationship.deleteMany({ where: { peopleId: id } });
-    await prisma.relationship.deleteMany({ where: { targetPersonId: id } });
-    // Unlink from partner roles (don't delete the roles themselves)
-    await prisma.partnerRole.updateMany({
-      where: { peopleId: id },
-      data: { peopleId: null },
-    });
+    await prisma.relationship.deleteMany({ where: { OR: [{ peopleId: id }, { targetPersonId: id }] } });
+    await prisma.partnerRole.updateMany({ where: { peopleId: id }, data: { peopleId: null } });
 
     await prisma.people.delete({ where: { id } });
     return NextResponse.json({ message: "Person deleted" });

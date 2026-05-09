@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getOfficeFilter } from "@/lib/office-filter";
+import { getOfficeFilter, isCrossOfficeView } from "@/lib/office-filter";
 import { auth } from "@/lib/auth";
 import OfficeDataToggle from "@/components/OfficeDataToggle";
 import PeopleTable from "@/components/PeopleTable";
@@ -9,10 +9,35 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function PeoplePage() {
-  const officeFilter = await getOfficeFilter();
+  const [officeFilter, session, crossOffice] = await Promise.all([
+    getOfficeFilter(),
+    auth(),
+    isCrossOfficeView(),
+  ]);
+
+  const role = session?.user?.role;
+  const canWrite = role !== "CONNECTOR" && role !== "VIEWER" && !crossOffice;
+  const myOfficeId = session?.user?.officeId as string | undefined;
+
+  const peopleWhere = crossOffice && myOfficeId
+    ? {
+        ...officeFilter,
+        OR: [
+          { officeId: myOfficeId },
+          {
+            officeId: { not: myOfficeId },
+            OR: [
+              { relationships: { some: {} } },
+              { targetOfRelationships: { some: {} } },
+            ],
+          },
+        ],
+      }
+    : officeFilter;
+
   const [people, allTags] = await Promise.all([
     prisma.people.findMany({
-      where: officeFilter,
+      where: peopleWhere,
       select: {
         id: true,
         firstName: true,
@@ -33,10 +58,6 @@ export default async function PeoplePage() {
       orderBy: { name: "asc" },
     }),
   ]);
-
-  const session = await auth();
-  const role = session?.user?.role;
-  const canWrite = role !== "CONNECTOR" && role !== "VIEWER";
 
   const peopleWithTags = people.map((p) => ({
     ...p,

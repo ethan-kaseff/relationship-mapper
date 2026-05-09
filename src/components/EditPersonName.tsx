@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface Tag { id: string; name: string; }
-
 interface PersonData {
   firstName: string;
   middleInitial: string | null;
@@ -25,10 +23,9 @@ interface PersonData {
 interface Props {
   personId: string;
   person: PersonData;
-  allTags: Tag[];
 }
 
-export default function EditPersonButton({ personId, person, allTags }: Props) {
+export default function EditPersonButton({ personId, person }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...person });
@@ -38,15 +35,6 @@ export default function EditPersonButton({ personId, person, allTags }: Props) {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const { name, value, type, checked } = e.target;
     setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
-  }
-
-  function handleTagToggle(tagId: string) {
-    setForm((prev) => ({
-      ...prev,
-      tagIds: prev.tagIds.includes(tagId)
-        ? prev.tagIds.filter((id) => id !== tagId)
-        : [...prev.tagIds, tagId],
-    }));
   }
 
   function resetForm() {
@@ -154,14 +142,6 @@ export default function EditPersonButton({ personId, person, allTags }: Props) {
               </span>
             </div>
           )}
-          {person.tagIds.length > 0 && (
-            <div className="md:col-span-3">
-              <span className="font-medium text-gray-500">Tags:</span>{" "}
-              <span className="text-gray-800">
-                {allTags.filter((t) => person.tagIds.includes(t.id)).map((t) => t.name).join(", ")}
-              </span>
-            </div>
-          )}
         </div>
       </div>
     );
@@ -262,21 +242,6 @@ export default function EditPersonButton({ personId, person, allTags }: Props) {
             className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
           <label htmlFor="editIsConnector" className="text-sm font-medium text-gray-700">Is Connector</label>
         </div>
-
-        {allTags.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
-            <div className="flex flex-wrap gap-3">
-              {allTags.map((tag) => (
-                <label key={tag.id} className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                  <input type="checkbox" checked={form.tagIds.includes(tag.id)} onChange={() => handleTagToggle(tag.id)}
-                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
-                  <span className="text-sm text-gray-700">{tag.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="flex gap-2 pt-2">
           <button onClick={handleSave} disabled={saving || !form.firstName.trim() || !form.lastName.trim()}
