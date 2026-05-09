@@ -30,6 +30,7 @@ model Office {
   fundraisers            Fundraiser[]
   annualEventTypes       AnnualEventType[]
   annualFundraiserTypes  AnnualFundraiserType[]
+  tags                   Tag[]
   integrationTokens      IntegrationToken[]
   emailCampaigns         EmailCampaign[]
   emailTemplates         EmailTemplate[]
@@ -73,6 +74,21 @@ model RelationshipType {
   relationships    Relationship[]
 
   @@map("relationship_type")
+}
+
+model Tag {
+  id       String @id @default(uuid())
+  name     String
+  officeId String @map("office_id")
+  office   Office @relation(fields: [officeId], references: [id])
+
+  personTags      PersonTag[]
+  partnerTags     PartnerTag[]
+  partnerRoleTags PartnerRoleTag[]
+
+  @@unique([name, officeId])
+  @@index([officeId])
+  @@map("tag")
 }
 
 model AnnualEventType {
@@ -146,6 +162,7 @@ model People {
   happeningResponses HappeningResponse[]
   eventInvites       EventInvite[]
   annualEventTypes   PeopleAnnualEventType[]
+  tags               PersonTag[]
   donations               Donation[]
   emailRecipients         EmailRecipient[]
   annualFundraiserTypes   PeopleAnnualFundraiserType[]
@@ -178,6 +195,7 @@ model Partner {
   partnerRoles            PartnerRole[]
   annualEventTypes        PartnerAnnualEventType[]
   annualFundraiserTypes   PartnerAnnualFundraiserType[]
+  tags                    PartnerTag[]
 
   @@index([officeId])
   @@map("partner")
@@ -195,6 +213,7 @@ model PartnerRole {
   connections      Connection[]
   annualEventTypes        PartnerRoleAnnualEventType[]
   annualFundraiserTypes   PartnerRoleAnnualFundraiserType[]
+  tags                    PartnerRoleTag[]
 
   @@map("partner_role")
 }
@@ -393,6 +412,41 @@ model PartnerRoleAnnualFundraiserType {
 
   @@unique([partnerRoleId, annualFundraiserTypeId])
   @@map("partner_role_annual_fundraiser_type")
+}
+
+// ─── Tag Join Tables ─────────────────────────────────────────────────────────
+
+model PersonTag {
+  id       String @id @default(uuid())
+  personId String @map("person_id")
+  person   People @relation(fields: [personId], references: [id], onDelete: Cascade)
+  tagId    String @map("tag_id")
+  tag      Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([personId, tagId])
+  @@map("person_tag")
+}
+
+model PartnerTag {
+  id        String  @id @default(uuid())
+  partnerId String  @map("partner_id")
+  partner   Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  tagId     String  @map("tag_id")
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, tagId])
+  @@map("partner_tag")
+}
+
+model PartnerRoleTag {
+  id            String      @id @default(uuid())
+  partnerRoleId String      @map("partner_role_id")
+  partnerRole   PartnerRole @relation(fields: [partnerRoleId], references: [id], onDelete: Cascade)
+  tagId         String      @map("tag_id")
+  tag           Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerRoleId, tagId])
+  @@map("partner_role_tag")
 }
 
 // ─── Integrations ─────────────────────────────────────────────────────────────
