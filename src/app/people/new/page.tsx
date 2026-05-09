@@ -46,11 +46,19 @@ export default function NewPersonPage() {
   });
 
   useEffect(() => {
-    if (form.status === "PROSPECT" && users.length === 0) {
-      fetch("/api/users/assignable").then((r) => r.json()).then(setUsers).catch(() => {});
-      fetch("/api/email-templates").then((r) => r.json()).then(setTemplates).catch(() => {});
+    if (form.status === "PROSPECT") {
+      if (users.length === 0) {
+        fetch("/api/users/assignable").then((r) => r.json()).then(setUsers).catch(() => {});
+      }
+      const url = isSystemAdmin && selectedOfficeId
+        ? `/api/email-templates?officeId=${selectedOfficeId}`
+        : "/api/email-templates";
+      fetch(url).then((r) => r.json()).then((data) => {
+        setTemplates(data);
+        setEmailTemplateId(""); // reset selection when office changes
+      }).catch(() => {});
     }
-  }, [form.status, users.length]);
+  }, [form.status, users.length, isSystemAdmin, selectedOfficeId]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
     const { name, value } = e.target;

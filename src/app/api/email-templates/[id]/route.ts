@@ -18,8 +18,9 @@ export async function PUT(
   if (!authResult.success) return authResult.response;
   try {
     const { id } = await params;
-    const officeId = (authResult.session.user as { officeId: string }).officeId;
-    const existing = await prisma.emailTemplate.findFirst({ where: { id, officeId } });
+    const user = authResult.session.user as { officeId: string; role: string };
+    const where = user.role === "SYSTEM_ADMIN" ? { id } : { id, officeId: user.officeId };
+    const existing = await prisma.emailTemplate.findFirst({ where });
     if (!existing) return notFound("Template not found");
     const body = await request.json();
     const data = templateSchema.parse(body);
@@ -38,8 +39,9 @@ export async function DELETE(
   if (!authResult.success) return authResult.response;
   try {
     const { id } = await params;
-    const officeId = (authResult.session.user as { officeId: string }).officeId;
-    const existing = await prisma.emailTemplate.findFirst({ where: { id, officeId } });
+    const user = authResult.session.user as { officeId: string; role: string };
+    const where = user.role === "SYSTEM_ADMIN" ? { id } : { id, officeId: user.officeId };
+    const existing = await prisma.emailTemplate.findFirst({ where });
     if (!existing) return notFound("Template not found");
     await prisma.emailTemplate.delete({ where: { id } });
     return NextResponse.json({ deleted: true });

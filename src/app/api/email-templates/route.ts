@@ -8,13 +8,26 @@ const templateSchema = z.object({
   name: z.string().min(1).max(100),
   subject: z.string().min(1).max(255),
   body: z.string().min(1).max(10000),
+  officeId: z.string().optional(),
 });
 
-export async function GET() {
+export async function GET(request: Request) {
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
   try {
-    const officeId = (authResult.session.user as { officeId: string }).officeId;
+    const user = authResult.session.user as { officeId: string; role: string };
+    const url = new URL(request.url);
+    const queryOfficeId = url.searchParams.get("officeId");
+    if (user.role === "SYSTEM_ADMIN" && !queryOfficeId) {
+      // Return all offices' templates with office info
+      const templates = await prisma.emailTemplate.findMany({
+        orderBy: [{ office: { name: "asc" } }, { name: "asc" }],
+        include: { office: { select: { id: true, name: true } } },
+      });
+      return NextResponse.json(templates);
+    }
+    const officeId =
+      user.role === "SYSTEM_ADMIN" && queryOfficeId ? queryOfficeId : user.officeId;
     const templates = await prisma.emailTemplate.findMany({
       where: { officeId },
       orderBy: { name: "asc" },
@@ -29,11 +42,14 @@ export async function POST(request: Request) {
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
   try {
-    const officeId = (authResult.session.user as { officeId: string }).officeId;
+    const user = authResult.session.user as { officeId: string; role: string };
     const body = await request.json();
-    const data = templateSchema.parse(body);
+    const { officeId: bodyOfficeId, ...data } = templateSchema.parse(body);
+    const officeId =
+      user.role === "SYSTEM_ADMIN" && bodyOfficeId ? bodyOfficeId : user.officeId;
     const template = await prisma.emailTemplate.create({
       data: { ...data, officeId },
+      include: { office: { select: { id: true, name: true } } },
     });
     return NextResponse.json(template, { status: 201 });
   } catch (error) {
