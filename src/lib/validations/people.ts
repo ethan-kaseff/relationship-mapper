@@ -41,8 +41,7 @@ export const updatePeopleSchema = z.object({
   assignedToId: z.string().uuid().optional().nullable(),
   assignedDate: z.string().datetime({ offset: true }).optional().nullable(),
   emailTemplateId: z.string().uuid().optional().nullable(),
-  annualEventTypeIds: z.array(z.string().uuid()).optional(),
-  annualFundraiserTypeIds: z.array(z.string().uuid()).optional(),
+  tagIds: z.array(z.string().uuid()).optional(),
 });
 
 export type CreatePeopleInput = z.infer<typeof createPeopleSchema>;

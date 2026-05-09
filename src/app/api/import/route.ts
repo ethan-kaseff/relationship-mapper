@@ -78,8 +78,8 @@ export async function POST(request: Request) {
         existingPeople.map((p) => personKey(p.prefix, p.firstName, p.middleInitial, p.lastName, p.officeId))
       );
 
-      // Pre-load annual event types for the "annual events" column
-      const allAnnualEventTypes = await prisma.annualEventType.findMany({
+      // Pre-load tags for the "tags" column
+      const allTags = await prisma.tag.findMany({
         select: { id: true, name: true, officeId: true },
       });
 
@@ -122,23 +122,23 @@ export async function POST(request: Request) {
         }
 
         try {
-          const annualEventsRaw = row["annual events"] || row["annualevents"] || row["annual event types"] || "";
-          const eventNames = annualEventsRaw.trim()
-            ? annualEventsRaw.split(",").map((s: string) => s.trim()).filter(Boolean)
+          const tagsRaw = row["tags"] || row["annual events"] || row["annualevents"] || row["annual event types"] || "";
+          const tagNames = tagsRaw.trim()
+            ? tagsRaw.split(",").map((s: string) => s.trim()).filter(Boolean)
             : [];
 
-          // Resolve annual event types before the transaction
-          const resolvedEvents: { name: string; id: string }[] = [];
-          for (const eventName of eventNames) {
-            const aet = allAnnualEventTypes.find(
-              (a) => a.name.toLowerCase() === eventName.toLowerCase() && a.officeId === officeId
+          // Resolve tags before the transaction
+          const resolvedTags: { name: string; id: string }[] = [];
+          for (const tagName of tagNames) {
+            const tag = allTags.find(
+              (t) => t.name.toLowerCase() === tagName.toLowerCase() && t.officeId === officeId
             );
-            if (aet) {
-              resolvedEvents.push({ name: eventName, id: aet.id });
+            if (tag) {
+              resolvedTags.push({ name: tagName, id: tag.id });
             } else {
               errors.push({
                 row: rowNum,
-                message: `Annual event type "${eventName}" not found (person was still created)`,
+                message: `Tag "${tagName}" not found (person was still created)`,
               });
             }
           }
@@ -165,10 +165,10 @@ export async function POST(request: Request) {
               },
             });
 
-            for (const evt of resolvedEvents) {
+            for (const tag of resolvedTags) {
               try {
-                await tx.peopleAnnualEventType.create({
-                  data: { peopleId: person.id, annualEventTypeId: evt.id },
+                await tx.personTag.create({
+                  data: { personId: person.id, tagId: tag.id },
                 });
               } catch (err) {
                 if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
@@ -207,8 +207,8 @@ export async function POST(request: Request) {
         allPeople.map((p) => [`${p.firstName} ${p.lastName}`.toLowerCase(), p.id])
       );
 
-      // Pre-load annual event types for the "annual events" column
-      const allAnnualEventTypes = await prisma.annualEventType.findMany({
+      // Pre-load tags for the "tags" column
+      const allTagsForRoles = await prisma.tag.findMany({
         select: { id: true, name: true, officeId: true },
       });
 
@@ -255,18 +255,18 @@ export async function POST(request: Request) {
           });
           created++;
 
-          // Handle "annual events" column — comma-separated list of annual event type names
-          const annualEventsRaw = row["annual events"] || row["annualevents"] || row["annual event types"] || "";
-          if (annualEventsRaw.trim()) {
-            const eventNames = annualEventsRaw.split(",").map((s: string) => s.trim()).filter(Boolean);
-            for (const eventName of eventNames) {
-              const aet = allAnnualEventTypes.find(
-                (a) => a.name.toLowerCase() === eventName.toLowerCase() && a.officeId === partner.officeId
+          // Handle "tags" column — comma-separated list of tag names
+          const tagsRaw = row["tags"] || row["annual events"] || row["annualevents"] || row["annual event types"] || "";
+          if (tagsRaw.trim()) {
+            const tagNames = tagsRaw.split(",").map((s: string) => s.trim()).filter(Boolean);
+            for (const tagName of tagNames) {
+              const tag = allTagsForRoles.find(
+                (t) => t.name.toLowerCase() === tagName.toLowerCase() && t.officeId === partner.officeId
               );
-              if (aet) {
+              if (tag) {
                 try {
-                  await prisma.partnerRoleAnnualEventType.create({
-                    data: { partnerRoleId: role.id, annualEventTypeId: aet.id },
+                  await prisma.partnerRoleTag.create({
+                    data: { partnerRoleId: role.id, tagId: tag.id },
                   });
                 } catch (err) {
                   if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
@@ -278,7 +278,7 @@ export async function POST(request: Request) {
               } else {
                 errors.push({
                   row: rowNum,
-                  message: `Annual event type "${eventName}" not found (role was still created)`,
+                  message: `Tag "${tagName}" not found (role was still created)`,
                 });
               }
             }

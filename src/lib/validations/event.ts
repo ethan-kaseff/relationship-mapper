@@ -11,7 +11,7 @@ export const createEventSchema = z.object({
   ticketPrice: z.number().int().min(0).optional().nullable(),
   mealCost: z.number().int().min(0).optional().nullable(),
   templateEventId: z.string().uuid().optional().nullable(),
-  annualEventTypeId: z.string().uuid().optional().nullable(),
+  tagId: z.string().uuid().optional().nullable(),
 });
 
 export const updateEventSchema = z.object({

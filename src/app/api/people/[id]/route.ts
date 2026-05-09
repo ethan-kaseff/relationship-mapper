@@ -49,11 +49,8 @@ export async function GET(
             happening: true,
           },
         },
-        annualEventTypes: {
-          include: { annualEventType: true },
-        },
-        annualFundraiserTypes: {
-          include: { annualFundraiserType: true },
+        tags: {
+          include: { tag: true },
         },
       },
     });
@@ -129,28 +126,13 @@ export async function PUT(
       });
     }
 
-    // Handle annual event type associations
-    if (data.annualEventTypeIds !== undefined) {
-      await prisma.peopleAnnualEventType.deleteMany({ where: { peopleId: id } });
-      if (data.annualEventTypeIds.length > 0) {
-        await prisma.peopleAnnualEventType.createMany({
-          data: data.annualEventTypeIds.map((typeId) => ({
-            peopleId: id,
-            annualEventTypeId: typeId,
-          })),
-        });
-      }
-    }
-
-    // Handle annual fundraiser type associations
-    if (data.annualFundraiserTypeIds !== undefined) {
-      await prisma.peopleAnnualFundraiserType.deleteMany({ where: { peopleId: id } });
-      if (data.annualFundraiserTypeIds.length > 0) {
-        await prisma.peopleAnnualFundraiserType.createMany({
-          data: data.annualFundraiserTypeIds.map((typeId) => ({
-            peopleId: id,
-            annualFundraiserTypeId: typeId,
-          })),
+    // Handle tag associations
+    if (data.tagIds !== undefined) {
+      await prisma.personTag.deleteMany({ where: { personId: id } });
+      if (data.tagIds.length > 0) {
+        await prisma.personTag.createMany({
+          data: data.tagIds.map((tagId) => ({ personId: id, tagId })),
+          skipDuplicates: true,
         });
       }
     }

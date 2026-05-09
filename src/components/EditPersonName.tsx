@@ -3,10 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface LookupType {
-  id: string;
-  name: string;
-}
+interface Tag { id: string; name: string; }
 
 interface PersonData {
   firstName: string;
@@ -22,18 +19,16 @@ interface PersonData {
   email1: string | null;
   email2: string | null;
   isConnector: boolean;
-  annualEventTypeIds: string[];
-  annualFundraiserTypeIds: string[];
+  tagIds: string[];
 }
 
 interface Props {
   personId: string;
   person: PersonData;
-  allAnnualEventTypes: LookupType[];
-  allAnnualFundraiserTypes: LookupType[];
+  allTags: Tag[];
 }
 
-export default function EditPersonButton({ personId, person, allAnnualEventTypes, allAnnualFundraiserTypes }: Props) {
+export default function EditPersonButton({ personId, person, allTags }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ ...person });
@@ -45,21 +40,12 @@ export default function EditPersonButton({ personId, person, allAnnualEventTypes
     setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
   }
 
-  function handleAetToggle(typeId: string) {
+  function handleTagToggle(tagId: string) {
     setForm((prev) => ({
       ...prev,
-      annualEventTypeIds: prev.annualEventTypeIds.includes(typeId)
-        ? prev.annualEventTypeIds.filter((id) => id !== typeId)
-        : [...prev.annualEventTypeIds, typeId],
-    }));
-  }
-
-  function handleAftToggle(typeId: string) {
-    setForm((prev) => ({
-      ...prev,
-      annualFundraiserTypeIds: prev.annualFundraiserTypeIds.includes(typeId)
-        ? prev.annualFundraiserTypeIds.filter((id) => id !== typeId)
-        : [...prev.annualFundraiserTypeIds, typeId],
+      tagIds: prev.tagIds.includes(tagId)
+        ? prev.tagIds.filter((id) => id !== tagId)
+        : [...prev.tagIds, tagId],
     }));
   }
 
@@ -91,8 +77,7 @@ export default function EditPersonButton({ personId, person, allAnnualEventTypes
           email1: form.email1 || null,
           email2: form.email2 || null,
           isConnector: form.isConnector,
-          annualEventTypeIds: form.annualEventTypeIds,
-          annualFundraiserTypeIds: form.annualFundraiserTypeIds,
+          tagIds: form.tagIds,
         }),
       });
 
@@ -110,7 +95,7 @@ export default function EditPersonButton({ personId, person, allAnnualEventTypes
     }
   }
 
-  // ── Read-only view with Edit button ──
+  // ── Read-only view ──
   if (!editing) {
     return (
       <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -169,25 +154,11 @@ export default function EditPersonButton({ personId, person, allAnnualEventTypes
               </span>
             </div>
           )}
-          {person.annualEventTypeIds.length > 0 && (
-            <div className="md:col-span-2">
-              <span className="font-medium text-gray-500">Annual Events:</span>{" "}
+          {person.tagIds.length > 0 && (
+            <div className="md:col-span-3">
+              <span className="font-medium text-gray-500">Tags:</span>{" "}
               <span className="text-gray-800">
-                {allAnnualEventTypes
-                  .filter((t) => person.annualEventTypeIds.includes(t.id))
-                  .map((t) => t.name)
-                  .join(", ")}
-              </span>
-            </div>
-          )}
-          {person.annualFundraiserTypeIds.length > 0 && (
-            <div className="md:col-span-2">
-              <span className="font-medium text-gray-500">Annual Fundraisers:</span>{" "}
-              <span className="text-gray-800">
-                {allAnnualFundraiserTypes
-                  .filter((t) => person.annualFundraiserTypeIds.includes(t.id))
-                  .map((t) => t.name)
-                  .join(", ")}
+                {allTags.filter((t) => person.tagIds.includes(t.id)).map((t) => t.name).join(", ")}
               </span>
             </div>
           )}
@@ -215,192 +186,92 @@ export default function EditPersonButton({ personId, person, allAnnualEventTypes
             <label className="block text-sm font-medium text-gray-700 mb-1">
               First Name <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              name="firstName"
-              required
-              value={form.firstName}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <input type="text" name="firstName" required value={form.firstName} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
           <div className="w-16">
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              MI
-            </label>
-            <input
-              type="text"
-              name="middleInitial"
-              maxLength={5}
-              value={form.middleInitial ?? ""}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <label className="block text-sm font-medium text-gray-700 mb-1">MI</label>
+            <input type="text" name="middleInitial" maxLength={5} value={form.middleInitial ?? ""} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Last Name <span className="text-red-500">*</span>
             </label>
-            <input
-              type="text"
-              name="lastName"
-              required
-              value={form.lastName}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <input type="text" name="lastName" required value={form.lastName} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Professional Prefix</label>
-          <input
-            type="text"
-            name="prefix"
-            placeholder="e.g. Rabbi, Dr, Reverend"
-            value={form.prefix ?? ""}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
-          />
+          <input type="text" name="prefix" placeholder="e.g. Rabbi, Dr, Reverend" value={form.prefix ?? ""} onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
-          <input
-            type="text"
-            name="address"
-            value={form.address ?? ""}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          />
+          <input type="text" name="address" value={form.address ?? ""} onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
         </div>
 
         <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
-            <input
-              type="text"
-              name="city"
-              value={form.city ?? ""}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <input type="text" name="city" value={form.city ?? ""} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
-            <input
-              type="text"
-              name="state"
-              value={form.state ?? ""}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <input type="text" name="state" value={form.state ?? ""} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Zip</label>
-            <input
-              type="text"
-              name="zip"
-              value={form.zip ?? ""}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <input type="text" name="zip" value={form.zip ?? ""} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-            <input
-              type="text"
-              name="phoneNumber"
-              value={form.phoneNumber ?? ""}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <input type="text" name="phoneNumber" value={form.phoneNumber ?? ""} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email 1</label>
-            <input
-              type="email"
-              name="email1"
-              value={form.email1 ?? ""}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <input type="email" name="email1" value={form.email1 ?? ""} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email 2</label>
-            <input
-              type="email"
-              name="email2"
-              value={form.email2 ?? ""}
-              onChange={handleChange}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
+            <input type="email" name="email2" value={form.email2 ?? ""} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Personalized Greeting</label>
-          <input
-            type="text"
-            name="greeting"
-            placeholder="e.g. Dear Rabbi Smith"
-            value={form.greeting ?? ""}
-            onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent"
-          />
+          <input type="text" name="greeting" placeholder="e.g. Dear Rabbi Smith" value={form.greeting ?? ""} onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
         </div>
 
-        <div className="flex items-center gap-6">
-          <div className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              name="isConnector"
-              id="editIsConnector"
-              checked={form.isConnector}
-              onChange={handleChange}
-              className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-            />
-            <label htmlFor="editIsConnector" className="text-sm font-medium text-gray-700">
-              Is Connector
-            </label>
-          </div>
+        <div className="flex items-center gap-2">
+          <input type="checkbox" name="isConnector" id="editIsConnector" checked={form.isConnector} onChange={handleChange}
+            className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
+          <label htmlFor="editIsConnector" className="text-sm font-medium text-gray-700">Is Connector</label>
         </div>
 
-        {allAnnualEventTypes.length > 0 && (
+        {allTags.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Annual Event Invites</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Tags</label>
             <div className="flex flex-wrap gap-3">
-              {allAnnualEventTypes.map((type) => (
-                <label key={type.id} className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={form.annualEventTypeIds.includes(type.id)}
-                    onChange={() => handleAetToggle(type.id)}
-                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700">{type.name}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {allAnnualFundraiserTypes.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Annual Fundraiser Invites</label>
-            <div className="flex flex-wrap gap-3">
-              {allAnnualFundraiserTypes.map((type) => (
-                <label key={type.id} className="inline-flex items-center gap-1.5 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={form.annualFundraiserTypeIds.includes(type.id)}
-                    onChange={() => handleAftToggle(type.id)}
-                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
-                  />
-                  <span className="text-sm text-gray-700">{type.name}</span>
+              {allTags.map((tag) => (
+                <label key={tag.id} className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                  <input type="checkbox" checked={form.tagIds.includes(tag.id)} onChange={() => handleTagToggle(tag.id)}
+                    className="h-4 w-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500" />
+                  <span className="text-sm text-gray-700">{tag.name}</span>
                 </label>
               ))}
             </div>
@@ -408,17 +279,11 @@ export default function EditPersonButton({ personId, person, allAnnualEventTypes
         )}
 
         <div className="flex gap-2 pt-2">
-          <button
-            onClick={handleSave}
-            disabled={saving || !form.firstName.trim() || !form.lastName.trim()}
-            className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
-          >
+          <button onClick={handleSave} disabled={saving || !form.firstName.trim() || !form.lastName.trim()}
+            className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50">
             {saving ? "Saving..." : "Save Changes"}
           </button>
-          <button
-            onClick={resetForm}
-            className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
-          >
+          <button onClick={resetForm} className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5">
             Cancel
           </button>
         </div>
