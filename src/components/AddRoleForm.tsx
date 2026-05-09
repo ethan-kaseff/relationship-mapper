@@ -11,12 +11,7 @@ interface Person {
   lastName: string;
 }
 
-interface Tag {
-  id: string;
-  name: string;
-}
-
-export default function AddRoleForm({ partnerId, allTags }: { partnerId: string; allTags: Tag[] }) {
+export default function AddRoleForm({ partnerId }: { partnerId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -26,7 +21,6 @@ export default function AddRoleForm({ partnerId, allTags }: { partnerId: string;
   const [roleDescription, setRoleDescription] = useState("");
   const [peopleId, setPeopleId] = useState("");
   const [startDate, setStartDate] = useState("");
-  const [tagIds, setTagIds] = useState<string[]>([]);
   const [quickAdd, setQuickAdd] = useState(false);
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
@@ -49,12 +43,6 @@ export default function AddRoleForm({ partnerId, allTags }: { partnerId: string;
   useEffect(() => {
     if (open) fetchPeople();
   }, [open, fetchPeople]);
-
-  function handleTagToggle(tagId: string) {
-    setTagIds((prev) =>
-      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
-    );
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,7 +80,6 @@ export default function AddRoleForm({ partnerId, allTags }: { partnerId: string;
           roleDescription,
           peopleId: assignPeopleId,
           startDate: assignPeopleId && startDate ? startDate : null,
-          tagIds,
         }),
       });
 
@@ -105,7 +92,6 @@ export default function AddRoleForm({ partnerId, allTags }: { partnerId: string;
       setRoleFilled(false);
       setPeopleId("");
       setStartDate("");
-      setTagIds([]);
       setQuickAdd(false);
       setNewFirstName("");
       setNewLastName("");
@@ -238,21 +224,6 @@ export default function AddRoleForm({ partnerId, allTags }: { partnerId: string;
               onChange={(e) => setStartDate(e.target.value)}
               className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
-          </div>
-        )}
-        {allTags.length > 0 && (
-          <div className="flex items-center gap-2 self-center">
-            {allTags.map((tag) => (
-              <label key={tag.id} className="inline-flex items-center gap-1 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={tagIds.includes(tag.id)}
-                  onChange={() => handleTagToggle(tag.id)}
-                  className="accent-indigo-600 w-3.5 h-3.5"
-                />
-                <span className="text-xs font-medium text-gray-700">{tag.name}</span>
-              </label>
-            ))}
           </div>
         )}
         <div className="flex gap-2">

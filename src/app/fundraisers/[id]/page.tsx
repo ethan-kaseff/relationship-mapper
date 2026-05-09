@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { formatCurrency, dollarsToCents } from "@/lib/currency";
+import AddSolicitationsModal from "@/components/fundraisers/AddSolicitationsModal";
 
 interface Person {
   id: string;
@@ -45,12 +46,19 @@ interface Fundraiser {
   donations: Donation[];
 }
 
-type Tab = "overview" | "donations" | "approvals" | "settings";
+interface Solicitation {
+  id: string;
+  status: string;
+  person: { id: string; firstName: string; lastName: string; email1: string | null; email2: string | null };
+}
+
+type Tab = "overview" | "donations" | "solicitations" | "approvals" | "settings";
 
 export default function FundraiserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [fundraiser, setFundraiser] = useState<Fundraiser | null>(null);
+  const [solicitations, setSolicitations] = useState<Solicitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("overview");
   const [error, setError] = useState("");
@@ -67,7 +75,12 @@ export default function FundraiserDetailPage() {
     }
   }, [id]);
 
-  useEffect(() => { load(); }, [load]);
+  const loadSolicitations = useCallback(async () => {
+    const res = await fetch(`/api/fundraisers/${id}/solicitations`);
+    if (res.ok) setSolicitations(await res.json());
+  }, [id]);
+
+  useEffect(() => { load(); loadSolicitations(); }, [load, loadSolicitations]);
 
   if (loading) return <div className="text-gray-500">Loading...</div>;
   if (error || !fundraiser) return <div className="text-red-600">{error}</div>;
@@ -80,6 +93,7 @@ export default function FundraiserDetailPage() {
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: "overview", label: "Overview" },
+    ...(!fundraiser.event ? [{ key: "solicitations" as Tab, label: "Ask List", badge: solicitations.length || undefined }] : []),
     { key: "donations", label: "Donations" },
     { key: "approvals", label: "Approvals", badge: pendingDonations.length },
     { key: "settings", label: "Settings" },
@@ -115,7 +129,7 @@ export default function FundraiserDetailPage() {
           >
             {t.label}
             {t.badge ? (
-              <span className="ml-1.5 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+              <span className="ml-1.5 bg-indigo-100 text-indigo-700 text-xs px-1.5 py-0.5 rounded-full">
                 {t.badge}
               </span>
             ) : null}
@@ -125,6 +139,13 @@ export default function FundraiserDetailPage() {
 
       {tab === "overview" && <OverviewTab fundraiser={fundraiser} pct={pct} />}
       {tab === "donations" && <DonationsTab fundraiser={fundraiser} onRefresh={load} />}
+      {tab === "solicitations" && !fundraiser.event && (
+        <SolicitationsTab
+          fundraiserId={fundraiser.id}
+          solicitations={solicitations}
+          onRefresh={loadSolicitations}
+        />
+      )}
       {tab === "approvals" && <ApprovalsTab fundraiser={fundraiser} pending={pendingDonations} onRefresh={load} />}
       {tab === "settings" && <SettingsTab fundraiser={fundraiser} onRefresh={load} onDelete={() => router.push("/fundraisers")} />}
     </div>
@@ -624,5 +645,182 @@ function StatusBadge({ status }: { status: string }) {
     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${styles[status] || "bg-gray-100 text-gray-500"}`}>
       {labels[status] || status}
     </span>
+  );
+}
+
+const SOLICITATION_STATUSES = ["PENDING", "SENT", "DONATED", "DECLINED"];
+const SOLICITATION_STATUS_LABELS: Record<string, string> = {
+  PENDING: "Pending",
+  SENT: "Sent",
+  DONATED: "Donated",
+  DECLINED: "Declined",
+};
+const SOLICITATION_STATUS_COLORS: Record<string, string> = {
+  PENDING: "bg-gray-100 text-gray-600",
+  SENT: "bg-blue-100 text-blue-700",
+  DONATED: "bg-green-100 text-green-700",
+  DECLINED: "bg-red-100 text-red-600",
+};
+
+function SolicitationsTab({
+  fundraiserId,
+  solicitations,
+  onRefresh,
+}: {
+  fundraiserId: string;
+  solicitations: Solicitation[];
+  onRefresh: () => void;
+}) {
+  const [showModal, setShowModal] = useState(false);
+  const [updatingId, setUpdatingId] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  const existingPeopleIds = solicitations.map((s) => s.person.id);
+
+  async function handleStatusChange(solId: string, status: string) {
+    setUpdatingId(solId);
+    await fetch(`/api/fundraisers/${fundraiserId}/solicitations/${solId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ status }),
+    });
+    setUpdatingId(null);
+    onRefresh();
+  }
+
+  async function handleRemove(solId: string) {
+    setRemovingId(solId);
+    await fetch(`/api/fundraisers/${fundraiserId}/solicitations/${solId}`, { method: "DELETE" });
+    setRemovingId(null);
+    onRefresh();
+  }
+
+  function exportCSV() {
+    const filtered = solicitations.filter((s) => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return `${s.person.firstName} ${s.person.lastName}`.toLowerCase().includes(q);
+    });
+    const rows = [
+      ["First Name", "Last Name", "Email 1", "Email 2", "Status"],
+      ...filtered.map((s) => [
+        s.person.firstName,
+        s.person.lastName,
+        s.person.email1 ?? "",
+        s.person.email2 ?? "",
+        SOLICITATION_STATUS_LABELS[s.status] ?? s.status,
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "ask-list.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const filtered = solicitations.filter((s) => {
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return `${s.person.firstName} ${s.person.lastName}`.toLowerCase().includes(q);
+  });
+
+  return (
+    <div className="bg-white rounded-lg shadow">
+      <div className="flex items-center justify-between p-4 border-b">
+        <h3 className="text-sm font-medium text-gray-900">Ask List ({solicitations.length})</h3>
+        <div className="flex gap-2">
+          <button
+            onClick={exportCSV}
+            className="text-sm border border-indigo-300 text-indigo-600 px-3 py-1.5 rounded-md hover:bg-indigo-50"
+          >
+            Export CSV
+          </button>
+          <button
+            onClick={() => setShowModal(true)}
+            className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700"
+          >
+            Add People
+          </button>
+        </div>
+      </div>
+
+      <div className="p-4 border-b">
+        <input
+          type="text"
+          placeholder="Search ask list..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full max-w-sm px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+        />
+      </div>
+
+      {filtered.length === 0 ? (
+        <p className="text-gray-400 text-sm text-center py-8">
+          {solicitations.length === 0 ? "No one on the ask list yet. Add people above." : "No matching people."}
+        </p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b">
+            <tr>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Name</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Email</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Status</th>
+              <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {filtered.map((s) => (
+              <tr key={s.id} className="hover:bg-gray-50">
+                <td className="px-4 py-3">
+                  <Link href={`/people/${s.person.id}`} className="text-indigo-600 hover:underline font-medium">
+                    {s.person.lastName}, {s.person.firstName}
+                  </Link>
+                </td>
+                <td className="px-4 py-3 text-gray-600 text-xs">
+                  {s.person.email1 || s.person.email2 || "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <select
+                    value={s.status}
+                    onChange={(e) => handleStatusChange(s.id, e.target.value)}
+                    disabled={updatingId === s.id}
+                    className={`text-xs font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer focus:ring-2 focus:ring-indigo-500 ${SOLICITATION_STATUS_COLORS[s.status] ?? "bg-gray-100 text-gray-600"}`}
+                  >
+                    {SOLICITATION_STATUSES.map((st) => (
+                      <option key={st} value={st}>{SOLICITATION_STATUS_LABELS[st]}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-3 text-right">
+                  {removingId === s.id ? (
+                    <span className="text-xs text-gray-400">Removing…</span>
+                  ) : (
+                    <button
+                      onClick={() => handleRemove(s.id)}
+                      className="text-xs text-red-600 hover:underline"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {showModal && (
+        <AddSolicitationsModal
+          fundraiserId={fundraiserId}
+          existingPeopleIds={existingPeopleIds}
+          onClose={() => setShowModal(false)}
+          onAdded={onRefresh}
+        />
+      )}
+    </div>
   );
 }

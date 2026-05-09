@@ -68,6 +68,7 @@ export default async function Dashboard() {
   const partnersWithoutRelationships = await prisma.partner.findMany({
     where: {
       ...officeFilter,
+      status: "ACTIVE",
       partnerRoles: {
         some: {
           relationships: { none: {} },
@@ -115,6 +116,23 @@ export default async function Dashboard() {
         orderBy: { assignedDate: "desc" },
       })
     : [];
+
+  const inactiveOrgsWithRoles = await prisma.partner.findMany({
+    where: {
+      ...officeFilter,
+      orgPeopleFlag: "O",
+      status: "INACTIVE",
+      partnerRoles: { some: { peopleId: { not: null } } },
+    },
+    include: {
+      partnerRoles: {
+        where: { peopleId: { not: null } },
+        include: { person: { select: { id: true, firstName: true, lastName: true } } },
+        orderBy: { roleDescription: "asc" },
+      },
+    },
+    orderBy: { organizationName: "asc" },
+  });
 
   const recentConnections = await prisma.connection.findMany({
     where: personFilter,
@@ -188,6 +206,39 @@ export default async function Dashboard() {
       )}
 
       <PartnersWithoutRelationships partners={JSON.parse(JSON.stringify(partnersWithoutRelationships))} />
+
+      {inactiveOrgsWithRoles.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-indigo-900">Inactive Organizations with Assigned Roles</h2>
+            <Link href="/partners" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+              View all &rarr;
+            </Link>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">These organizations are inactive but still have people in assigned roles. Consider updating the roles or contacting the people to find their new positions.</p>
+          <div className="space-y-3">
+            {inactiveOrgsWithRoles.map((org) => (
+              <div key={org.id} className="border border-gray-200 rounded-md p-3">
+                <Link href={`/partners/${org.id}`} className="font-medium text-indigo-600 hover:underline text-sm">
+                  {org.organizationName}
+                </Link>
+                <div className="mt-1 space-y-0.5">
+                  {org.partnerRoles.map((role) => (
+                    <div key={role.id} className="text-xs text-gray-500 flex items-center gap-1">
+                      <span className="font-medium text-gray-700">{role.roleDescription}:</span>
+                      {role.person && (
+                        <Link href={`/people/${role.person.id}`} className="text-indigo-600 hover:underline">
+                          {role.person.firstName} {role.person.lastName}
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {myProspects.length > 0 && (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
