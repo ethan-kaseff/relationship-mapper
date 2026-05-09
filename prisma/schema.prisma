@@ -28,8 +28,6 @@ model Office {
   partners               Partner[]
   events                 Event[]
   fundraisers            Fundraiser[]
-  annualEventTypes       AnnualEventType[]
-  annualFundraiserTypes  AnnualFundraiserType[]
   tags                   Tag[]
   integrationTokens      IntegrationToken[]
   emailCampaigns         EmailCampaign[]
@@ -91,36 +89,6 @@ model Tag {
   @@map("tag")
 }
 
-model AnnualEventType {
-  id       String @id @default(uuid())
-  name     String
-  officeId String @map("office_id")
-  office   Office @relation(fields: [officeId], references: [id])
-
-  peopleAnnualEventTypes      PeopleAnnualEventType[]
-  partnerAnnualEventTypes     PartnerAnnualEventType[]
-  partnerRoleAnnualEventTypes PartnerRoleAnnualEventType[]
-
-  @@unique([name, officeId])
-  @@index([officeId])
-  @@map("annual_event_type")
-}
-
-model AnnualFundraiserType {
-  id       String @id @default(uuid())
-  name     String
-  officeId String @map("office_id")
-  office   Office @relation(fields: [officeId], references: [id])
-
-  peopleAnnualFundraiserTypes      PeopleAnnualFundraiserType[]
-  partnerAnnualFundraiserTypes     PartnerAnnualFundraiserType[]
-  partnerRoleAnnualFundraiserTypes PartnerRoleAnnualFundraiserType[]
-
-  @@unique([name, officeId])
-  @@index([officeId])
-  @@map("annual_fundraiser_type")
-}
-
 // ─── Core Tables ─────────────────────────────────────────────────────────────
 
 model People {
@@ -161,11 +129,9 @@ model People {
   connections             Connection[]
   happeningResponses HappeningResponse[]
   eventInvites       EventInvite[]
-  annualEventTypes   PeopleAnnualEventType[]
   tags               PersonTag[]
   donations               Donation[]
   emailRecipients         EmailRecipient[]
-  annualFundraiserTypes   PeopleAnnualFundraiserType[]
   personNotes             PersonNote[]
 
   @@unique([prefix, firstName, middleInitial, lastName, officeId], map: "people_name_office_unique")
@@ -193,8 +159,6 @@ model Partner {
   office             Office            @relation(fields: [officeId], references: [id])
 
   partnerRoles            PartnerRole[]
-  annualEventTypes        PartnerAnnualEventType[]
-  annualFundraiserTypes   PartnerAnnualFundraiserType[]
   tags                    PartnerTag[]
 
   @@index([officeId])
@@ -211,8 +175,6 @@ model PartnerRole {
   roleAssignments  RoleAssignment[]
   relationships    Relationship[]
   connections      Connection[]
-  annualEventTypes        PartnerRoleAnnualEventType[]
-  annualFundraiserTypes   PartnerRoleAnnualFundraiserType[]
   tags                    PartnerRoleTag[]
 
   @@map("partner_role")
@@ -344,74 +306,6 @@ model EventInvite {
   @@unique([eventId, peopleId])
   @@index([eventId])
   @@map("event_invite")
-}
-
-// ─── Annual Event Type Join Tables ────────────────────────────────────────────
-
-model PeopleAnnualEventType {
-  id                 String          @id @default(uuid())
-  peopleId           String          @map("people_id")
-  person             People          @relation(fields: [peopleId], references: [id], onDelete: Cascade)
-  annualEventTypeId  String          @map("annual_event_type_id")
-  annualEventType    AnnualEventType @relation(fields: [annualEventTypeId], references: [id], onDelete: Cascade)
-
-  @@unique([peopleId, annualEventTypeId])
-  @@map("people_annual_event_type")
-}
-
-model PartnerAnnualEventType {
-  id                 String          @id @default(uuid())
-  partnerId          String          @map("partner_id")
-  partner            Partner         @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  annualEventTypeId  String          @map("annual_event_type_id")
-  annualEventType    AnnualEventType @relation(fields: [annualEventTypeId], references: [id], onDelete: Cascade)
-
-  @@unique([partnerId, annualEventTypeId])
-  @@map("partner_annual_event_type")
-}
-
-model PartnerRoleAnnualEventType {
-  id                 String          @id @default(uuid())
-  partnerRoleId      String          @map("partner_role_id")
-  partnerRole        PartnerRole     @relation(fields: [partnerRoleId], references: [id], onDelete: Cascade)
-  annualEventTypeId  String          @map("annual_event_type_id")
-  annualEventType    AnnualEventType @relation(fields: [annualEventTypeId], references: [id], onDelete: Cascade)
-
-  @@unique([partnerRoleId, annualEventTypeId])
-  @@map("partner_role_annual_event_type")
-}
-
-model PeopleAnnualFundraiserType {
-  id                      String               @id @default(uuid())
-  peopleId                String               @map("people_id")
-  person                  People               @relation(fields: [peopleId], references: [id], onDelete: Cascade)
-  annualFundraiserTypeId  String               @map("annual_fundraiser_type_id")
-  annualFundraiserType    AnnualFundraiserType @relation(fields: [annualFundraiserTypeId], references: [id], onDelete: Cascade)
-
-  @@unique([peopleId, annualFundraiserTypeId])
-  @@map("people_annual_fundraiser_type")
-}
-
-model PartnerAnnualFundraiserType {
-  id                      String               @id @default(uuid())
-  partnerId               String               @map("partner_id")
-  partner                 Partner              @relation(fields: [partnerId], references: [id], onDelete: Cascade)
-  annualFundraiserTypeId  String               @map("annual_fundraiser_type_id")
-  annualFundraiserType    AnnualFundraiserType @relation(fields: [annualFundraiserTypeId], references: [id], onDelete: Cascade)
-
-  @@unique([partnerId, annualFundraiserTypeId])
-  @@map("partner_annual_fundraiser_type")
-}
-
-model PartnerRoleAnnualFundraiserType {
-  id                      String               @id @default(uuid())
-  partnerRoleId           String               @map("partner_role_id")
-  partnerRole             PartnerRole          @relation(fields: [partnerRoleId], references: [id], onDelete: Cascade)
-  annualFundraiserTypeId  String               @map("annual_fundraiser_type_id")
-  annualFundraiserType    AnnualFundraiserType @relation(fields: [annualFundraiserTypeId], references: [id], onDelete: Cascade)
-
-  @@unique([partnerRoleId, annualFundraiserTypeId])
-  @@map("partner_role_annual_fundraiser_type")
 }
 
 // ─── Tag Join Tables ─────────────────────────────────────────────────────────

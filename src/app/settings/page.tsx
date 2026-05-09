@@ -3,26 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 
-interface AnnualEventType {
+interface Tag {
   id: string;
   name: string;
   office?: { name: string };
-  _count?: {
-    peopleAnnualEventTypes: number;
-    partnerAnnualEventTypes: number;
-    partnerRoleAnnualEventTypes: number;
-  };
-}
-
-interface AnnualFundraiserType {
-  id: string;
-  name: string;
-  office?: { name: string };
-  _count?: {
-    peopleAnnualFundraiserTypes: number;
-    partnerAnnualFundraiserTypes: number;
-    partnerRoleAnnualFundraiserTypes: number;
-  };
+  _count?: { personTags: number; partnerTags: number; partnerRoleTags: number };
 }
 
 interface RelationshipType {
@@ -85,29 +70,17 @@ export default function SettingsPage() {
   const [reassignNeeded, setReassignNeeded] = useState<{ id: string; count: number } | null>(null);
   const [reassignTo, setReassignTo] = useState("");
 
-  // Annual event types state
-  const [aetTypes, setAetTypes] = useState<AnnualEventType[]>([]);
-  const [aetLoading, setAetLoading] = useState(true);
-  const [showAetForm, setShowAetForm] = useState(false);
-  const [newAetName, setNewAetName] = useState("");
-  const [aetSubmitting, setAetSubmitting] = useState(false);
-  const [aetError, setAetError] = useState("");
-  const [editingAetId, setEditingAetId] = useState<string | null>(null);
-  const [editAetName, setEditAetName] = useState("");
-  const [deletingAetId, setDeletingAetId] = useState<string | null>(null);
-  const aetInputRef = useRef<HTMLInputElement>(null);
-
-  // Annual fundraiser types state
-  const [aftTypes, setAftTypes] = useState<AnnualFundraiserType[]>([]);
-  const [aftLoading, setAftLoading] = useState(true);
-  const [showAftForm, setShowAftForm] = useState(false);
-  const [newAftName, setNewAftName] = useState("");
-  const [aftSubmitting, setAftSubmitting] = useState(false);
-  const [aftError, setAftError] = useState("");
-  const [editingAftId, setEditingAftId] = useState<string | null>(null);
-  const [editAftName, setEditAftName] = useState("");
-  const [deletingAftId, setDeletingAftId] = useState<string | null>(null);
-  const aftInputRef = useRef<HTMLInputElement>(null);
+  // Tags state
+  const [tagTypes, setTagTypes] = useState<Tag[]>([]);
+  const [tagsLoading, setTagsLoading] = useState(true);
+  const [showTagForm, setShowTagForm] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [tagSubmitting, setTagSubmitting] = useState(false);
+  const [tagError, setTagError] = useState("");
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editTagName, setEditTagName] = useState("");
+  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
+  const tagInputRef = useRef<HTMLInputElement>(null);
 
   // Email templates state
   const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
@@ -223,24 +196,14 @@ export default function SettingsPage() {
       .catch(() => setLoading(false));
   }
 
-  function fetchAetTypes() {
-    fetch("/api/lookup/annual-event-types")
+  function fetchTags() {
+    fetch("/api/tags")
       .then((res) => res.json())
       .then((data) => {
-        setAetTypes(data);
-        setAetLoading(false);
+        setTagTypes(data);
+        setTagsLoading(false);
       })
-      .catch(() => setAetLoading(false));
-  }
-
-  function fetchAftTypes() {
-    fetch("/api/lookup/annual-fundraiser-types")
-      .then((res) => res.json())
-      .then((data) => {
-        setAftTypes(data);
-        setAftLoading(false);
-      })
-      .catch(() => setAftLoading(false));
+      .catch(() => setTagsLoading(false));
   }
 
   function fetchUsers() {
@@ -280,8 +243,8 @@ export default function SettingsPage() {
   }, [showForm]);
 
   useEffect(() => {
-    if (showAetForm && aetInputRef.current) aetInputRef.current.focus();
-  }, [showAetForm]);
+    if (showTagForm && tagInputRef.current) tagInputRef.current.focus();
+  }, [showTagForm]);
 
   useEffect(() => {
     if (showUserForm && userFirstNameRef.current) userFirstNameRef.current.focus();
@@ -292,16 +255,12 @@ export default function SettingsPage() {
   }, [showOfficeForm]);
 
   useEffect(() => {
-    if (showAftForm && aftInputRef.current) aftInputRef.current.focus();
-  }, [showAftForm]);
+    if (isSystemAdmin) fetchTypes();
+  }, [isSystemAdmin]);
 
   useEffect(() => {
-    if (isSystemAdmin) {
-      fetchTypes();
-      fetchAetTypes();
-      fetchAftTypes();
-    }
-  }, [isSystemAdmin]);
+    if (canManageUsers) fetchTags();
+  }, [canManageUsers]);
 
   useEffect(() => {
     if (canManageUsers) {
@@ -656,16 +615,16 @@ export default function SettingsPage() {
     setDeletingId(null);
   }
 
-  async function handleCreateAet(e: React.FormEvent) {
+  async function handleCreateTag(e: React.FormEvent) {
     e.preventDefault();
-    setAetSubmitting(true);
-    setAetError("");
+    setTagSubmitting(true);
+    setTagError("");
 
     try {
-      const res = await fetch("/api/lookup/annual-event-types", {
+      const res = await fetch("/api/tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newAetName }),
+        body: JSON.stringify({ name: newTagName }),
       });
 
       if (!res.ok) {
@@ -673,25 +632,25 @@ export default function SettingsPage() {
         throw new Error(data.error || "Failed to create");
       }
 
-      setNewAetName("");
-      setShowAetForm(false);
-      fetchAetTypes();
+      setNewTagName("");
+      setShowTagForm(false);
+      fetchTags();
     } catch (err: unknown) {
-      setAetError(err instanceof Error ? err.message : "An error occurred");
+      setTagError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setAetSubmitting(false);
+      setTagSubmitting(false);
     }
   }
 
-  async function handleUpdateAet(id: string) {
-    setAetSubmitting(true);
-    setAetError("");
+  async function handleUpdateTag(id: string) {
+    setTagSubmitting(true);
+    setTagError("");
 
     try {
-      const res = await fetch(`/api/lookup/annual-event-types/${id}`, {
+      const res = await fetch(`/api/tags/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editAetName }),
+        body: JSON.stringify({ name: editTagName }),
       });
 
       if (!res.ok) {
@@ -699,20 +658,20 @@ export default function SettingsPage() {
         throw new Error(data.error || "Failed to update");
       }
 
-      setEditingAetId(null);
-      fetchAetTypes();
+      setEditingTagId(null);
+      fetchTags();
     } catch (err: unknown) {
-      setAetError(err instanceof Error ? err.message : "An error occurred");
+      setTagError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setAetSubmitting(false);
+      setTagSubmitting(false);
     }
   }
 
-  async function handleDeleteAet(id: string) {
-    setAetError("");
+  async function handleDeleteTag(id: string) {
+    setTagError("");
 
     try {
-      const res = await fetch(`/api/lookup/annual-event-types/${id}`, {
+      const res = await fetch(`/api/tags/${id}`, {
         method: "DELETE",
       });
 
@@ -721,82 +680,10 @@ export default function SettingsPage() {
         throw new Error(data.error || "Failed to delete");
       }
 
-      setDeletingAetId(null);
-      fetchAetTypes();
+      setDeletingTagId(null);
+      fetchTags();
     } catch (err: unknown) {
-      setAetError(err instanceof Error ? err.message : "An error occurred");
-    }
-  }
-
-  async function handleCreateAft(e: React.FormEvent) {
-    e.preventDefault();
-    setAftSubmitting(true);
-    setAftError("");
-
-    try {
-      const res = await fetch("/api/lookup/annual-fundraiser-types", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newAftName }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to create");
-      }
-
-      setNewAftName("");
-      setShowAftForm(false);
-      fetchAftTypes();
-    } catch (err: unknown) {
-      setAftError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setAftSubmitting(false);
-    }
-  }
-
-  async function handleUpdateAft(id: string) {
-    setAftSubmitting(true);
-    setAftError("");
-
-    try {
-      const res = await fetch(`/api/lookup/annual-fundraiser-types/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editAftName }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to update");
-      }
-
-      setEditingAftId(null);
-      fetchAftTypes();
-    } catch (err: unknown) {
-      setAftError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setAftSubmitting(false);
-    }
-  }
-
-  async function handleDeleteAft(id: string) {
-    setAftError("");
-
-    try {
-      const res = await fetch(`/api/lookup/annual-fundraiser-types/${id}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error || "Failed to delete");
-      }
-
-      setDeletingAftId(null);
-      fetchAftTypes();
-    } catch (err: unknown) {
-      setAftError(err instanceof Error ? err.message : "An error occurred");
+      setTagError(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
@@ -1257,56 +1144,59 @@ export default function SettingsPage() {
         </div>
       )}
 
-      {/* Annual Event Types — SYSTEM_ADMIN only */}
-      {isSystemAdmin && (
+      {/* Tags — Office Admin and System Admin */}
+      {canManageUsers && (
         <div className="bg-white rounded-lg shadow p-6 mt-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-indigo-900">Annual Event Types</h2>
-            {!showAetForm && (
+            <h2 className="text-lg font-semibold text-indigo-900">Tags</h2>
+            {!showTagForm && (
               <button
-                onClick={() => { setShowAetForm(true); setEditingAetId(null); }}
+                onClick={() => { setShowTagForm(true); setEditingTagId(null); }}
                 className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
               >
-                Add Event Type
+                Add Tag
               </button>
             )}
           </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Tags can be assigned to people, partner roles, and partners. Use them to auto-invite groups to events or export mailing lists.
+          </p>
 
-          {aetError && (
+          {tagError && (
             <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
-              {aetError}
+              {tagError}
             </div>
           )}
 
-          {showAetForm && (
+          {showTagForm && (
             <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
-              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Annual Event Type</h3>
-              <form onSubmit={handleCreateAet} className="space-y-3">
+              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Tag</h3>
+              <form onSubmit={handleCreateTag} className="space-y-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Name <span className="text-red-500">*</span>
                   </label>
                   <input
-                    ref={aetInputRef}
+                    ref={tagInputRef}
                     type="text"
                     required
-                    value={newAetName}
-                    onChange={(e) => setNewAetName(e.target.value)}
-                    placeholder="e.g. Gala, Golf Tournament"
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    placeholder="e.g. Gala, Annual Appeal, Board Member"
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
                 <div className="flex gap-2">
                   <button
                     type="submit"
-                    disabled={aetSubmitting}
+                    disabled={tagSubmitting}
                     className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
                   >
-                    {aetSubmitting ? "Saving..." : "Create"}
+                    {tagSubmitting ? "Saving..." : "Create"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowAetForm(false); setAetError(""); }}
+                    onClick={() => { setShowTagForm(false); setTagError(""); }}
                     className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
                   >
                     Cancel
@@ -1316,7 +1206,7 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {aetLoading ? (
+          {tagsLoading ? (
             <p className="text-gray-400 text-sm">Loading...</p>
           ) : (
             <table className="w-full text-sm">
@@ -1329,36 +1219,36 @@ export default function SettingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {aetTypes.map((aet) => {
+                {tagTypes.map((tag) => {
                   const usageCount =
-                    (aet._count?.peopleAnnualEventTypes ?? 0) +
-                    (aet._count?.partnerAnnualEventTypes ?? 0) +
-                    (aet._count?.partnerRoleAnnualEventTypes ?? 0);
+                    (tag._count?.personTags ?? 0) +
+                    (tag._count?.partnerTags ?? 0) +
+                    (tag._count?.partnerRoleTags ?? 0);
                   return (
-                    <tr key={aet.id} className="hover:bg-gray-50">
-                      {editingAetId === aet.id ? (
+                    <tr key={tag.id} className="hover:bg-gray-50">
+                      {editingTagId === tag.id ? (
                         <>
                           <td className="px-4 py-2">
                             <input
                               type="text"
-                              value={editAetName}
-                              onChange={(e) => setEditAetName(e.target.value)}
+                              value={editTagName}
+                              onChange={(e) => setEditTagName(e.target.value)}
                               className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                             />
                           </td>
-                          {isSystemAdmin && <td className="px-4 py-2 text-gray-600">{aet.office?.name ?? "—"}</td>}
+                          {isSystemAdmin && <td className="px-4 py-2 text-gray-600">{tag.office?.name ?? "—"}</td>}
                           <td className="px-4 py-2 text-gray-600">{usageCount}</td>
                           <td className="px-4 py-2 text-right">
                             <div className="flex gap-2 justify-end">
                               <button
-                                onClick={() => handleUpdateAet(aet.id)}
-                                disabled={aetSubmitting}
+                                onClick={() => handleUpdateTag(tag.id)}
+                                disabled={tagSubmitting}
                                 className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
                               >
                                 Save
                               </button>
                               <button
-                                onClick={() => setEditingAetId(null)}
+                                onClick={() => setEditingTagId(null)}
                                 className="text-gray-500 hover:text-gray-700 text-xs"
                               >
                                 Cancel
@@ -1368,8 +1258,8 @@ export default function SettingsPage() {
                         </>
                       ) : (
                         <>
-                          <td className="px-4 py-3 font-medium">{aet.name}</td>
-                          {isSystemAdmin && <td className="px-4 py-3 text-gray-600">{aet.office?.name ?? "—"}</td>}
+                          <td className="px-4 py-3 font-medium">{tag.name}</td>
+                          {isSystemAdmin && <td className="px-4 py-3 text-gray-600">{tag.office?.name ?? "—"}</td>}
                           <td className="px-4 py-3">
                             <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
                               {usageCount}
@@ -1378,21 +1268,21 @@ export default function SettingsPage() {
                           <td className="px-4 py-3 text-right">
                             <div className="flex gap-3 justify-end">
                               <button
-                                onClick={() => { setEditingAetId(aet.id); setEditAetName(aet.name); setDeletingAetId(null); }}
+                                onClick={() => { setEditingTagId(tag.id); setEditTagName(tag.name); setDeletingTagId(null); }}
                                 className="text-indigo-600 hover:underline text-xs"
                               >
                                 Edit
                               </button>
-                              {deletingAetId === aet.id ? (
+                              {deletingTagId === tag.id ? (
                                 <span className="flex items-center gap-2">
                                   <button
-                                    onClick={() => handleDeleteAet(aet.id)}
+                                    onClick={() => handleDeleteTag(tag.id)}
                                     className="text-red-600 hover:underline text-xs font-medium"
                                   >
                                     Confirm
                                   </button>
                                   <button
-                                    onClick={() => setDeletingAetId(null)}
+                                    onClick={() => setDeletingTagId(null)}
                                     className="text-gray-500 hover:text-gray-700 text-xs"
                                   >
                                     Cancel
@@ -1400,7 +1290,7 @@ export default function SettingsPage() {
                                 </span>
                               ) : (
                                 <button
-                                  onClick={() => setDeletingAetId(aet.id)}
+                                  onClick={() => setDeletingTagId(tag.id)}
                                   className="text-red-600 hover:underline text-xs"
                                 >
                                   Delete
@@ -1413,179 +1303,10 @@ export default function SettingsPage() {
                     </tr>
                   );
                 })}
-                {aetTypes.length === 0 && (
+                {tagTypes.length === 0 && (
                   <tr>
                     <td colSpan={isSystemAdmin ? 4 : 3} className="px-4 py-8 text-center text-gray-400">
-                      No annual event types defined.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
-      {/* Annual Fundraiser Types — SYSTEM_ADMIN only */}
-      {isSystemAdmin && (
-        <div className="bg-white rounded-lg shadow p-6 mt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-indigo-900">Annual Fundraiser Types</h2>
-            {!showAftForm && (
-              <button
-                onClick={() => { setShowAftForm(true); setEditingAftId(null); }}
-                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
-              >
-                Add Fundraiser Type
-              </button>
-            )}
-          </div>
-
-          {aftError && (
-            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
-              {aftError}
-            </div>
-          )}
-
-          {showAftForm && (
-            <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
-              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Annual Fundraiser Type</h3>
-              <form onSubmit={handleCreateAft} className="space-y-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    ref={aftInputRef}
-                    type="text"
-                    required
-                    value={newAftName}
-                    onChange={(e) => setNewAftName(e.target.value)}
-                    placeholder="e.g. Annual Appeal, Matching Gift Campaign"
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <button
-                    type="submit"
-                    disabled={aftSubmitting}
-                    className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
-                  >
-                    {aftSubmitting ? "Saving..." : "Create"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { setShowAftForm(false); setAftError(""); }}
-                    className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {aftLoading ? (
-            <p className="text-gray-400 text-sm">Loading...</p>
-          ) : (
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
-                <tr>
-                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">Name</th>
-                  {isSystemAdmin && <th className="text-left px-4 py-3 font-semibold text-indigo-900">Office</th>}
-                  <th className="text-left px-4 py-3 font-semibold text-indigo-900">In Use</th>
-                  <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {aftTypes.map((aft) => {
-                  const usageCount =
-                    (aft._count?.peopleAnnualFundraiserTypes ?? 0) +
-                    (aft._count?.partnerAnnualFundraiserTypes ?? 0) +
-                    (aft._count?.partnerRoleAnnualFundraiserTypes ?? 0);
-                  return (
-                    <tr key={aft.id} className="hover:bg-gray-50">
-                      {editingAftId === aft.id ? (
-                        <>
-                          <td className="px-4 py-2">
-                            <input
-                              type="text"
-                              value={editAftName}
-                              onChange={(e) => setEditAftName(e.target.value)}
-                              className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                            />
-                          </td>
-                          {isSystemAdmin && <td className="px-4 py-2 text-gray-600">{aft.office?.name ?? "—"}</td>}
-                          <td className="px-4 py-2 text-gray-600">{usageCount}</td>
-                          <td className="px-4 py-2 text-right">
-                            <div className="flex gap-2 justify-end">
-                              <button
-                                onClick={() => handleUpdateAft(aft.id)}
-                                disabled={aftSubmitting}
-                                className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
-                              >
-                                Save
-                              </button>
-                              <button
-                                onClick={() => setEditingAftId(null)}
-                                className="text-gray-500 hover:text-gray-700 text-xs"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </td>
-                        </>
-                      ) : (
-                        <>
-                          <td className="px-4 py-3 font-medium">{aft.name}</td>
-                          {isSystemAdmin && <td className="px-4 py-3 text-gray-600">{aft.office?.name ?? "—"}</td>}
-                          <td className="px-4 py-3">
-                            <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                              {usageCount}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <div className="flex gap-3 justify-end">
-                              <button
-                                onClick={() => { setEditingAftId(aft.id); setEditAftName(aft.name); setDeletingAftId(null); }}
-                                className="text-indigo-600 hover:underline text-xs"
-                              >
-                                Edit
-                              </button>
-                              {deletingAftId === aft.id ? (
-                                <span className="flex items-center gap-2">
-                                  <button
-                                    onClick={() => handleDeleteAft(aft.id)}
-                                    className="text-red-600 hover:underline text-xs font-medium"
-                                  >
-                                    Confirm
-                                  </button>
-                                  <button
-                                    onClick={() => setDeletingAftId(null)}
-                                    className="text-gray-500 hover:text-gray-700 text-xs"
-                                  >
-                                    Cancel
-                                  </button>
-                                </span>
-                              ) : (
-                                <button
-                                  onClick={() => setDeletingAftId(aft.id)}
-                                  className="text-red-600 hover:underline text-xs"
-                                >
-                                  Delete
-                                </button>
-                              )}
-                            </div>
-                          </td>
-                        </>
-                      )}
-                    </tr>
-                  );
-                })}
-                {aftTypes.length === 0 && (
-                  <tr>
-                    <td colSpan={isSystemAdmin ? 4 : 3} className="px-4 py-8 text-center text-gray-400">
-                      No annual fundraiser types defined.
+                      No tags defined. Add one above.
                     </td>
                   </tr>
                 )}

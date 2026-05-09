@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import PartnerAnnualInviteToggle from "@/components/PartnerAnnualInviteToggle";
+import TagToggle from "@/components/TagToggle";
 
 interface OrgType {
   id: string;
   typeName: string;
 }
 
-interface AnnualEventType {
+interface Tag {
   id: string;
   name: string;
 }
@@ -32,14 +32,14 @@ interface PartnerData {
 interface Props {
   partnerId: string;
   partner: PartnerData;
-  annualEventTypeIds?: string[];
-  allAnnualEventTypes?: AnnualEventType[];
+  tagIds?: string[];
+  allTags?: Tag[];
   readOnly?: boolean;
 }
 
 const PRIORITY_LABELS = ["Highest", "High", "Medium", "Low", "Lowest"];
 
-export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds, allAnnualEventTypes, readOnly }: Props) {
+export default function EditPartnerInfo({ partnerId, partner, tagIds, allTags, readOnly }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -199,10 +199,10 @@ export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds
               {partner.priority ? `${partner.priority} — ${PRIORITY_LABELS[partner.priority - 1]}` : "—"}
             </span>
           </div>
-          {annualEventTypeIds !== undefined && allAnnualEventTypes && allAnnualEventTypes.length > 0 && (
-            <div>
-              <span className="font-medium text-gray-500">Annual Events:</span>{" "}
-              <PartnerAnnualInviteToggle partnerId={partnerId} initialTypeIds={annualEventTypeIds} allTypes={allAnnualEventTypes} />
+          {tagIds !== undefined && allTags && allTags.length > 0 && (
+            <div className="md:col-span-2">
+              <span className="font-medium text-gray-500 block mb-1">Tags:</span>
+              <TagToggle entityId={partnerId} entityType="partner" initialTagIds={tagIds} allTags={allTags} />
             </div>
           )}
         </div>

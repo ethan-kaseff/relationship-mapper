@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
+import { validateBody, updateTagSchema } from "@/lib/validations";
 import { handleApiError, notFound } from "@/lib/api-error";
-import { validateBody, updateAnnualEventTypeSchema } from "@/lib/validations";
+import { getOfficeFilter } from "@/lib/office-filter";
 
 export async function PUT(
   request: Request,
@@ -11,16 +12,20 @@ export async function PUT(
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
-  const validation = await validateBody(request, updateAnnualEventTypeSchema);
+  const validation = await validateBody(request, updateTagSchema);
   if (!validation.success) return validation.response;
 
   try {
     const { id } = await params;
-    const type = await prisma.annualEventType.update({
+    const officeFilter = await getOfficeFilter();
+    const existing = await prisma.tag.findFirst({ where: { id, ...officeFilter } });
+    if (!existing) return notFound("Tag not found");
+
+    const tag = await prisma.tag.update({
       where: { id },
       data: { name: validation.data.name },
     });
-    return NextResponse.json(type);
+    return NextResponse.json(tag);
   } catch (error) {
     return handleApiError(error);
   }
@@ -35,13 +40,12 @@ export async function DELETE(
 
   try {
     const { id } = await params;
+    const officeFilter = await getOfficeFilter();
+    const existing = await prisma.tag.findFirst({ where: { id, ...officeFilter } });
+    if (!existing) return notFound("Tag not found");
 
-    const existing = await prisma.annualEventType.findUnique({ where: { id } });
-    if (!existing) return notFound("Annual event type not found");
-
-    // Cascade deletes join rows automatically via schema
-    await prisma.annualEventType.delete({ where: { id } });
-    return NextResponse.json({ success: true });
+    await prisma.tag.delete({ where: { id } });
+    return NextResponse.json({ message: "Tag deleted" });
   } catch (error) {
     return handleApiError(error);
   }

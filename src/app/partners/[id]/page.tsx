@@ -8,7 +8,7 @@ import EditPartnerInfo from "@/components/EditPartnerInfo";
 import RemoveRolePersonButton from "@/components/RemoveRolePersonButton";
 import AssignRolePersonButton from "@/components/AssignRolePersonButton";
 import DeleteRoleButton from "@/components/DeleteRoleButton";
-import AnnualInviteToggle from "@/components/AnnualInviteToggle";
+import TagToggle from "@/components/TagToggle";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -20,50 +20,47 @@ export default async function PartnerDetailPage({
 }) {
   const { id } = await params;
 
-  const [partner, allAnnualEventTypesUnfiltered] = await Promise.all([
-    prisma.partner.findUnique({
-      where: { id },
-      include: {
-        organizationType: true,
-        annualEventTypes: {
-          include: { annualEventType: true },
-        },
-        partnerRoles: {
-          orderBy: { roleDescription: "asc" },
-          include: {
-            person: true,
-            roleAssignments: {
-              include: { person: true },
-              orderBy: { createdAt: "desc" },
+  const partner = await prisma.partner.findUnique({
+    where: { id },
+    include: {
+      organizationType: true,
+      tags: {
+        include: { tag: true },
+      },
+      partnerRoles: {
+        orderBy: { roleDescription: "asc" },
+        include: {
+          person: true,
+          roleAssignments: {
+            include: { person: true },
+            orderBy: { createdAt: "desc" },
+          },
+          relationships: {
+            include: {
+              person: true,
+              targetPerson: true,
+              relationshipType: true,
             },
-            relationships: {
-              include: {
-                person: true,
-                targetPerson: true,
-                relationshipType: true,
-              },
-            },
-            annualEventTypes: {
-              include: { annualEventType: true },
-            },
+          },
+          tags: {
+            include: { tag: true },
           },
         },
       },
-    }),
-    prisma.annualEventType.findMany({ orderBy: { name: "asc" } }),
-  ]);
+    },
+  });
 
   if (!partner) return notFound();
 
-  const session = await auth();
+  const [session, allTags] = await Promise.all([
+    auth(),
+    prisma.tag.findMany({ where: { officeId: partner.officeId }, orderBy: { name: "asc" } }),
+  ]);
+
   const userRole = session?.user?.role;
   const canEdit = userRole !== "CONNECTOR" && userRole !== "VIEWER";
 
-  const allAnnualEventTypes = allAnnualEventTypesUnfiltered.filter(
-    (t) => t.officeId === partner.officeId
-  );
-
-  const partnerAetIds = partner.annualEventTypes.map((a) => a.annualEventType.id);
+  const partnerTagIds = partner.tags.map((t) => t.tag.id);
 
   return (
     <div>
@@ -96,8 +93,8 @@ export default async function PartnerDetailPage({
           website: partner.website,
           priority: partner.priority,
         }}
-        annualEventTypeIds={partner.orgPeopleFlag === "P" ? partnerAetIds : undefined}
-        allAnnualEventTypes={allAnnualEventTypes}
+        tagIds={partner.orgPeopleFlag === "P" ? partnerTagIds : undefined}
+        allTags={allTags}
         readOnly={!canEdit}
       />
 
@@ -105,7 +102,7 @@ export default async function PartnerDetailPage({
       {partner.orgPeopleFlag === "O" && <div className="bg-white rounded-lg shadow p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-indigo-900">Roles</h2>
-          {canEdit && <AddRoleForm partnerId={partner.id} allAnnualEventTypes={allAnnualEventTypes} />}
+          {canEdit && <AddRoleForm partnerId={partner.id} allTags={allTags} />}
         </div>
         {partner.partnerRoles.length === 0 ? (
           <p className="text-gray-400 text-sm">No roles defined for this partner.</p>
@@ -132,10 +129,11 @@ export default async function PartnerDetailPage({
                   )}
                   {canEdit && (
                     <span className="ml-auto flex items-center gap-2">
-                      <AnnualInviteToggle
-                        roleId={role.id}
-                        initialTypeIds={role.annualEventTypes.map((a) => a.annualEventType.id)}
-                        allTypes={allAnnualEventTypes}
+                      <TagToggle
+                        entityId={role.id}
+                        entityType="partnerRole"
+                        initialTagIds={role.tags.map((t) => t.tag.id)}
+                        allTags={allTags}
                       />
                       {role.person ? (
                         <>

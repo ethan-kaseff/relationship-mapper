@@ -1,31 +1,24 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAuth, requireNonConnector } from "@/lib/api-auth";
+import { requireNonConnector } from "@/lib/api-auth";
+import { validateBody, createTagSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/api-error";
-import { validateBody, createAnnualEventTypeSchema } from "@/lib/validations";
 import { getOfficeFilter } from "@/lib/office-filter";
 
 export async function GET() {
-  const authResult = await requireAuth();
+  const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
   try {
     const officeFilter = await getOfficeFilter();
-    const types = await prisma.annualEventType.findMany({
+    const tags = await prisma.tag.findMany({
       where: officeFilter,
       orderBy: { name: "asc" },
       include: {
-        office: { select: { name: true } },
-        _count: {
-          select: {
-            peopleAnnualEventTypes: true,
-            partnerAnnualEventTypes: true,
-            partnerRoleAnnualEventTypes: true,
-          },
-        },
+        _count: { select: { personTags: true, partnerTags: true, partnerRoleTags: true } },
       },
     });
-    return NextResponse.json(types);
+    return NextResponse.json(tags);
   } catch (error) {
     return handleApiError(error);
   }
@@ -35,15 +28,15 @@ export async function POST(request: Request) {
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
-  const validation = await validateBody(request, createAnnualEventTypeSchema);
+  const validation = await validateBody(request, createTagSchema);
   if (!validation.success) return validation.response;
 
   try {
     const officeId = (authResult.session.user as { officeId: string }).officeId;
-    const type = await prisma.annualEventType.create({
+    const tag = await prisma.tag.create({
       data: { name: validation.data.name, officeId },
     });
-    return NextResponse.json(type, { status: 201 });
+    return NextResponse.json(tag, { status: 201 });
   } catch (error) {
     return handleApiError(error);
   }

@@ -10,26 +10,38 @@ export const revalidate = 0;
 
 export default async function PeoplePage() {
   const officeFilter = await getOfficeFilter();
-  const people = await prisma.people.findMany({
-    where: officeFilter,
-    select: {
-      id: true,
-      firstName: true,
-      lastName: true,
-      city: true,
-      state: true,
-      phoneNumber: true,
-      email1: true,
-      email2: true,
-      isConnector: true,
-      status: true,
-    },
-    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-  });
+  const [people, allTags] = await Promise.all([
+    prisma.people.findMany({
+      where: officeFilter,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        city: true,
+        state: true,
+        phoneNumber: true,
+        email1: true,
+        email2: true,
+        isConnector: true,
+        status: true,
+        tags: { select: { tag: { select: { id: true } } } },
+      },
+      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+    }),
+    prisma.tag.findMany({
+      where: officeFilter,
+      orderBy: { name: "asc" },
+    }),
+  ]);
 
   const session = await auth();
   const role = session?.user?.role;
   const canWrite = role !== "CONNECTOR" && role !== "VIEWER";
+
+  const peopleWithTags = people.map((p) => ({
+    ...p,
+    tagIds: p.tags.map((t) => t.tag.id),
+  }));
 
   return (
     <div>
@@ -48,7 +60,7 @@ export default async function PeoplePage() {
         )}
       </div>
 
-      <PeopleTable people={people} />
+      <PeopleTable people={peopleWithTags} allTags={allTags} />
     </div>
   );
 }

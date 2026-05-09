@@ -5,6 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Pagination, { usePagination } from "./Pagination";
 
+interface Tag {
+  id: string;
+  name: string;
+}
+
 interface Person {
   id: string;
   firstName: string;
@@ -16,6 +21,7 @@ interface Person {
   email2: string | null;
   isConnector: boolean;
   status: string;
+  tagIds: string[];
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -32,10 +38,11 @@ const STATUS_COLORS: Record<string, string> = {
   DECEASED: "bg-slate-100 text-slate-500",
 };
 
-export default function PeopleTable({ people }: { people: Person[] }) {
+export default function PeopleTable({ people, allTags }: { people: Person[]; allTags: Tag[] }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   useEffect(() => {
     setSearch(sessionStorage.getItem("people-search") ?? "");
@@ -50,8 +57,15 @@ export default function PeopleTable({ people }: { people: Person[] }) {
     sessionStorage.setItem("people-status-filter", statusFilter);
   }, [statusFilter]);
 
+  function toggleTag(tagId: string) {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    );
+  }
+
   const filtered = people.filter((p) => {
     if (statusFilter && p.status !== statusFilter) return false;
+    if (selectedTagIds.length > 0 && !selectedTagIds.every((tid) => p.tagIds.includes(tid))) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -70,9 +84,33 @@ export default function PeopleTable({ people }: { people: Person[] }) {
 
   const paginated = filtered.slice(startIndex, endIndex);
 
+  function handleExport() {
+    const rows = [
+      ["First Name", "Last Name", "Email 1", "Email 2", "Phone", "City", "State", "Status"],
+      ...filtered.map((p) => [
+        p.firstName,
+        p.lastName,
+        p.email1 ?? "",
+        p.email2 ?? "",
+        p.phoneNumber ?? "",
+        p.city ?? "",
+        p.state ?? "",
+        STATUS_LABELS[p.status] ?? p.status,
+      ]),
+    ];
+    const csv = rows.map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "people-export.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   return (
     <>
-      <div className="mb-4 flex gap-3 flex-wrap">
+      <div className="mb-4 flex gap-3 flex-wrap items-center">
         <input
           type="text"
           value={search}
@@ -96,6 +134,27 @@ export default function PeopleTable({ people }: { people: Person[] }) {
             <option key={val} value={val}>{label}</option>
           ))}
         </select>
+        {allTags.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap">
+            {allTags.map((tag) => (
+              <label key={tag.id} className="inline-flex items-center gap-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={selectedTagIds.includes(tag.id)}
+                  onChange={() => toggleTag(tag.id)}
+                  className="accent-indigo-600 w-3.5 h-3.5"
+                />
+                <span className="text-xs font-medium text-gray-700">{tag.name}</span>
+              </label>
+            ))}
+          </div>
+        )}
+        <button
+          onClick={handleExport}
+          className="ml-auto border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md text-sm hover:bg-gray-50 transition-colors"
+        >
+          Export CSV
+        </button>
       </div>
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="w-full text-sm">
@@ -146,7 +205,7 @@ export default function PeopleTable({ people }: { people: Person[] }) {
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
-                  {search || statusFilter ? "No people match your filters." : "No people found. Add your first person above."}
+                  {search || statusFilter || selectedTagIds.length > 0 ? "No people match your filters." : "No people found. Add your first person above."}
                 </td>
               </tr>
             )}

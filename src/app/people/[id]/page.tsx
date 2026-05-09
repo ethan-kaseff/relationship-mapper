@@ -75,11 +75,8 @@ export default async function PersonDetailPage({
         include: { event: { select: { id: true, title: true, eventDate: true, ticketPrice: true, mealCost: true } } },
         orderBy: { createdAt: "desc" },
       },
-      annualEventTypes: {
-        include: { annualEventType: true },
-      },
-      annualFundraiserTypes: {
-        include: { annualFundraiserType: true },
+      tags: {
+        include: { tag: true },
       },
       donations: {
         include: { fundraiser: { select: { id: true, title: true } } },
@@ -96,12 +93,7 @@ export default async function PersonDetailPage({
 
   if (!person) return notFound();
 
-  const allAnnualEventTypes = await prisma.annualEventType.findMany({
-    where: { officeId: person.officeId },
-    orderBy: { name: "asc" },
-  });
-
-  const allAnnualFundraiserTypes = await prisma.annualFundraiserType.findMany({
+  const allTags = await prisma.tag.findMany({
     where: { officeId: person.officeId },
     orderBy: { name: "asc" },
   });
@@ -187,11 +179,9 @@ export default async function PersonDetailPage({
             email1: person.email1,
             email2: person.email2,
             isConnector: person.isConnector,
-            annualEventTypeIds: person.annualEventTypes.map((a) => a.annualEventType.id),
-          annualFundraiserTypeIds: person.annualFundraiserTypes.map((a) => a.annualFundraiserType.id),
+            tagIds: person.tags.map((t) => t.tag.id),
           }}
-          allAnnualEventTypes={allAnnualEventTypes}
-          allAnnualFundraiserTypes={allAnnualFundraiserTypes}
+          allTags={allTags}
         />
       ) : (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -242,19 +232,11 @@ export default async function PersonDetailPage({
                 </span>
               </div>
             )}
-            {person.annualEventTypes.length > 0 && (
-              <div className="md:col-span-2">
-                <span className="font-medium text-gray-500">Annual Events:</span>{" "}
+            {person.tags.length > 0 && (
+              <div className="md:col-span-3">
+                <span className="font-medium text-gray-500">Tags:</span>{" "}
                 <span className="text-gray-800">
-                  {person.annualEventTypes.map((a) => a.annualEventType.name).join(", ")}
-                </span>
-              </div>
-            )}
-            {person.annualFundraiserTypes.length > 0 && (
-              <div className="md:col-span-2">
-                <span className="font-medium text-gray-500">Annual Fundraisers:</span>{" "}
-                <span className="text-gray-800">
-                  {person.annualFundraiserTypes.map((a) => a.annualFundraiserType.name).join(", ")}
+                  {person.tags.map((t) => t.tag.name).join(", ")}
                 </span>
               </div>
             )}
