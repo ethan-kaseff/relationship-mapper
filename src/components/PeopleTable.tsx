@@ -5,11 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Pagination, { usePagination } from "./Pagination";
 
-interface Tag {
-  id: string;
-  name: string;
-}
-
 interface Person {
   id: string;
   firstName: string;
@@ -38,34 +33,19 @@ const STATUS_COLORS: Record<string, string> = {
   DECEASED: "bg-slate-100 text-slate-500",
 };
 
-export default function PeopleTable({ people, allTags }: { people: Person[]; allTags: Tag[] }) {
+export default function PeopleTable({ people, onAdvancedSearch }: { people: Person[]; onAdvancedSearch: () => void }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
 
   useEffect(() => {
     setSearch(sessionStorage.getItem("people-search") ?? "");
-    setStatusFilter(sessionStorage.getItem("people-status-filter") ?? "");
   }, []);
 
   useEffect(() => {
     sessionStorage.setItem("people-search", search);
   }, [search]);
 
-  useEffect(() => {
-    sessionStorage.setItem("people-status-filter", statusFilter);
-  }, [statusFilter]);
-
-  function toggleTag(tagId: string) {
-    setSelectedTagIds((prev) =>
-      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
-    );
-  }
-
   const filtered = people.filter((p) => {
-    if (statusFilter && p.status !== statusFilter) return false;
-    if (selectedTagIds.length > 0 && !selectedTagIds.every((tid) => p.tagIds.includes(tid))) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -124,31 +104,16 @@ export default function PeopleTable({ people, allTags }: { people: Person[]; all
           autoFocus
           className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-64"
         />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+        <button
+          onClick={onAdvancedSearch}
+          className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-indigo-300 text-indigo-700 hover:bg-indigo-50 transition-colors"
         >
-          <option value="">All statuses</option>
-          {Object.entries(STATUS_LABELS).map(([val, label]) => (
-            <option key={val} value={val}>{label}</option>
-          ))}
-        </select>
-        {allTags.length > 0 && (
-          <div className="flex items-center gap-2 flex-wrap">
-            {allTags.map((tag) => (
-              <label key={tag.id} className="inline-flex items-center gap-1 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={selectedTagIds.includes(tag.id)}
-                  onChange={() => toggleTag(tag.id)}
-                  className="accent-indigo-600 w-3.5 h-3.5"
-                />
-                <span className="text-xs font-medium text-gray-700">{tag.name}</span>
-              </label>
-            ))}
-          </div>
-        )}
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+              d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
+          </svg>
+          Advanced Search
+        </button>
         <button
           onClick={handleExport}
           className="ml-auto border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md text-sm hover:bg-gray-50 transition-colors"
@@ -205,7 +170,7 @@ export default function PeopleTable({ people, allTags }: { people: Person[]; all
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
-                  {search || statusFilter || selectedTagIds.length > 0 ? "No people match your filters." : "No people found. Add your first person above."}
+                  {search ? "No people match your search." : "No people found. Add your first person above."}
                 </td>
               </tr>
             )}

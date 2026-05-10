@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getOfficeFilter, isCrossOfficeView } from "@/lib/office-filter";
 import { auth } from "@/lib/auth";
 import OfficeDataToggle from "@/components/OfficeDataToggle";
-import PeopleTable from "@/components/PeopleTable";
+import PeoplePageClient from "@/components/PeoplePageClient";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -35,29 +35,23 @@ export default async function PeoplePage() {
       }
     : officeFilter;
 
-  const [people, allTags] = await Promise.all([
-    prisma.people.findMany({
-      where: peopleWhere,
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        city: true,
-        state: true,
-        phoneNumber: true,
-        email1: true,
-        email2: true,
-        isConnector: true,
-        status: true,
-        tags: { select: { tag: { select: { id: true } } } },
-      },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-    }),
-    prisma.tag.findMany({
-      where: officeFilter,
-      orderBy: { name: "asc" },
-    }),
-  ]);
+  const people = await prisma.people.findMany({
+    where: peopleWhere,
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      city: true,
+      state: true,
+      phoneNumber: true,
+      email1: true,
+      email2: true,
+      isConnector: true,
+      status: true,
+      tags: { select: { tag: { select: { id: true } } } },
+    },
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+  });
 
   const peopleWithTags = people.map((p) => ({
     ...p,
@@ -81,7 +75,7 @@ export default async function PeoplePage() {
         )}
       </div>
 
-      <PeopleTable people={peopleWithTags} allTags={allTags} />
+      <PeoplePageClient people={peopleWithTags} />
     </div>
   );
 }
