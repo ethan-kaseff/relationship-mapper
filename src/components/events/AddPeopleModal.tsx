@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import AdvancedSearchPanel from "@/components/AdvancedSearch/AdvancedSearchPanel";
 
 interface Tag {
   id: string;
@@ -30,6 +31,7 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [advancedMode, setAdvancedMode] = useState(false);
 
   const [showCreate, setShowCreate] = useState(false);
   const [newFirst, setNewFirst] = useState("");
@@ -135,11 +137,45 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
 
   const allFilteredSelected = filtered.length > 0 && filtered.every((p) => selected.has(p.id));
 
+  if (advancedMode) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col">
+          <div className="p-4 border-b flex-shrink-0">
+            <h2 className="text-lg font-semibold text-gray-900">Add People to Event — Advanced Search</h2>
+          </div>
+          <AdvancedSearchPanel
+            mode="modal"
+            existingPeopleIds={existingPeopleIds}
+            onAdd={async (ids) => {
+              await fetch(`/api/events/${eventId}/invites`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ peopleIds: ids }),
+              });
+              onAdded();
+              onClose();
+            }}
+            onBack={() => setAdvancedMode(false)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[85vh] flex flex-col">
         <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold text-gray-900">Add People to Event</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-gray-900">Add People to Event</h2>
+            <button
+              onClick={() => setAdvancedMode(true)}
+              className="text-xs text-indigo-600 hover:text-indigo-800 font-medium border border-indigo-200 px-2 py-1 rounded-md hover:bg-indigo-50"
+            >
+              Advanced Search
+            </button>
+          </div>
           {!showCreate && (
             <>
               <input
