@@ -160,6 +160,7 @@ export default async function PersonDetailPage({
         assignedToName={person.assignedTo ? `${person.assignedTo.firstName} ${person.assignedTo.lastName}` : null}
         createdAt={person.createdAt.toISOString()}
         canEdit={canEdit}
+        personOfficeId={person.officeId}
       />
 
       {/* Contact Info — editable for non-Connector roles */}

@@ -39,6 +39,7 @@ interface EmailTemplate {
   name: string;
   subject: string;
   body: string;
+  office?: { id: string; name: string };
 }
 
 export default function SettingsPage() {
@@ -91,6 +92,7 @@ export default function SettingsPage() {
   const [newTemplateName, setNewTemplateName] = useState("");
   const [newTemplateSubject, setNewTemplateSubject] = useState("");
   const [newTemplateBody, setNewTemplateBody] = useState("");
+  const [newTemplateOfficeId, setNewTemplateOfficeId] = useState("");
   const [templateSubmitting, setTemplateSubmitting] = useState(false);
   const [templateError, setTemplateError] = useState("");
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
@@ -702,16 +704,18 @@ export default function SettingsPage() {
     setTemplateSubmitting(true);
     setTemplateError("");
     try {
+      const templatePayload: Record<string, string> = { name: newTemplateName, subject: newTemplateSubject, body: newTemplateBody };
+      if (isSystemAdmin && newTemplateOfficeId) templatePayload.officeId = newTemplateOfficeId;
       const res = await fetch("/api/email-templates", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newTemplateName, subject: newTemplateSubject, body: newTemplateBody }),
+        body: JSON.stringify(templatePayload),
       });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error || "Failed to create template");
       }
-      setNewTemplateName(""); setNewTemplateSubject(""); setNewTemplateBody("");
+      setNewTemplateName(""); setNewTemplateSubject(""); setNewTemplateBody(""); setNewTemplateOfficeId("");
       setShowTemplateForm(false);
       fetchEmailTemplates();
     } catch (err: unknown) {
@@ -1048,6 +1052,22 @@ export default function SettingsPage() {
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
                   />
                 </div>
+                {isSystemAdmin && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Office <span className="text-red-500">*</span></label>
+                    <select
+                      value={newTemplateOfficeId}
+                      onChange={(e) => setNewTemplateOfficeId(e.target.value)}
+                      required
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">— Select office —</option>
+                      {offices.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Subject <span className="text-red-500">*</span></label>
                   <input
@@ -1123,7 +1143,12 @@ export default function SettingsPage() {
                     <div>
                       <div className="flex items-start justify-between">
                         <div>
-                          <div className="font-medium text-gray-900 text-sm">{t.name}</div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="font-medium text-gray-900 text-sm">{t.name}</div>
+                            {isSystemAdmin && t.office && (
+                              <span className="text-xs bg-indigo-50 text-indigo-600 border border-indigo-200 px-1.5 py-0.5 rounded-full">{t.office.name}</span>
+                            )}
+                          </div>
                           <div className="text-xs text-gray-500 mt-0.5">Subject: {t.subject}</div>
                         </div>
                         <div className="flex gap-3 text-xs">

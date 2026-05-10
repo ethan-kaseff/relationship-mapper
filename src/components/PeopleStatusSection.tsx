@@ -22,6 +22,7 @@ interface Props {
   emailTemplate: { subject: string; body: string } | null;
   createdAt: string;
   canEdit: boolean;
+  personOfficeId?: string;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -52,7 +53,7 @@ export default function PeopleStatusSection({
   assignedToName: initialAssignedToName,
   assignedDate: initialAssignedDate, emailTemplateId: initialTemplateId,
   emailTemplate: initialEmailTemplate,
-  createdAt, canEdit,
+  createdAt, canEdit, personOfficeId,
 }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -72,7 +73,8 @@ export default function PeopleStatusSection({
   useEffect(() => {
     if (editing) {
       fetch("/api/users/assignable").then(r => r.json()).then(setUsers).catch(() => {});
-      fetch("/api/email-templates").then(r => r.json()).then(setTemplates).catch(() => {});
+      fetch(personOfficeId ? `/api/email-templates?officeId=${personOfficeId}` : "/api/email-templates")
+        .then(r => r.json()).then(setTemplates).catch(() => {});
     }
   }, [editing]);
 
