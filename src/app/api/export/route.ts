@@ -40,7 +40,7 @@ export async function GET(request: Request) {
             include: {
               person: { select: { firstName: true, lastName: true } },
               targetPerson: { select: { firstName: true, lastName: true } },
-              relationshipType: { select: { relationshipDesc: true } },
+              relationshipTypes: { include: { relationshipType: { select: { relationshipDesc: true } } } },
               partnerRole: {
                 select: {
                   roleDescription: true,
@@ -205,13 +205,13 @@ export async function GET(request: Request) {
       const rel = r as Record<string, unknown> & {
         person: { firstName: string; lastName: string };
         targetPerson: { firstName: string; lastName: string };
-        relationshipType: { relationshipDesc: string };
+        relationshipTypes: { relationshipType: { relationshipDesc: string } }[];
         partnerRole: { roleDescription: string; partner: { organizationName: string | null } } | null;
       };
       relSheet.addRow({
         connector: `${rel.person.firstName} ${rel.person.lastName}`,
         target: `${rel.targetPerson.firstName} ${rel.targetPerson.lastName}`,
-        relType: rel.relationshipType.relationshipDesc,
+        relType: rel.relationshipTypes.map((rt) => rt.relationshipType.relationshipDesc).join(", "),
         partner: rel.partnerRole?.partner?.organizationName ?? "",
         role: rel.partnerRole?.roleDescription ?? "",
         lastReviewed: r.lastReviewedDate
@@ -352,7 +352,7 @@ function buildRelationshipsCsv(relationships: any[]): string {
       toCsvRow([
         `${r.person.firstName} ${r.person.lastName}`,
         `${r.targetPerson.firstName} ${r.targetPerson.lastName}`,
-        r.relationshipType.relationshipDesc,
+        r.relationshipTypes.map((rt: { relationshipType: { relationshipDesc: string } }) => rt.relationshipType.relationshipDesc).join(", "),
         r.partnerRole?.partner?.organizationName ?? "",
         r.partnerRole?.roleDescription ?? "",
         r.lastReviewedDate ? new Date(r.lastReviewedDate).toLocaleDateString(undefined, { timeZone: "UTC" }) : "",

@@ -65,11 +65,19 @@ model OrganizationType {
   @@map("organization_type")
 }
 
+model CommunicationMethod {
+  id     String   @id @default(uuid())
+  name   String   @unique
+  people People[]
+
+  @@map("communication_method")
+}
+
 model RelationshipType {
-  id               String         @id @default(uuid())
-  relationshipDesc String         @map("relationship_desc")
+  id               String                @id @default(uuid())
+  relationshipDesc String                @map("relationship_desc")
   notes            String?
-  relationships    Relationship[]
+  relationshipToTypes RelationshipToType[]
 
   @@map("relationship_type")
 }
@@ -112,8 +120,10 @@ model People {
   assignedToId    String?      @map("assigned_to_id")
   assignedTo      User?        @relation("ProspectAssignments", fields: [assignedToId], references: [id])
   assignedDate    DateTime?    @map("assigned_date")
-  emailTemplateId String?      @map("email_template_id")
-  emailTemplate   EmailTemplate? @relation(fields: [emailTemplateId], references: [id])
+  emailTemplateId           String?              @map("email_template_id")
+  emailTemplate             EmailTemplate?       @relation(fields: [emailTemplateId], references: [id])
+  communicationMethodId     String?              @map("communication_method_id")
+  communicationMethod       CommunicationMethod? @relation(fields: [communicationMethodId], references: [id], onDelete: SetNull)
   connectorToken String?  @unique @map("connector_token")
   ccContactId1   String?  @map("cc_contact_id_1")
   ccContactId2   String?  @map("cc_contact_id_2")
@@ -190,14 +200,24 @@ model Relationship {
   targetPerson       People           @relation("TargetRelationships", fields: [targetPersonId], references: [id])
   partnerRoleId      String?          @map("partner_role_id")
   partnerRole        PartnerRole?     @relation(fields: [partnerRoleId], references: [id], onDelete: SetNull)
-  relationshipTypeId String           @map("relationship_type_id")
-  relationshipType   RelationshipType @relation(fields: [relationshipTypeId], references: [id])
   lastReviewedDate   DateTime?        @map("last_reviewed_date")
   createdAt          DateTime         @default(now()) @map("created_at")
   updatedAt          DateTime         @updatedAt @map("updated_at")
 
+  relationshipTypes  RelationshipToType[]
+
   @@unique([peopleId, targetPersonId])
   @@map("relationship")
+}
+
+model RelationshipToType {
+  relationshipId     String           @map("relationship_id")
+  relationshipTypeId String           @map("relationship_type_id")
+  relationship       Relationship     @relation(fields: [relationshipId], references: [id], onDelete: Cascade)
+  relationshipType   RelationshipType @relation(fields: [relationshipTypeId], references: [id], onDelete: Cascade)
+
+  @@id([relationshipId, relationshipTypeId])
+  @@map("relationship_to_type")
 }
 
 model Connection {

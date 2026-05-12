@@ -19,7 +19,7 @@ export default async function RelationshipsPage() {
       partnerRole: {
         include: { partner: true },
       },
-      relationshipType: true,
+      relationshipTypes: { include: { relationshipType: true } },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -34,7 +34,7 @@ export default async function RelationshipsPage() {
           partner: { id: rel.partnerRole.partner.id, organizationName: rel.partnerRole.partner.organizationName },
         }
       : null,
-    relationshipType: { relationshipDesc: rel.relationshipType.relationshipDesc },
+    relationshipTypes: rel.relationshipTypes.map((rt) => rt.relationshipType.relationshipDesc),
     lastReviewedDate: rel.lastReviewedDate ? rel.lastReviewedDate.toISOString() : null,
   }));
 

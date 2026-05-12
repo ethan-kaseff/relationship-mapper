@@ -40,7 +40,7 @@ export default async function PartnerDetailPage({
             include: {
               person: true,
               targetPerson: true,
-              relationshipType: true,
+              relationshipTypes: { include: { relationshipType: true } },
             },
           },
           tags: {
@@ -201,7 +201,7 @@ export default async function PartnerDetailPage({
                             </Link>
                           </td>
                           <td className="px-3 py-2 text-gray-600">
-                            {rel.relationshipType.relationshipDesc}
+                            {rel.relationshipTypes.map((rt) => rt.relationshipType.relationshipDesc).join(", ")}
                           </td>
                           <td className="px-3 py-2 text-gray-600">
                             {rel.lastReviewedDate

@@ -44,6 +44,17 @@ async function main() {
   }
   console.log(`  Created ${orgTypes.length} organization types`);
 
+  // ─── Communication Methods ───────────────────────────────────────────────
+  const commMethods = ["Email", "Phone", "Text", "Mail", "In-Person"];
+  for (const name of commMethods) {
+    await prisma.communicationMethod.upsert({
+      where: { name },
+      create: { name },
+      update: {},
+    });
+  }
+  console.log(`  Created ${commMethods.length} communication methods`);
+
   // ─── Relationship Types ──────────────────────────────────────────────────
   const relTypes = [
     { desc: "Close Friend", notes: "Personal relationship; regular social contact" },
@@ -230,11 +241,11 @@ async function main() {
 
   // ─── Relationships (Connector ↔ Person via PartnerRole) ─────────────────
   const relationships = [
-    { peopleId: connectorRecords[0], targetPersonId: contactRecords[0], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Can Text"], lastReviewedDate: new Date("2025-09-15") },
-    { peopleId: connectorRecords[0], targetPersonId: contactRecords[2], partnerRoleId: faithRole.id, relationshipTypeId: relTypeRecords["Close Friend"], lastReviewedDate: new Date("2025-11-01") },
-    { peopleId: connectorRecords[1], targetPersonId: contactRecords[1], partnerRoleId: ltGovRole.id, relationshipTypeId: relTypeRecords["Professional Contact"] },
-    { peopleId: connectorRecords[1], targetPersonId: contactRecords[3], partnerRoleId: bizRole.id, relationshipTypeId: relTypeRecords["Acquaintance"] },
-    { peopleId: connectorRecords[2], targetPersonId: contactRecords[0], partnerRoleId: govRole.id, relationshipTypeId: relTypeRecords["Met Once"] },
+    { peopleId: connectorRecords[0], targetPersonId: contactRecords[0], partnerRoleId: govRole.id, typeDescs: ["Can Text"], lastReviewedDate: new Date("2025-09-15") },
+    { peopleId: connectorRecords[0], targetPersonId: contactRecords[2], partnerRoleId: faithRole.id, typeDescs: ["Close Friend"], lastReviewedDate: new Date("2025-11-01") },
+    { peopleId: connectorRecords[1], targetPersonId: contactRecords[1], partnerRoleId: ltGovRole.id, typeDescs: ["Professional Contact"] },
+    { peopleId: connectorRecords[1], targetPersonId: contactRecords[3], partnerRoleId: bizRole.id, typeDescs: ["Acquaintance"] },
+    { peopleId: connectorRecords[2], targetPersonId: contactRecords[0], partnerRoleId: govRole.id, typeDescs: ["Met Once"] },
   ];
 
   for (const rel of relationships) {
@@ -242,7 +253,16 @@ async function main() {
       where: { peopleId_targetPersonId: { peopleId: rel.peopleId, targetPersonId: rel.targetPersonId } },
     });
     if (!existing) {
-      await prisma.relationship.create({ data: rel });
+      const { typeDescs, ...relData } = rel;
+      const created = await prisma.relationship.create({ data: relData });
+      for (const desc of typeDescs) {
+        const typeId = relTypeRecords[desc];
+        if (typeId) {
+          await prisma.relationshipToType.create({
+            data: { relationshipId: created.id, relationshipTypeId: typeId },
+          });
+        }
+      }
     }
   }
   console.log("  Created 5 relationships");

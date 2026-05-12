@@ -12,7 +12,7 @@ interface Relationship {
     roleDescription: string;
     partner: { id: string; organizationName: string | null };
   } | null;
-  relationshipType: { relationshipDesc: string };
+  relationshipTypes: string[];
   lastReviewedDate: string | null;
 }
 
@@ -93,7 +93,7 @@ export default function RelationshipSearch({
                   )}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
-                  {rel.relationshipType.relationshipDesc}
+                  {rel.relationshipTypes.join(", ")}
                 </td>
                 <td className="px-4 py-3 text-gray-600">
                   {rel.lastReviewedDate

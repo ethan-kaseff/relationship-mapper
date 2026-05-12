@@ -22,7 +22,7 @@ export async function DELETE(
     const url = new URL(request.url);
     const reassignTo = url.searchParams.get("reassignTo");
 
-    const count = await prisma.relationship.count({
+    const count = await prisma.relationshipToType.count({
       where: { relationshipTypeId: id },
     });
 
@@ -34,10 +34,18 @@ export async function DELETE(
     }
 
     if (count > 0 && reassignTo) {
-      await prisma.relationship.updateMany({
+      // Add the reassignment type to all affected relationships (that don't already have it)
+      const affected = await prisma.relationshipToType.findMany({
         where: { relationshipTypeId: id },
-        data: { relationshipTypeId: reassignTo },
+        select: { relationshipId: true },
       });
+      for (const { relationshipId } of affected) {
+        await prisma.relationshipToType.upsert({
+          where: { relationshipId_relationshipTypeId: { relationshipId, relationshipTypeId: reassignTo } },
+          create: { relationshipId, relationshipTypeId: reassignTo },
+          update: {},
+        });
+      }
     }
 
     await prisma.relationshipType.delete({ where: { id } });

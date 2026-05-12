@@ -32,33 +32,41 @@ export default function NewRelationshipPage() {
   const [partnerRoles, setPartnerRoles] = useState<PartnerRole[]>([]);
   const [relTypes, setRelTypes] = useState<RelType[]>([]);
 
-  const [form, setForm] = useState({
-    peopleId: "",
-    partnerRoleId: "",
-    relationshipTypeId: "",
-  });
+  const [peopleId, setPeopleId] = useState("");
+  const [partnerRoleId, setPartnerRoleId] = useState("");
+  const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
 
   const fetchData = useCallback(() => {
     fetch("/api/people")
       .then((res) => res.json())
       .then((data) => setPeople(data))
-      .catch(() => {});
+      .catch(() => { /* fetch failed */ });
     fetch("/api/partner-roles")
       .then((res) => res.json())
       .then((data) => setPartnerRoles(data))
-      .catch(() => {});
+      .catch(() => { /* fetch failed */ });
     fetch("/api/lookup/relationship-types")
       .then((res) => res.json())
       .then((data) => setRelTypes(data))
-      .catch(() => {});
+      .catch(() => { /* fetch failed */ });
   }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
+  function toggleType(id: string) {
+    setSelectedTypeIds((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (selectedTypeIds.length === 0) {
+      setError("Please select at least one relationship type.");
+      return;
+    }
     setSubmitting(true);
     setError("");
 
@@ -66,7 +74,7 @@ export default function NewRelationshipPage() {
       const res = await fetch("/api/relationships", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ peopleId, partnerRoleId, relationshipTypeIds: selectedTypeIds }),
       });
 
       if (!res.ok) {
@@ -120,8 +128,8 @@ export default function NewRelationshipPage() {
             </label>
             <SearchableSelect
               options={personOptions}
-              value={form.peopleId}
-              onChange={(val) => setForm((prev) => ({ ...prev, peopleId: val }))}
+              value={peopleId}
+              onChange={setPeopleId}
               placeholder="Search people..."
               required
               autoFocus
@@ -134,31 +142,30 @@ export default function NewRelationshipPage() {
             </label>
             <SearchableSelect
               options={partnerRoleOptions}
-              value={form.partnerRoleId}
-              onChange={(val) => setForm((prev) => ({ ...prev, partnerRoleId: val }))}
+              value={partnerRoleId}
+              onChange={setPartnerRoleId}
               placeholder="Search partner roles..."
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Relationship Type <span className="text-red-500">*</span>
             </label>
-            <select
-              name="relationshipTypeId"
-              required
-              value={form.relationshipTypeId}
-              onChange={(e) => setForm((prev) => ({ ...prev, relationshipTypeId: e.target.value }))}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            >
-              <option value="">— Select Type —</option>
+            <div className="flex flex-col gap-2">
               {relTypes.map((rt) => (
-                <option key={rt.id} value={rt.id}>
-                  {rt.relationshipDesc}
-                </option>
+                <label key={rt.id} className="inline-flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={selectedTypeIds.includes(rt.id)}
+                    onChange={() => toggleType(rt.id)}
+                    className="accent-indigo-600 w-4 h-4"
+                  />
+                  <span className="text-sm text-gray-700">{rt.relationshipDesc}</span>
+                </label>
               ))}
-            </select>
+            </div>
           </div>
 
           <div className="pt-4">
