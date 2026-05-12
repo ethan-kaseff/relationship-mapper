@@ -26,25 +26,35 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
   const [relationshipTypes, setRelationshipTypes] = useState<RelationshipType[]>([]);
 
   const [partnerRoleId, setPartnerRoleId] = useState("");
-  const [relationshipTypeId, setRelationshipTypeId] = useState("");
+  const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
 
   const fetchData = useCallback(() => {
     fetch("/api/partner-roles")
       .then((res) => res.json())
       .then((data) => setPartnerRoles(data))
-      .catch(() => {});
+      .catch(() => { /* fetch failed */ });
     fetch("/api/lookup/relationship-types")
       .then((res) => res.json())
       .then((data) => setRelationshipTypes(data))
-      .catch(() => {});
+      .catch(() => { /* fetch failed */ });
   }, []);
 
   useEffect(() => {
     if (open) fetchData();
   }, [open, fetchData]);
 
+  function toggleType(id: string) {
+    setSelectedTypeIds((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]
+    );
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (selectedTypeIds.length === 0) {
+      setError("Please select at least one relationship type.");
+      return;
+    }
     setSubmitting(true);
     setError("");
 
@@ -55,7 +65,7 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
         body: JSON.stringify({
           peopleId: personId,
           partnerRoleId,
-          relationshipTypeId,
+          relationshipTypeIds: selectedTypeIds,
         }),
       });
 
@@ -65,7 +75,7 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
       }
 
       setPartnerRoleId("");
-      setRelationshipTypeId("");
+      setSelectedTypeIds([]);
       setOpen(false);
       router.refresh();
     } catch (err: unknown) {
@@ -86,17 +96,11 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
     );
   }
 
-  // Only show roles that have a person assigned (skip vacant roles)
   const filledRoles = partnerRoles.filter((pr) => pr.person !== null);
 
   const partnerRoleOptions = filledRoles.map((pr) => ({
     value: pr.id,
     label: `${pr.person!.lastName}, ${pr.person!.firstName} — ${pr.roleDescription} at ${pr.partner.organizationName ?? "Unknown"}`,
-  }));
-
-  const relTypeOptions = relationshipTypes.map((rt) => ({
-    value: rt.id,
-    label: rt.relationshipDesc,
   }));
 
   return (
@@ -110,7 +114,7 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
           {error}
         </div>
       )}
-      <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-end">
+      <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-start">
         <div className="w-80">
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Person <span className="text-red-500">*</span>
@@ -128,21 +132,21 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Relationship Type <span className="text-red-500">*</span>
           </label>
-          <select
-            required
-            value={relationshipTypeId}
-            onChange={(e) => setRelationshipTypeId(e.target.value)}
-            className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-          >
-            <option value="">— Select —</option>
-            {relTypeOptions.map((rt) => (
-              <option key={rt.value} value={rt.value}>
-                {rt.label}
-              </option>
+          <div className="flex flex-col gap-1">
+            {relationshipTypes.map((rt) => (
+              <label key={rt.id} className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={selectedTypeIds.includes(rt.id)}
+                  onChange={() => toggleType(rt.id)}
+                  className="accent-indigo-600 w-3.5 h-3.5"
+                />
+                <span className="text-sm text-gray-700">{rt.relationshipDesc}</span>
+              </label>
             ))}
-          </select>
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 mt-5">
           <button
             type="submit"
             disabled={submitting}

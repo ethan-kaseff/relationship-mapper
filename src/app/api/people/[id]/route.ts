@@ -32,7 +32,7 @@ export async function GET(
                 partner: true,
               },
             },
-            relationshipType: true,
+            relationshipTypes: { include: { relationshipType: true } },
           },
         },
         connections: {
@@ -52,6 +52,7 @@ export async function GET(
         tags: {
           include: { tag: true },
         },
+        communicationMethod: true,
       },
     });
     if (!person) {
@@ -108,6 +109,7 @@ export async function PUT(
         assignedToId: data.assignedToId !== undefined ? (data.assignedToId || null) : undefined,
         assignedDate: data.assignedDate ? new Date(data.assignedDate) : data.assignedToId !== undefined ? null : undefined,
         emailTemplateId: data.emailTemplateId !== undefined ? (data.emailTemplateId || null) : undefined,
+        communicationMethodId: data.communicationMethodId !== undefined ? (data.communicationMethodId || null) : undefined,
       },
       include: { assignedTo: { select: { firstName: true, lastName: true } } },
     });

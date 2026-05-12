@@ -1,7 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+
+interface CommunicationMethod {
+  id: string;
+  name: string;
+}
 
 interface PersonData {
   firstName: string;
@@ -18,6 +23,8 @@ interface PersonData {
   email2: string | null;
   isConnector: boolean;
   tagIds: string[];
+  communicationMethodId: string | null;
+  communicationMethodName: string | null;
 }
 
 interface Props {
@@ -31,10 +38,23 @@ export default function EditPersonButton({ personId, person }: Props) {
   const [form, setForm] = useState({ ...person });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [commMethods, setCommMethods] = useState<CommunicationMethod[]>([]);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const { name, value, type, checked } = e.target;
-    setForm((prev) => ({ ...prev, [name]: type === "checkbox" ? checked : value }));
+  useEffect(() => {
+    if (editing) {
+      fetch("/api/lookup/communication-methods")
+        .then((r) => r.json())
+        .then((data) => setCommMethods(Array.isArray(data) ? data : []))
+        .catch(() => { /* fetch failed */ });
+    }
+  }, [editing]);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    const { name, value, type } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+    }));
   }
 
   function resetForm() {
@@ -66,6 +86,7 @@ export default function EditPersonButton({ personId, person }: Props) {
           email2: form.email2 || null,
           isConnector: form.isConnector,
           tagIds: form.tagIds,
+          communicationMethodId: form.communicationMethodId || null,
         }),
       });
 
@@ -133,6 +154,12 @@ export default function EditPersonButton({ personId, person }: Props) {
               <span className="text-gray-800">
                 {[person.address, [person.city, person.state].filter(Boolean).join(", "), person.zip].filter(Boolean).join(" ")}
               </span>
+            </div>
+          )}
+          {person.communicationMethodName && (
+            <div>
+              <span className="font-medium text-gray-500">Preferred Contact:</span>{" "}
+              <span className="text-gray-800">{person.communicationMethodName}</span>
             </div>
           )}
           {person.isConnector && (
@@ -231,10 +258,26 @@ export default function EditPersonButton({ personId, person }: Props) {
           </div>
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Personalized Greeting</label>
-          <input type="text" name="greeting" placeholder="e.g. Dear Rabbi Smith" value={form.greeting ?? ""} onChange={handleChange}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Personalized Greeting</label>
+            <input type="text" name="greeting" placeholder="e.g. Dear Rabbi Smith" value={form.greeting ?? ""} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Contact Method</label>
+            <select
+              name="communicationMethodId"
+              value={form.communicationMethodId ?? ""}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              <option value="">— None —</option>
+              {commMethods.map((m) => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
 
         <div className="flex items-center gap-2">

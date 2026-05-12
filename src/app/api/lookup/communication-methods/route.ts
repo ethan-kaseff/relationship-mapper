@@ -5,9 +5,8 @@ import { handleApiError } from "@/lib/api-error";
 import { z } from "zod";
 import { validateBody } from "@/lib/validations";
 
-const createRelationshipTypeSchema = z.object({
-  relationshipDesc: z.string().min(1, "Description is required").max(255),
-  notes: z.string().max(500).optional().nullable(),
+const createSchema = z.object({
+  name: z.string().min(1, "Name is required").max(100),
 });
 
 export async function GET() {
@@ -15,10 +14,11 @@ export async function GET() {
   if (!authResult.success) return authResult.response;
 
   try {
-    const relationshipTypes = await prisma.relationshipType.findMany({
-      include: { _count: { select: { relationshipToTypes: true } } },
+    const methods = await prisma.communicationMethod.findMany({
+      include: { _count: { select: { people: true } } },
+      orderBy: { name: "asc" },
     });
-    return NextResponse.json(relationshipTypes);
+    return NextResponse.json(methods);
   } catch (error) {
     return handleApiError(error);
   }
@@ -28,18 +28,14 @@ export async function POST(request: Request) {
   const authResult = await requireAdmin();
   if (!authResult.success) return authResult.response;
 
-  const validation = await validateBody(request, createRelationshipTypeSchema);
+  const validation = await validateBody(request, createSchema);
   if (!validation.success) return validation.response;
 
   try {
-    const data = validation.data;
-    const relType = await prisma.relationshipType.create({
-      data: {
-        relationshipDesc: data.relationshipDesc,
-        notes: data.notes || null,
-      },
+    const method = await prisma.communicationMethod.create({
+      data: { name: validation.data.name },
     });
-    return NextResponse.json(relType, { status: 201 });
+    return NextResponse.json(method, { status: 201 });
   } catch (error) {
     return handleApiError(error);
   }

@@ -22,7 +22,9 @@ export async function GET(
             partner: true,
           },
         },
-        relationshipType: true,
+        relationshipTypes: {
+          include: { relationshipType: true },
+        },
       },
     });
     if (!relationship) {
@@ -47,13 +49,23 @@ export async function PUT(
   try {
     const { id } = await params;
     const data = validation.data;
+
+    const updateData: Parameters<typeof prisma.relationship.update>[0]["data"] = {
+      lastReviewedDate: data.lastReviewedDate ? new Date(data.lastReviewedDate) : undefined,
+    };
+
+    if (data.relationshipTypeIds) {
+      updateData.relationshipTypes = {
+        deleteMany: {},
+        create: data.relationshipTypeIds.map((typeId) => ({ relationshipTypeId: typeId })),
+      };
+    }
+
     const relationship = await prisma.relationship.update({
       where: { id },
-      data: {
-        relationshipTypeId: data.relationshipTypeId,
-        lastReviewedDate: data.lastReviewedDate
-          ? new Date(data.lastReviewedDate)
-          : null,
+      data: updateData,
+      include: {
+        relationshipTypes: { include: { relationshipType: true } },
       },
     });
     return NextResponse.json(relationship);

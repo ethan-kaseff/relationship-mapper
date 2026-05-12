@@ -18,6 +18,7 @@ export const createPeopleSchema = z.object({
   assignedToId: z.string().uuid().optional().nullable(),
   assignedDate: z.string().datetime({ offset: true }).optional().nullable(),
   emailTemplateId: z.string().uuid().optional().nullable(),
+  communicationMethodId: z.string().uuid().optional().nullable(),
   officeId: z.string().uuid().optional(), // System admins can specify
 });
 
@@ -41,6 +42,7 @@ export const updatePeopleSchema = z.object({
   assignedToId: z.string().uuid().optional().nullable(),
   assignedDate: z.string().datetime({ offset: true }).optional().nullable(),
   emailTemplateId: z.string().uuid().optional().nullable(),
+  communicationMethodId: z.string().uuid().optional().nullable(),
   tagIds: z.array(z.string().uuid()).optional(),
 });
 

@@ -40,7 +40,7 @@ export default async function PersonDetailPage({
           relationships: {
             include: {
               person: true,
-              relationshipType: true,
+              relationshipTypes: { include: { relationshipType: true } },
             },
           },
           connections: {
@@ -53,14 +53,14 @@ export default async function PersonDetailPage({
         include: {
           targetPerson: true,
           partnerRole: { include: { partner: true } },
-          relationshipType: true,
+          relationshipTypes: { include: { relationshipType: true } },
         },
       },
       targetOfRelationships: {
         include: {
           person: true,
           partnerRole: { include: { partner: true } },
-          relationshipType: true,
+          relationshipTypes: { include: { relationshipType: true } },
         },
       },
       connections: {
@@ -81,7 +81,7 @@ export default async function PersonDetailPage({
         include: { tag: true },
       },
       donations: {
-        include: { fundraiser: { select: { id: true, title: true } } },
+        include: { fundraiser: { select: { id: true, title: true, eventId: true } } },
         orderBy: { donatedAt: "desc" },
       },
       personNotes: {
@@ -90,6 +90,7 @@ export default async function PersonDetailPage({
       },
       assignedTo: { select: { firstName: true, lastName: true } },
       emailTemplate: { select: { subject: true, body: true } },
+      communicationMethod: { select: { id: true, name: true } },
     },
   });
 
@@ -113,7 +114,7 @@ export default async function PersonDetailPage({
     partner: rel.partnerRole?.partner?.organizationName ?? "—",
     partnerId: rel.partnerRole?.partner?.id,
     role: rel.partnerRole?.roleDescription ?? "—",
-    type: rel.relationshipType.relationshipDesc,
+    type: rel.relationshipTypes.map((rt) => rt.relationshipType.relationshipDesc).join(", "),
     lastReviewed: rel.lastReviewedDate,
     hasPartnerRole: !!rel.partnerRole,
   }));
@@ -182,6 +183,8 @@ export default async function PersonDetailPage({
             email2: person.email2,
             isConnector: person.isConnector,
             tagIds: person.tags.map((t) => t.tag.id),
+            communicationMethodId: person.communicationMethod?.id ?? null,
+            communicationMethodName: person.communicationMethod?.name ?? null,
           }}
         />
       ) : (
@@ -390,7 +393,7 @@ export default async function PersonDetailPage({
                       <span className="text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-gray-600">{rel.relationshipType.relationshipDesc}</td>
+                  <td className="px-4 py-2 text-gray-600">{rel.relationshipTypes.map((rt) => rt.relationshipType.relationshipDesc).join(", ")}</td>
                   <td className="px-4 py-2 text-gray-600">
                     {rel.lastReviewedDate
                       ? new Date(rel.lastReviewedDate).toLocaleDateString(undefined, { timeZone: "UTC" })
@@ -560,10 +563,14 @@ export default async function PersonDetailPage({
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Event</th>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Date</th>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">RSVP</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Attended</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Donated</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {person.eventInvites.map((invite) => (
+              {person.eventInvites.map((invite) => {
+                const donated = person.donations.some((d) => d.fundraiser?.eventId === invite.event.id);
+                return (
                 <tr key={invite.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2">
                     <Link
@@ -593,8 +600,23 @@ export default async function PersonDetailPage({
                       {invite.rsvpStatus}
                     </span>
                   </td>
+                  <td className="px-4 py-2">
+                    {invite.attended ? (
+                      <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800">Yes</span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    {donated ? (
+                      <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">Yes</span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
+                    )}
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}

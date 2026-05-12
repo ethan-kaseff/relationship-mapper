@@ -10,11 +10,17 @@ interface Tag {
   _count?: { personTags: number; partnerTags: number; partnerRoleTags: number };
 }
 
+interface CommunicationMethod {
+  id: string;
+  name: string;
+  _count?: { people: number };
+}
+
 interface RelationshipType {
   id: string;
   relationshipDesc: string;
   notes: string | null;
-  _count?: { relationships: number };
+  _count?: { relationshipToTypes: number };
 }
 
 interface Office {
@@ -185,6 +191,18 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Communication methods state
+  const [commMethods, setCommMethods] = useState<CommunicationMethod[]>([]);
+  const [commMethodsLoading, setCommMethodsLoading] = useState(true);
+  const [showCommMethodForm, setShowCommMethodForm] = useState(false);
+  const [newCommMethodName, setNewCommMethodName] = useState("");
+  const [commMethodSubmitting, setCommMethodSubmitting] = useState(false);
+  const [commMethodError, setCommMethodError] = useState("");
+  const [editingCommMethodId, setEditingCommMethodId] = useState<string | null>(null);
+  const [editCommMethodName, setEditCommMethodName] = useState("");
+  const [deletingCommMethodId, setDeletingCommMethodId] = useState<string | null>(null);
+  const commMethodInputRef = useRef<HTMLInputElement>(null);
+
   // Auto-focus refs
   const relTypeInputRef = useRef<HTMLInputElement>(null);
   const userFirstNameRef = useRef<HTMLInputElement>(null);
@@ -232,6 +250,16 @@ export default function SettingsPage() {
       .catch(() => setOfficesLoading(false));
   }
 
+  function fetchCommMethods() {
+    fetch("/api/lookup/communication-methods")
+      .then((res) => res.json())
+      .then((data) => {
+        setCommMethods(Array.isArray(data) ? data : []);
+        setCommMethodsLoading(false);
+      })
+      .catch(() => setCommMethodsLoading(false));
+  }
+
   function fetchEmailTemplates() {
     fetch("/api/email-templates")
       .then((res) => res.json())
@@ -259,8 +287,16 @@ export default function SettingsPage() {
   }, [showOfficeForm]);
 
   useEffect(() => {
+    if (showCommMethodForm && commMethodInputRef.current) commMethodInputRef.current.focus();
+  }, [showCommMethodForm]);
+
+  useEffect(() => {
     if (isSystemAdmin) fetchTypes();
   }, [isSystemAdmin]);
+
+  useEffect(() => {
+    fetchCommMethods();
+  }, []);
 
   useEffect(() => {
     if (canManageUsers) fetchTags();
@@ -1802,7 +1838,7 @@ export default function SettingsPage() {
                         />
                       </td>
                       <td className="px-4 py-2 text-gray-600">
-                        {rt._count?.relationships ?? 0}
+                        {rt._count?.relationshipToTypes ?? 0}
                       </td>
                       <td className="px-4 py-2 text-right">
                         <div className="flex gap-2 justify-end">
@@ -1828,7 +1864,7 @@ export default function SettingsPage() {
                       <td className="px-4 py-3 text-gray-600">{rt.notes ?? "—"}</td>
                       <td className="px-4 py-3">
                         <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                          {rt._count?.relationships ?? 0}
+                          {rt._count?.relationshipToTypes ?? 0}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -1922,6 +1958,193 @@ export default function SettingsPage() {
           </table>
         )}
       </div>}
+
+      {/* Communication Methods */}
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-indigo-900">Preferred Contact Methods</h2>
+          {!showCommMethodForm && (
+            <button
+              onClick={() => { setShowCommMethodForm(true); setCommMethodError(""); setNewCommMethodName(""); }}
+              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium border border-indigo-200 px-2 py-1 rounded-md hover:bg-indigo-50"
+            >
+              + Add Method
+            </button>
+          )}
+        </div>
+
+        {showCommMethodForm && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!newCommMethodName.trim()) return;
+              setCommMethodSubmitting(true);
+              setCommMethodError("");
+              const res = await fetch("/api/lookup/communication-methods", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: newCommMethodName.trim() }),
+              });
+              if (!res.ok) {
+                const data = await res.json();
+                setCommMethodError(data.error || "Failed to create method");
+              } else {
+                setNewCommMethodName("");
+                setShowCommMethodForm(false);
+                fetchCommMethods();
+              }
+              setCommMethodSubmitting(false);
+            }}
+            className="flex gap-2 items-center mb-4"
+          >
+            <input
+              ref={commMethodInputRef}
+              type="text"
+              value={newCommMethodName}
+              onChange={(e) => setNewCommMethodName(e.target.value)}
+              placeholder="Method name"
+              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48"
+              required
+            />
+            <button
+              type="submit"
+              disabled={commMethodSubmitting}
+              className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {commMethodSubmitting ? "Saving..." : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCommMethodForm(false)}
+              className="text-gray-500 hover:text-gray-700 text-sm px-2 py-1.5"
+            >
+              Cancel
+            </button>
+            {commMethodError && <span className="text-red-600 text-xs">{commMethodError}</span>}
+          </form>
+        )}
+
+        {commMethodsLoading ? (
+          <p className="text-gray-400 text-sm">Loading...</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Name</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">In Use</th>
+                <th className="px-4 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {commMethods.map((m) => (
+                <tr key={m.id} className="hover:bg-gray-50">
+                  {editingCommMethodId === m.id ? (
+                    <>
+                      <td className="px-4 py-2" colSpan={2}>
+                        <input
+                          type="text"
+                          value={editCommMethodName}
+                          onChange={(e) => setEditCommMethodName(e.target.value)}
+                          className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48"
+                          autoFocus
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex items-center gap-3 justify-end">
+                          <button
+                            onClick={async () => {
+                              if (!editCommMethodName.trim()) return;
+                              const res = await fetch(`/api/lookup/communication-methods/${m.id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ name: editCommMethodName.trim() }),
+                              });
+                              if (res.ok) { setEditingCommMethodId(null); fetchCommMethods(); }
+                            }}
+                            className="text-indigo-600 hover:underline text-xs font-medium"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingCommMethodId(null)}
+                            className="text-gray-500 hover:text-gray-700 text-xs"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-2 text-gray-800">{m.name}</td>
+                      <td className="px-4 py-2 text-gray-500">{m._count?.people ?? 0}</td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex items-center gap-3 justify-end">
+                          <button
+                            onClick={() => { setEditingCommMethodId(m.id); setEditCommMethodName(m.name); }}
+                            className="text-indigo-600 hover:underline text-xs"
+                          >
+                            Edit
+                          </button>
+                          {deletingCommMethodId === m.id ? (
+                            <span className="flex items-center gap-2">
+                              <span className="text-xs text-gray-600">Delete?</span>
+                              {(m._count?.people ?? 0) > 0 && (
+                                <span className="text-red-600 text-xs">In use by {m._count?.people} {(m._count?.people ?? 0) === 1 ? "person" : "people"} — remove assignments first.</span>
+                              )}
+                              {(m._count?.people ?? 0) === 0 && (
+                                <>
+                                  <button
+                                    onClick={async () => {
+                                      const res = await fetch(`/api/lookup/communication-methods/${m.id}`, { method: "DELETE" });
+                                      if (res.ok) { setDeletingCommMethodId(null); fetchCommMethods(); }
+                                    }}
+                                    className="text-red-600 hover:underline text-xs font-medium"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletingCommMethodId(null)}
+                                    className="text-gray-500 hover:text-gray-700 text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              )}
+                              {(m._count?.people ?? 0) > 0 && (
+                                <button
+                                  onClick={() => setDeletingCommMethodId(null)}
+                                  className="text-gray-500 hover:text-gray-700 text-xs"
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setDeletingCommMethodId(m.id)}
+                              className="text-red-600 hover:underline text-xs"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+              {commMethods.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
+                    No communication methods defined.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
 
       {/* Data Management — SYSTEM_ADMIN and OFFICE_ADMIN */}
       {canManageUsers && (
