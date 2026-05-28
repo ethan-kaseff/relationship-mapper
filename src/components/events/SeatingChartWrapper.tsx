@@ -7,7 +7,7 @@ import { SeatingState } from "@/hooks/useSeatingChart";
 
 interface EventInvite {
   id: string;
-  peopleId: string;
+  peopleId: string | null;
   rsvpStatus: string;
   meal: string;
   dietary: string[];
@@ -15,11 +15,15 @@ interface EventInvite {
   group: string;
   tableId: string | null;
   seatIndex: number | null;
+  isGuest: boolean;
+  isPlaceholder: boolean;
+  guestName: string | null;
+  ticketType: string;
   person: {
     id: string;
     firstName: string;
     lastName: string;
-  };
+  } | null;
 }
 
 interface EventData {
@@ -40,13 +44,22 @@ export default function SeatingChartWrapper({ event }: SeatingChartWrapperProps)
 
   const guests: SeatingGuest[] = confirmedInvites.map((inv) => ({
     id: inv.id, // Use invite ID as the seating guest ID
-    name: `${inv.person.firstName} ${inv.person.lastName}`,
+    name: inv.isPlaceholder
+      ? "TBD"
+      : inv.isGuest && inv.guestName
+      ? inv.guestName
+      : inv.person
+      ? `${inv.person.firstName} ${inv.person.lastName}`
+      : "Unknown",
     meal: inv.meal,
     dietary: Array.isArray(inv.dietary) ? inv.dietary : [],
     notes: inv.notes || "",
     group: inv.group || "",
     tableId: inv.tableId,
     seatIndex: inv.seatIndex,
+    isGuest: inv.isGuest,
+    isPlaceholder: inv.isPlaceholder,
+    ticketType: inv.ticketType,
   }));
 
   const layout = event.seatingLayout as SeatingLayout | null;

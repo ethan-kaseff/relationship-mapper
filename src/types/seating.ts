@@ -9,6 +9,10 @@ export interface SeatingGuest {
   group: string;
   tableId: string | null;
   seatIndex: number | null;
+  isGuest?: boolean;
+  isPlaceholder?: boolean;
+  ticketType?: string;
+  partnerOrgColor?: string;
 }
 
 export interface Seat {

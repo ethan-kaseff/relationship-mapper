@@ -45,9 +45,11 @@ export async function POST(
 
     if (!event) return notFound("Event not found");
 
+    // Only sync invites with a real person record (skip guests/placeholders)
+    const personInvites = event.invites.filter((inv) => inv.person !== null);
     // Split invites into those with and without emails
-    const withEmail = event.invites.filter((inv) => inv.person.email1?.trim() || inv.person.email2?.trim());
-    const withoutEmail = event.invites.filter((inv) => !inv.person.email1?.trim() && !inv.person.email2?.trim());
+    const withEmail = personInvites.filter((inv) => inv.person!.email1?.trim() || inv.person!.email2?.trim());
+    const withoutEmail = personInvites.filter((inv) => !inv.person!.email1?.trim() && !inv.person!.email2?.trim());
 
     if (withEmail.length === 0) {
       return NextResponse.json({
@@ -56,6 +58,8 @@ export async function POST(
         message: "No invitees have email addresses. Add emails to people records before syncing.",
       });
     }
+
+
 
     // Always create a new CC list with sequential numbering
     const nextSyncCount = event.ccSyncCount + 1;
@@ -69,11 +73,11 @@ export async function POST(
       data: { ccListId: listId, ccSyncCount: nextSyncCount },
     });
 
-    // Build contacts from invites
+    // Build contacts from invites (person is guaranteed non-null here)
     const contacts = withEmail.map((inv) => ({
-      email: (inv.person.email1?.trim() || inv.person.email2?.trim())!,
-      first_name: inv.person.firstName,
-      last_name: inv.person.lastName,
+      email: (inv.person!.email1?.trim() || inv.person!.email2?.trim())!,
+      first_name: inv.person!.firstName,
+      last_name: inv.person!.lastName,
     }));
 
     await upsertContacts(officeId, contacts, listId);

@@ -36,29 +36,66 @@ export async function POST(
 
   try {
     const { id: eventId } = await params;
-    const { peopleIds } = validation.data;
+    const { peopleIds = [], guests = [], placeholderCount, notes } = validation.data;
 
-    // Check for existing invites to avoid duplicates
-    const existing = await prisma.eventInvite.findMany({
-      where: { eventId, peopleId: { in: peopleIds } },
-      select: { peopleId: true },
-    });
-    const existingIds = new Set(existing.map((e) => e.peopleId));
-    const newIds = peopleIds.filter((pid: string) => !existingIds.has(pid));
+    let created = 0;
+    let skipped = 0;
 
-    if (newIds.length === 0) {
+    // Handle regular people invites
+    if (peopleIds.length > 0) {
+      const existing = await prisma.eventInvite.findMany({
+        where: { eventId, peopleId: { in: peopleIds } },
+        select: { peopleId: true },
+      });
+      const existingIds = new Set(existing.map((e) => e.peopleId));
+      const newIds = peopleIds.filter((pid: string) => !existingIds.has(pid));
+      skipped += existingIds.size;
+
+      if (newIds.length > 0) {
+        const result = await prisma.eventInvite.createMany({
+          data: newIds.map((peopleId: string) => ({
+            eventId,
+            peopleId,
+          })),
+        });
+        created += result.count;
+      }
+    }
+
+    // Handle guest invites
+    if (guests.length > 0) {
+      const result = await prisma.eventInvite.createMany({
+        data: guests.map((g: { name: string; email?: string }) => ({
+          eventId,
+          peopleId: null,
+          isGuest: true,
+          guestName: g.name,
+          guestEmail: g.email || null,
+          notes: notes || null,
+        })),
+      });
+      created += result.count;
+    }
+
+    // Handle placeholder invites
+    if (placeholderCount && placeholderCount > 0) {
+      const result = await prisma.eventInvite.createMany({
+        data: Array.from({ length: placeholderCount }, () => ({
+          eventId,
+          peopleId: null,
+          isPlaceholder: true,
+          notes: notes || null,
+        })),
+      });
+      created += result.count;
+    }
+
+    if (created === 0 && skipped > 0) {
       return conflict("All selected people are already invited");
     }
 
-    const invites = await prisma.eventInvite.createMany({
-      data: newIds.map((peopleId: string) => ({
-        eventId,
-        peopleId,
-      })),
-    });
-
     return NextResponse.json(
-      { created: invites.count, skipped: existingIds.size },
+      { created, skipped },
       { status: 201 }
     );
   } catch (error) {

@@ -8,7 +8,7 @@ interface GuestModalProps {
   guest: SeatingGuest | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updates: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null }) => void;
+  onSave: (updates: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null; ticketType: string; seatingRequest: string }) => void;
   existingGroups?: string[];
   tables?: Table[];
 }
@@ -19,6 +19,8 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
   const [dietary, setDietary] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [tableId, setTableId] = useState<string | null>(null);
+  const [ticketType, setTicketType] = useState('Regular');
+  const [seatingRequest, setSeatingRequest] = useState('');
 
   useEffect(() => {
     if (guest) {
@@ -27,13 +29,15 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
       setDietary(guest.dietary);
       setNotes(guest.notes || '');
       setTableId(guest.tableId);
+      setTicketType(guest.ticketType || 'Regular');
+      setSeatingRequest('');
     }
   }, [guest, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!guest) return;
-    onSave({ id: guest.id, group: group.trim(), meal, dietary, notes: notes.trim(), tableId });
+    onSave({ id: guest.id, group: group.trim(), meal, dietary, notes: notes.trim(), tableId, ticketType, seatingRequest: seatingRequest.trim() });
     onClose();
   };
 
@@ -97,6 +101,32 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
                   <option key={option} value={option}>{option}</option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ticket Type</label>
+              <select
+                value={ticketType}
+                onChange={(e) => setTicketType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="Regular">Regular</option>
+                <option value="Comp">Comp</option>
+                <option value="Press">Press</option>
+                <option value="Staff">Staff</option>
+                <option value="VIP">VIP</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Seating Request</label>
+              <input
+                type="text"
+                value={seatingRequest}
+                onChange={(e) => setSeatingRequest(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                placeholder="e.g., near the stage, with their group..."
+              />
             </div>
 
             <div>

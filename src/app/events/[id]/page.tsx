@@ -9,7 +9,7 @@ import EventFundraiserSection from "@/components/events/EventFundraiserSection";
 
 interface EventInvite {
   id: string;
-  peopleId: string;
+  peopleId: string | null;
   rsvpStatus: string;
   rsvpDate: string | null;
   meal: string;
@@ -19,13 +19,19 @@ interface EventInvite {
   tableId: string | null;
   seatIndex: number | null;
   attended: boolean;
+  isGuest: boolean;
+  isPlaceholder: boolean;
+  guestName: string | null;
+  guestEmail: string | null;
+  ticketType: string;
+  seatingRequest: string | null;
   person: {
     id: string;
     firstName: string;
     lastName: string;
     email1: string | null;
     email2: string | null;
-  };
+  } | null;
 }
 
 interface EventData {
@@ -156,6 +162,7 @@ export default function EventDetailPage() {
     const rows = [["First Name", "Last Name", "Email"]];
     for (const invite of event.invites) {
       if (!selected.includes(invite.rsvpStatus)) continue;
+      if (!invite.person) continue;
       const email = invite.person.email1 || invite.person.email2;
       if (!email) continue;
       rows.push([invite.person.firstName, invite.person.lastName, email]);
@@ -478,7 +485,7 @@ export default function EventDetailPage() {
               {(["YES", "NO", "MAYBE", "PENDING"] as const).map((status) => {
                 const labels = { YES: "Yes", NO: "No", MAYBE: "Maybe", PENDING: "Pending" };
                 const count = event.invites.filter(
-                  (i) => i.rsvpStatus === status && (i.person.email1 || i.person.email2)
+                  (i) => i.rsvpStatus === status && i.person && (i.person.email1 || i.person.email2)
                 ).length;
                 return (
                   <label key={status} className="flex items-center gap-3 cursor-pointer">

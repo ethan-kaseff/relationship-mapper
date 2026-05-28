@@ -407,8 +407,8 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
     setSelectedObjectIds(new Set());
   }, [selectedTableIds, selectedObjectIds, deleteTable, deleteObject]);
 
-  const handleGuestSave = (data: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null }) => {
-    updateGuest(data.id, { group: data.group, meal: data.meal, dietary: data.dietary, notes: data.notes });
+  const handleGuestSave = (data: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null; ticketType: string; seatingRequest: string }) => {
+    updateGuest(data.id, { group: data.group, meal: data.meal, dietary: data.dietary, notes: data.notes, ticketType: data.ticketType });
     const guest = state.guests.find((g) => g.id === data.id);
     if (guest?.tableId !== data.tableId) {
       if (guest?.tableId && !data.tableId && guest.group) {

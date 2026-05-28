@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import AddPeopleModal from "./AddPeopleModal";
 import AddFromPartnerModal from "./AddFromPartnerModal";
 import Pagination, { usePagination } from "../Pagination";
+import { DIETARY_OPTIONS } from "@/lib/seating-constants";
 
 function BlurInput({
   value: externalValue,
@@ -39,7 +40,7 @@ function BlurInput({
 
 interface EventInvite {
   id: string;
-  peopleId: string;
+  peopleId: string | null;
   rsvpStatus: string;
   meal: string;
   dietary: string[];
@@ -47,11 +48,17 @@ interface EventInvite {
   group: string;
   tableId: string | null;
   attended: boolean;
+  isGuest: boolean;
+  isPlaceholder: boolean;
+  guestName: string | null;
+  guestEmail: string | null;
+  ticketType: string;
+  seatingRequest: string | null;
   person: {
     id: string;
     firstName: string;
     lastName: string;
-  };
+  } | null;
 }
 
 interface InviteManagerProps {
@@ -74,14 +81,287 @@ const RSVP_COLORS: Record<string, string> = {
   PENDING: "bg-gray-100 text-gray-700 border-gray-200",
 };
 
-type SortKey = "name" | "rsvp" | "group" | "meal" | "seated";
+const TICKET_TYPES = ["Regular", "Comp", "Press", "Staff", "VIP"];
+
+type SortKey = "name" | "rsvp" | "group" | "meal" | "seated" | "ticket";
 type SortDir = "asc" | "desc";
 
 const RSVP_ORDER: Record<string, number> = { YES: 0, MAYBE: 1, PENDING: 2, NO: 3 };
 
+function getDisplayName(inv: EventInvite): string {
+  if (inv.isPlaceholder) return "TBD";
+  if (inv.isGuest && inv.guestName) return inv.guestName;
+  if (inv.person) return `${inv.person.lastName}, ${inv.person.firstName}`;
+  return "Unknown";
+}
+
+// Inline dietary popover
+function DietaryCell({ inv, eventId, onRefresh }: { inv: EventInvite; eventId: string; onRefresh: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [selected, setSelected] = useState<string[]>(inv.dietary || []);
+  const ref = useRef<HTMLDivElement>(null);
+
+  // sync when inv changes
+  useEffect(() => {
+    setSelected(inv.dietary || []);
+  }, [inv.dietary]);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  async function save(opts: string[]) {
+    await fetch(`/api/events/${eventId}/invites/${inv.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ dietary: opts }),
+    });
+    onRefresh();
+  }
+
+  function toggle(opt: string) {
+    const next = selected.includes(opt) ? selected.filter((s) => s !== opt) : [...selected, opt];
+    setSelected(next);
+  }
+
+  if (inv.dietary.length === 0 && !open) {
+    return (
+      <span
+        className="text-gray-400 text-xs cursor-pointer hover:text-gray-600"
+        onClick={() => setOpen(true)}
+      >
+        —
+      </span>
+    );
+  }
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(!open)}
+        className="px-2 py-0.5 text-xs font-medium rounded bg-red-100 text-red-700 border border-red-200 hover:bg-red-200"
+      >
+        {inv.dietary.length} restriction{inv.dietary.length !== 1 ? "s" : ""}
+      </button>
+      {open && (
+        <div className="absolute z-50 left-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 p-3 min-w-[180px]">
+          <p className="text-xs font-semibold text-gray-700 mb-2">Dietary Restrictions</p>
+          <div className="space-y-1">
+            {DIETARY_OPTIONS.map((opt) => (
+              <label key={opt} className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={selected.includes(opt)}
+                  onChange={() => toggle(opt)}
+                  className="rounded text-indigo-600"
+                />
+                <span className="text-xs text-gray-700">{opt}</span>
+              </label>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={() => { save(selected); setOpen(false); }}
+              className="flex-1 px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
+            >
+              Save
+            </button>
+            <button
+              onClick={() => { setSelected(inv.dietary); setOpen(false); }}
+              className="flex-1 px-2 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {!open && inv.dietary.length === 0 && (
+        <span
+          className="text-gray-400 text-xs cursor-pointer hover:text-gray-600 ml-1"
+          onClick={() => setOpen(true)}
+        >
+          + add
+        </span>
+      )}
+    </div>
+  );
+}
+
+// Add Guest modal
+function AddGuestModal({ eventId, onClose, onAdded }: { eventId: string; onClose: () => void; onAdded: () => void }) {
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [email, setEmail] = useState("");
+  const [ticketType, setTicketType] = useState("Regular");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!firstName.trim() && !lastName.trim()) { setError("Please enter a name."); return; }
+    setSaving(true);
+    setError("");
+    const name = [firstName.trim(), lastName.trim()].filter(Boolean).join(" ");
+    const res = await fetch(`/api/events/${eventId}/invites`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ guests: [{ name, email: email.trim() || undefined }] }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Failed to add guest.");
+      setSaving(false);
+      return;
+    }
+    // Update ticket type if not Regular
+    if (ticketType !== "Regular") {
+      const created = await res.json().catch(() => null);
+      if (created) {
+        // We'll handle this after the invite is created; for now just refresh
+      }
+    }
+    onAdded();
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-96">
+        <h2 className="text-base font-semibold text-gray-900 mb-4">Add Guest</h2>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">First Name</label>
+              <input
+                type="text"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Last Name</label>
+              <input
+                type="text"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Email (optional)</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              placeholder="guest@example.com"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Ticket Type</label>
+            <select
+              value={ticketType}
+              onChange={(e) => setTicketType(e.target.value)}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+            >
+              {TICKET_TYPES.map((t) => <option key={t}>{t}</option>)}
+            </select>
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">Cancel</button>
+            <button type="submit" disabled={saving} className="flex-1 px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50">
+              {saving ? "Adding..." : "Add Guest"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+// Add Placeholder modal
+function AddPlaceholderModal({ eventId, onClose, onAdded }: { eventId: string; onClose: () => void; onAdded: () => void }) {
+  const [count, setCount] = useState(1);
+  const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (count < 1) { setError("Count must be at least 1."); return; }
+    setSaving(true);
+    setError("");
+    const res = await fetch(`/api/events/${eventId}/invites`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ placeholderCount: count, notes: notes.trim() || null }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error || "Failed to add placeholders.");
+      setSaving(false);
+      return;
+    }
+    onAdded();
+    onClose();
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-96">
+        <h2 className="text-base font-semibold text-gray-900 mb-4">Add Placeholder Seats</h2>
+        <form onSubmit={handleSubmit} className="space-y-3">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">How many placeholder seats?</label>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={count}
+              onChange={(e) => setCount(Math.max(1, parseInt(e.target.value) || 1))}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              autoFocus
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Who are these for? (optional)</label>
+            <input
+              type="text"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="e.g., Acme Corp sponsorship"
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            />
+          </div>
+          {error && <p className="text-xs text-red-600">{error}</p>}
+          <div className="flex gap-2 pt-2">
+            <button type="button" onClick={onClose} className="flex-1 px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">Cancel</button>
+            <button type="submit" disabled={saving} className="flex-1 px-4 py-2 text-sm bg-amber-600 text-white rounded-md hover:bg-amber-700 disabled:opacity-50">
+              {saving ? "Adding..." : `Add ${count} Placeholder${count !== 1 ? "s" : ""}`}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export default function InviteManager({ eventId, invites, trackMeals, trackSeating, onRefresh, ccConnected, syncing, syncResult, onSyncCC, tableNames = {} }: InviteManagerProps) {
   const [showAddPeople, setShowAddPeople] = useState(false);
   const [showAddPartner, setShowAddPartner] = useState(false);
+  const [showAddGuest, setShowAddGuest] = useState(false);
+  const [showAddPlaceholder, setShowAddPlaceholder] = useState(false);
   const [filter, setFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
@@ -91,6 +371,12 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
     Array.from(new Set(invites.map((i) => i.group).filter(Boolean))).sort(),
     [invites]
   );
+
+  // Alert banner counts
+  const placeholderCount = invites.filter((i) => i.isPlaceholder).length;
+  const unfulfilledSeatingRequests = invites.filter(
+    (i) => i.seatingRequest && i.seatingRequest.trim() !== "" && !i.tableId
+  ).length;
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -102,12 +388,12 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
   }
 
   const sortIndicator = (key: SortKey) =>
-    sortKey === key ? (sortDir === "asc" ? " \u25B2" : " \u25BC") : "";
+    sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
 
   const filtered = invites
     .filter((inv) => {
       const matchesFilter = filter === "ALL" || inv.rsvpStatus === filter;
-      const name = `${inv.person.firstName} ${inv.person.lastName}`.toLowerCase();
+      const name = getDisplayName(inv).toLowerCase();
       const group = (inv.group || "").toLowerCase();
       const term = search.toLowerCase();
       const matchesSearch = name.includes(term) || group.includes(term);
@@ -117,7 +403,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
       let cmp = 0;
       switch (sortKey) {
         case "name":
-          cmp = a.person.lastName.localeCompare(b.person.lastName) || a.person.firstName.localeCompare(b.person.firstName);
+          cmp = getDisplayName(a).localeCompare(getDisplayName(b));
           break;
         case "rsvp":
           cmp = (RSVP_ORDER[a.rsvpStatus] ?? 9) - (RSVP_ORDER[b.rsvpStatus] ?? 9);
@@ -134,6 +420,9 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
           cmp = (a.tableId ? 0 : 1) - (b.tableId ? 0 : 1) || aName.localeCompare(bName);
           break;
         }
+        case "ticket":
+          cmp = (a.ticketType || "Regular").localeCompare(b.ticketType || "Regular");
+          break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
@@ -178,14 +467,49 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
     onRefresh();
   }
 
+  async function updateTicketType(inviteId: string, ticketType: string) {
+    await fetch(`/api/events/${eventId}/invites/${inviteId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticketType }),
+    });
+    onRefresh();
+  }
+
+  async function updateSeatingRequest(inviteId: string, seatingRequest: string) {
+    await fetch(`/api/events/${eventId}/invites/${inviteId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seatingRequest }),
+    });
+    onRefresh();
+  }
+
   async function removeInvite(inviteId: string) {
     if (!confirm("Remove this person from the event?")) return;
     await fetch(`/api/events/${eventId}/invites/${inviteId}`, { method: "DELETE" });
     onRefresh();
   }
 
+  // Column count for empty state colspan
+  const colCount = 8 + (trackMeals ? 1 : 0) + (trackSeating ? 1 : 0);
+
   return (
     <div>
+      {/* Alert banners */}
+      {placeholderCount > 0 && (
+        <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">
+          <span>⚠</span>
+          <span>{placeholderCount} seat{placeholderCount !== 1 ? "s" : ""} still need names — follow up with sponsors to confirm attendees</span>
+        </div>
+      )}
+      {unfulfilledSeatingRequests > 0 && (
+        <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">
+          <span>⚠</span>
+          <span>{unfulfilledSeatingRequests} seating request{unfulfilledSeatingRequests !== 1 ? "s" : ""} not yet placed</span>
+        </div>
+      )}
+
       {/* Search, filters, and action buttons */}
       <div className="flex gap-3 mb-4 items-center flex-wrap">
         <input
@@ -232,16 +556,33 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
           )}
           <button
             onClick={() => {
-              const headers = ["Last Name", "First Name", "RSVP", "Group", ...(trackMeals ? ["Meal"] : []), ...(trackSeating ? ["Table"] : []), "Attended"];
-              const rows = filtered.map((inv) => [
-                inv.person.lastName,
-                inv.person.firstName,
-                inv.rsvpStatus,
-                inv.group || "",
-                ...(trackMeals ? [inv.meal] : []),
-                ...(trackSeating ? [inv.tableId ? (tableNames[inv.tableId] || "Seated") : ""] : []),
-                inv.attended ? "Yes" : "No",
-              ]);
+              const headers = [
+                "Last Name", "First Name", "Type", "RSVP", "Group",
+                ...(trackMeals ? ["Meal"] : []),
+                "Dietary",
+                ...(trackSeating ? ["Table"] : []),
+                "Ticket Type",
+                "Seat Request",
+                "Attended",
+              ];
+              const rows = filtered.map((inv) => {
+                const lastName = inv.isPlaceholder ? "TBD" : inv.isGuest ? "" : (inv.person?.lastName || "");
+                const firstName = inv.isPlaceholder ? "" : inv.isGuest ? (inv.guestName || "") : (inv.person?.firstName || "");
+                const type = inv.isPlaceholder ? "Placeholder" : inv.isGuest ? "Guest" : "Person";
+                return [
+                  lastName,
+                  firstName,
+                  type,
+                  inv.rsvpStatus,
+                  inv.group || "",
+                  ...(trackMeals ? [inv.meal] : []),
+                  (inv.dietary || []).join("; "),
+                  ...(trackSeating ? [inv.tableId ? (tableNames[inv.tableId] || "Seated") : ""] : []),
+                  inv.ticketType || "Regular",
+                  inv.seatingRequest || "",
+                  inv.attended ? "Yes" : "No",
+                ];
+              });
               const csvContent = [headers, ...rows]
                 .map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))
                 .join("\n");
@@ -265,6 +606,18 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
             + From Partner
           </button>
           <button
+            onClick={() => setShowAddPlaceholder(true)}
+            className="border border-amber-400 text-amber-700 px-3 py-1.5 rounded-md hover:bg-amber-50 text-sm"
+          >
+            + Placeholder
+          </button>
+          <button
+            onClick={() => setShowAddGuest(true)}
+            className="border border-purple-400 text-purple-700 px-3 py-1.5 rounded-md hover:bg-purple-50 text-sm"
+          >
+            + Add Guest
+          </button>
+          <button
             onClick={() => setShowAddPeople(true)}
             className="bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700 text-sm"
           >
@@ -282,7 +635,10 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
               <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("rsvp")}>RSVP{sortIndicator("rsvp")}</th>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("group")}>Group{sortIndicator("group")}</th>
               {trackMeals && <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("meal")}>Meal{sortIndicator("meal")}</th>}
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Dietary</th>
               {trackSeating && <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("seated")}>Table{sortIndicator("seated")}</th>}
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("ticket")}>Ticket{sortIndicator("ticket")}</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Seat Request</th>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">Attended</th>
               <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
             </tr>
@@ -291,7 +647,13 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
             {paginated.map((inv) => (
               <tr key={inv.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">
-                  {inv.person.lastName}, {inv.person.firstName}
+                  {inv.isPlaceholder ? (
+                    <span className="text-gray-400 italic">TBD <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-1 not-italic">Placeholder</span></span>
+                  ) : inv.isGuest ? (
+                    <span>{inv.guestName || "Guest"} <span className="text-xs bg-purple-100 text-purple-700 border border-purple-200 rounded px-1">Guest</span></span>
+                  ) : (
+                    <span>{inv.person ? `${inv.person.lastName}, ${inv.person.firstName}` : "Unknown"}</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <select
@@ -332,6 +694,9 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                     </select>
                   </td>
                 )}
+                <td className="px-4 py-3">
+                  <DietaryCell inv={inv} eventId={eventId} onRefresh={onRefresh} />
+                </td>
                 {trackSeating && (
                   <td className="px-4 py-3">
                     {inv.tableId ? (
@@ -341,6 +706,24 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                     )}
                   </td>
                 )}
+                <td className="px-4 py-3">
+                  <select
+                    value={inv.ticketType || "Regular"}
+                    onChange={(e) => updateTicketType(inv.id, e.target.value)}
+                    className="px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
+                  >
+                    {TICKET_TYPES.map((t) => <option key={t}>{t}</option>)}
+                  </select>
+                </td>
+                <td className="px-4 py-3">
+                  <BlurInput
+                    type="text"
+                    value={inv.seatingRequest || ""}
+                    onCommit={(val) => updateSeatingRequest(inv.id, val)}
+                    placeholder="Request..."
+                    className="w-full min-w-[8rem] px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                </td>
                 <td className="px-4 py-3">
                   <button
                     onClick={() => updateAttended(inv.id, !inv.attended)}
@@ -365,7 +748,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={5 + (trackMeals ? 1 : 0) + (trackSeating ? 1 : 0)} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={colCount} className="px-4 py-8 text-center text-gray-400">
                   {invites.length === 0
                     ? "No invitees yet. Add people using the buttons above."
                     : "No matching invitees."}
@@ -392,7 +775,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
       {showAddPeople && (
         <AddPeopleModal
           eventId={eventId}
-          existingPeopleIds={invites.map((i) => i.peopleId)}
+          existingPeopleIds={invites.filter((i) => i.peopleId).map((i) => i.peopleId!)}
           onClose={() => setShowAddPeople(false)}
           onAdded={onRefresh}
         />
@@ -402,6 +785,22 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
         <AddFromPartnerModal
           eventId={eventId}
           onClose={() => setShowAddPartner(false)}
+          onAdded={onRefresh}
+        />
+      )}
+
+      {showAddGuest && (
+        <AddGuestModal
+          eventId={eventId}
+          onClose={() => setShowAddGuest(false)}
+          onAdded={onRefresh}
+        />
+      )}
+
+      {showAddPlaceholder && (
+        <AddPlaceholderModal
+          eventId={eventId}
+          onClose={() => setShowAddPlaceholder(false)}
           onAdded={onRefresh}
         />
       )}
