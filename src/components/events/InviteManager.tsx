@@ -3,8 +3,12 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import AddPeopleModal from "./AddPeopleModal";
 import AddFromPartnerModal from "./AddFromPartnerModal";
+import FillPlaceholderModal from "./FillPlaceholderModal";
 import Pagination, { usePagination } from "../Pagination";
 import { DIETARY_OPTIONS } from "@/lib/seating-constants";
+import InviteOptionsPanel from "./InviteOptionsPanel";
+
+interface DietaryOptionRecord { id: string; name: string; }
 
 function BlurInput({
   value: externalValue,
@@ -54,6 +58,7 @@ interface EventInvite {
   guestEmail: string | null;
   ticketType: string;
   seatingRequest: string | null;
+  tableRequest: string | null;
   person: {
     id: string;
     firstName: string;
@@ -90,7 +95,11 @@ const RSVP_ORDER: Record<string, number> = { YES: 0, MAYBE: 1, PENDING: 2, NO: 3
 
 function getDisplayName(inv: EventInvite): string {
   if (inv.isPlaceholder) return "TBD";
-  if (inv.isGuest && inv.guestName) return inv.guestName;
+  if (inv.isGuest && inv.guestName) {
+    const parts = inv.guestName.trim().split(/\s+/);
+    if (parts.length >= 2) return `${parts[parts.length - 1]}, ${parts.slice(0, -1).join(" ")}`;
+    return inv.guestName;
+  }
   if (inv.person) return `${inv.person.lastName}, ${inv.person.firstName}`;
   return "Unknown";
 }
@@ -99,19 +108,23 @@ function getDisplayName(inv: EventInvite): string {
 function DietaryCell({ inv, eventId, onRefresh }: { inv: EventInvite; eventId: string; onRefresh: () => void }) {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>(inv.dietary || []);
+  const [customOptions, setCustomOptions] = useState<DietaryOptionRecord[]>([]);
+  const [newOption, setNewOption] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [addError, setAddError] = useState("");
+  const listRef = useRef<HTMLDivElement>(null);
   const ref = useRef<HTMLDivElement>(null);
 
-  // sync when inv changes
-  useEffect(() => {
-    setSelected(inv.dietary || []);
-  }, [inv.dietary]);
+  useEffect(() => { setSelected(inv.dietary || []); }, [inv.dietary]);
 
   useEffect(() => {
     if (!open) return;
+    fetch("/api/lookup/dietary-options")
+      .then((r) => r.json())
+      .then((d) => setCustomOptions(Array.isArray(d) ? d : []))
+      .catch(() => {});
     function handleClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }
     document.addEventListener("mousedown", handleClick);
     return () => document.removeEventListener("mousedown", handleClick);
@@ -127,18 +140,47 @@ function DietaryCell({ inv, eventId, onRefresh }: { inv: EventInvite; eventId: s
   }
 
   function toggle(opt: string) {
-    const next = selected.includes(opt) ? selected.filter((s) => s !== opt) : [...selected, opt];
-    setSelected(next);
+    setSelected((prev) => prev.includes(opt) ? prev.filter((s) => s !== opt) : [...prev, opt]);
   }
+
+  async function addCustom() {
+    const name = newOption.trim();
+    if (!name) return;
+    setAdding(true);
+    setAddError("");
+    try {
+      const res = await fetch("/api/lookup/dietary-options", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      if (res.ok) {
+        const rec: DietaryOptionRecord = await res.json();
+        setCustomOptions((prev) => [...prev.filter((o) => o.id !== rec.id), rec].sort((a, b) => a.name.localeCompare(b.name)));
+        setSelected((prev) => prev.includes(name) ? prev : [...prev, name]);
+        setNewOption("");
+        // Scroll the list to the bottom so the newly added option is visible
+        setTimeout(() => { listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" }); }, 50);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setAddError((data as { error?: string }).error || "Failed to add option.");
+      }
+    } catch {
+      setAddError("Network error — could not add option.");
+    }
+    setAdding(false);
+  }
+
+  // All options: built-ins first, then custom (deduped)
+  const builtInSet = new Set(DIETARY_OPTIONS);
+  const allOptions = [
+    ...DIETARY_OPTIONS,
+    ...customOptions.filter((o) => !builtInSet.has(o.name)).map((o) => o.name),
+  ];
 
   if (inv.dietary.length === 0 && !open) {
     return (
-      <span
-        className="text-gray-400 text-xs cursor-pointer hover:text-gray-600"
-        onClick={() => setOpen(true)}
-      >
-        —
-      </span>
+      <span className="text-gray-400 text-xs cursor-pointer hover:text-gray-600" onClick={() => setOpen(true)}>—</span>
     );
   }
 
@@ -151,57 +193,67 @@ function DietaryCell({ inv, eventId, onRefresh }: { inv: EventInvite; eventId: s
         {inv.dietary.length} restriction{inv.dietary.length !== 1 ? "s" : ""}
       </button>
       {open && (
-        <div className="absolute z-50 left-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 p-3 min-w-[180px]">
+        <div className="absolute z-50 left-0 top-full mt-1 bg-white rounded-lg shadow-xl border border-gray-200 p-3 min-w-[200px]">
           <p className="text-xs font-semibold text-gray-700 mb-2">Dietary Restrictions</p>
-          <div className="space-y-1">
-            {DIETARY_OPTIONS.map((opt) => (
+          <div ref={listRef} className="space-y-1 max-h-48 overflow-y-auto">
+            {allOptions.map((opt) => (
               <label key={opt} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={selected.includes(opt)}
-                  onChange={() => toggle(opt)}
-                  className="rounded text-indigo-600"
-                />
+                <input type="checkbox" checked={selected.includes(opt)} onChange={() => toggle(opt)} className="rounded text-indigo-600" />
                 <span className="text-xs text-gray-700">{opt}</span>
               </label>
             ))}
           </div>
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={() => { save(selected); setOpen(false); }}
-              className="flex-1 px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700"
-            >
-              Save
-            </button>
-            <button
-              onClick={() => { setSelected(inv.dietary); setOpen(false); }}
-              className="flex-1 px-2 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50"
-            >
-              Cancel
-            </button>
+          <div className="mt-2 pt-2 border-t border-gray-100">
+            <div className="flex gap-1">
+              <input
+                type="text"
+                value={newOption}
+                onChange={(e) => { setNewOption(e.target.value); setAddError(""); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); addCustom(); } }}
+                placeholder="Add custom..."
+                className="flex-1 text-xs px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
+              />
+              <button
+                onClick={(e) => { e.stopPropagation(); addCustom(); }}
+                disabled={adding || !newOption.trim()}
+                className="px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-40"
+              >
+                {adding ? "..." : "Add"}
+              </button>
+            </div>
+            {addError && <p className="text-xs text-red-600 mt-1">{addError}</p>}
+          </div>
+          <div className="flex gap-2 mt-2">
+            <button onClick={() => { save(selected); setOpen(false); }} className="flex-1 px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700">Save</button>
+            <button onClick={() => { setSelected(inv.dietary); setOpen(false); }} className="flex-1 px-2 py-1 text-xs border border-gray-300 text-gray-600 rounded hover:bg-gray-50">Cancel</button>
           </div>
         </div>
       )}
       {!open && inv.dietary.length === 0 && (
-        <span
-          className="text-gray-400 text-xs cursor-pointer hover:text-gray-600 ml-1"
-          onClick={() => setOpen(true)}
-        >
-          + add
-        </span>
+        <span className="text-gray-400 text-xs cursor-pointer hover:text-gray-600 ml-1" onClick={() => setOpen(true)}>+ add</span>
       )}
     </div>
   );
 }
 
 // Add Guest modal
-function AddGuestModal({ eventId, onClose, onAdded }: { eventId: string; onClose: () => void; onAdded: () => void }) {
+function AddGuestModal({ eventId, groups, onClose, onAdded }: { eventId: string; groups: string[]; onClose: () => void; onAdded: () => void }) {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
+  const [rsvpStatus, setRsvpStatus] = useState("YES");
+  const [meal, setMeal] = useState("Standard");
+  const [dietary, setDietary] = useState<string[]>([]);
   const [ticketType, setTicketType] = useState("Regular");
+  const [seatingRequest, setSeatingRequest] = useState("");
+  const [tableRequest, setTableRequest] = useState("");
+  const [customDietary, setCustomDietary] = useState<DietaryOptionRecord[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch("/api/lookup/dietary-options").then((r) => r.json()).then((d) => setCustomDietary(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -212,7 +264,12 @@ function AddGuestModal({ eventId, onClose, onAdded }: { eventId: string; onClose
     const res = await fetch(`/api/events/${eventId}/invites`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ guests: [{ name, email: email.trim() || undefined }] }),
+      body: JSON.stringify({
+        guests: [{ name, email: email.trim() || undefined }],
+        rsvpStatus, meal, dietary, ticketType,
+        seatingRequest: seatingRequest.trim() || null,
+        tableRequest: tableRequest.trim() || null,
+      }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
@@ -220,20 +277,13 @@ function AddGuestModal({ eventId, onClose, onAdded }: { eventId: string; onClose
       setSaving(false);
       return;
     }
-    // Update ticket type if not Regular
-    if (ticketType !== "Regular") {
-      const created = await res.json().catch(() => null);
-      if (created) {
-        // We'll handle this after the invite is created; for now just refresh
-      }
-    }
     onAdded();
     onClose();
   }
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-xl p-6 w-96">
+      <div className="bg-white rounded-lg shadow-xl p-6 w-[28rem] max-h-[90vh] overflow-y-auto">
         <h2 className="text-base font-semibold text-gray-900 mb-4">Add Guest</h2>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div className="grid grid-cols-2 gap-3">
@@ -267,15 +317,17 @@ function AddGuestModal({ eventId, onClose, onAdded }: { eventId: string; onClose
               placeholder="guest@example.com"
             />
           </div>
-          <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Ticket Type</label>
-            <select
-              value={ticketType}
-              onChange={(e) => setTicketType(e.target.value)}
-              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
-            >
-              {TICKET_TYPES.map((t) => <option key={t}>{t}</option>)}
-            </select>
+          <div className="pt-1 border-t border-gray-100">
+            <InviteOptionsPanel
+              rsvpStatus={rsvpStatus} onRsvpChange={setRsvpStatus}
+              meal={meal} onMealChange={setMeal}
+              dietary={dietary} onDietaryChange={setDietary}
+              ticketType={ticketType} onTicketTypeChange={setTicketType}
+              seatingRequest={seatingRequest} onSeatingRequestChange={setSeatingRequest}
+              tableRequest={tableRequest} onTableRequestChange={setTableRequest}
+              groups={groups}
+              customDietary={customDietary}
+            />
           </div>
           {error && <p className="text-xs text-red-600">{error}</p>}
           <div className="flex gap-2 pt-2">
@@ -362,10 +414,17 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
   const [showAddPartner, setShowAddPartner] = useState(false);
   const [showAddGuest, setShowAddGuest] = useState(false);
   const [showAddPlaceholder, setShowAddPlaceholder] = useState(false);
+  const [fillPlaceholderId, setFillPlaceholderId] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [tableRequestOverrides, setTableRequestOverrides] = useState<Record<string, string | null>>({});
+
+  // Clear optimistic overrides whenever fresh invite data arrives
+  useEffect(() => {
+    setTableRequestOverrides({});
+  }, [invites]);
 
   const distinctGroups = useMemo(() =>
     Array.from(new Set(invites.map((i) => i.group).filter(Boolean))).sort(),
@@ -485,6 +544,16 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
     onRefresh();
   }
 
+  async function updateTableRequest(inviteId: string, tableRequest: string) {
+    setTableRequestOverrides((prev) => ({ ...prev, [inviteId]: tableRequest || null }));
+    await fetch(`/api/events/${eventId}/invites/${inviteId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tableRequest: tableRequest || null }),
+    });
+    onRefresh();
+  }
+
   async function removeInvite(inviteId: string) {
     if (!confirm("Remove this person from the event?")) return;
     await fetch(`/api/events/${eventId}/invites/${inviteId}`, { method: "DELETE" });
@@ -492,7 +561,8 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
   }
 
   // Column count for empty state colspan
-  const colCount = 8 + (trackMeals ? 1 : 0) + (trackSeating ? 1 : 0);
+  const hasTableGroups = distinctGroups.length > 0;
+  const colCount = 8 + (trackMeals ? 1 : 0) + (trackSeating ? 1 : 0) + (hasTableGroups ? 1 : 0);
 
   return (
     <div>
@@ -562,7 +632,8 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                 "Dietary",
                 ...(trackSeating ? ["Table"] : []),
                 "Ticket Type",
-                "Seat Request",
+                ...(hasTableGroups ? ["Table Request"] : []),
+                "Special Request",
                 "Attended",
               ];
               const rows = filtered.map((inv) => {
@@ -579,6 +650,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                   (inv.dietary || []).join("; "),
                   ...(trackSeating ? [inv.tableId ? (tableNames[inv.tableId] || "Seated") : ""] : []),
                   inv.ticketType || "Regular",
+                  ...(hasTableGroups ? [inv.tableRequest || ""] : []),
                   inv.seatingRequest || "",
                   inv.attended ? "Yes" : "No",
                 ];
@@ -638,7 +710,8 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">Dietary</th>
               {trackSeating && <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("seated")}>Table{sortIndicator("seated")}</th>}
               <th className="text-left px-4 py-3 font-semibold text-indigo-900 cursor-pointer hover:text-indigo-700 select-none" onClick={() => handleSort("ticket")}>Ticket{sortIndicator("ticket")}</th>
-              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Seat Request</th>
+              {hasTableGroups && <th className="text-left px-4 py-3 font-semibold text-indigo-900">Table Req</th>}
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Special Req</th>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">Attended</th>
               <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
             </tr>
@@ -648,9 +721,14 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
               <tr key={inv.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3 font-medium text-gray-900">
                   {inv.isPlaceholder ? (
-                    <span className="text-gray-400 italic">TBD <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-1 not-italic">Placeholder</span></span>
+                    <button
+                      onClick={() => setFillPlaceholderId(inv.id)}
+                      className="text-left text-indigo-600 hover:text-indigo-800 hover:underline italic"
+                    >
+                      TBD <span className="text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-1 not-italic">Placeholder</span>
+                    </button>
                   ) : inv.isGuest ? (
-                    <span>{inv.guestName || "Guest"} <span className="text-xs bg-purple-100 text-purple-700 border border-purple-200 rounded px-1">Guest</span></span>
+                    <span>{getDisplayName(inv)} <span className="text-xs bg-purple-100 text-purple-700 border border-purple-200 rounded px-1">Guest</span></span>
                   ) : (
                     <span>{inv.person ? `${inv.person.lastName}, ${inv.person.firstName}` : "Unknown"}</span>
                   )}
@@ -668,14 +746,18 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                   </select>
                 </td>
                 <td className="px-4 py-3">
-                  <BlurInput
-                    type="text"
-                    list="group-suggestions"
-                    value={inv.group}
-                    onCommit={(val) => updateGroup(inv.id, val)}
-                    placeholder="Group"
-                    className="w-full min-w-[8rem] px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
-                  />
+                  {inv.group && (
+                    <span className="text-xs text-gray-600">{inv.group}</span>
+                  ) || (
+                    <BlurInput
+                      type="text"
+                      list="group-suggestions"
+                      value={inv.group}
+                      onCommit={(val) => updateGroup(inv.id, val)}
+                      placeholder="Group"
+                      className="w-full min-w-[8rem] px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  )}
                 </td>
                 {trackMeals && (
                   <td className="px-4 py-3">
@@ -715,12 +797,24 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                     {TICKET_TYPES.map((t) => <option key={t}>{t}</option>)}
                   </select>
                 </td>
+                {hasTableGroups && (
+                  <td className="px-4 py-3">
+                    <select
+                      value={(Object.prototype.hasOwnProperty.call(tableRequestOverrides, inv.id) ? tableRequestOverrides[inv.id] : inv.tableRequest) ?? ""}
+                      onChange={(e) => updateTableRequest(inv.id, e.target.value)}
+                      className="w-full min-w-[8rem] px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500"
+                    >
+                      <option value="">No preference</option>
+                      {distinctGroups.map((g) => <option key={g} value={g}>{g}</option>)}
+                    </select>
+                  </td>
+                )}
                 <td className="px-4 py-3">
                   <BlurInput
                     type="text"
                     value={inv.seatingRequest || ""}
                     onCommit={(val) => updateSeatingRequest(inv.id, val)}
-                    placeholder="Request..."
+                    placeholder="Special request..."
                     className="w-full min-w-[8rem] px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </td>
@@ -737,12 +831,16 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                   </button>
                 </td>
                 <td className="px-4 py-3 text-right">
-                  <button
-                    onClick={() => removeInvite(inv.id)}
-                    className="text-red-600 hover:text-red-800 text-xs"
-                  >
-                    Remove
-                  </button>
+                  {inv.group ? (
+                    <span className="text-xs text-gray-400" title="Managed through sponsorship — adjust seats used on the donation">Sponsored</span>
+                  ) : (
+                    <button
+                      onClick={() => removeInvite(inv.id)}
+                      className="text-red-600 hover:text-red-800 text-xs"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -776,6 +874,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
         <AddPeopleModal
           eventId={eventId}
           existingPeopleIds={invites.filter((i) => i.peopleId).map((i) => i.peopleId!)}
+          groups={distinctGroups}
           onClose={() => setShowAddPeople(false)}
           onAdded={onRefresh}
         />
@@ -784,6 +883,8 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
       {showAddPartner && (
         <AddFromPartnerModal
           eventId={eventId}
+          existingPeopleIds={invites.filter((i) => i.peopleId).map((i) => i.peopleId!)}
+          groups={distinctGroups}
           onClose={() => setShowAddPartner(false)}
           onAdded={onRefresh}
         />
@@ -792,6 +893,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
       {showAddGuest && (
         <AddGuestModal
           eventId={eventId}
+          groups={distinctGroups}
           onClose={() => setShowAddGuest(false)}
           onAdded={onRefresh}
         />
@@ -802,6 +904,17 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
           eventId={eventId}
           onClose={() => setShowAddPlaceholder(false)}
           onAdded={onRefresh}
+        />
+      )}
+
+      {fillPlaceholderId && (
+        <FillPlaceholderModal
+          eventId={eventId}
+          inviteId={fillPlaceholderId}
+          existingPeopleIds={invites.filter((i) => i.peopleId).map((i) => i.peopleId!)}
+          groups={distinctGroups}
+          onClose={() => setFillPlaceholderId(null)}
+          onFilled={() => { setFillPlaceholderId(null); onRefresh(); }}
         />
       )}
     </div>

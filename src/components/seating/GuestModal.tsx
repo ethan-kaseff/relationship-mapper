@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import { SeatingGuest, Table } from '@/types/seating';
 import { MEAL_OPTIONS, DIETARY_OPTIONS } from '@/lib/seating-constants';
 
+interface DietaryOptionRecord { id: string; name: string; }
+
 interface GuestModalProps {
   guest: SeatingGuest | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updates: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null; ticketType: string; seatingRequest: string }) => void;
+  onSave: (updates: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null; ticketType: string; seatingRequest: string; tableRequest: string }) => void;
   existingGroups?: string[];
   tables?: Table[];
 }
@@ -21,6 +23,17 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
   const [tableId, setTableId] = useState<string | null>(null);
   const [ticketType, setTicketType] = useState('Regular');
   const [seatingRequest, setSeatingRequest] = useState('');
+  const [tableRequest, setTableRequest] = useState('');
+  const [customDietaryOptions, setCustomDietaryOptions] = useState<DietaryOptionRecord[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/lookup/dietary-options')
+        .then((r) => r.json())
+        .then((data) => setCustomDietaryOptions(Array.isArray(data) ? data : []))
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (guest) {
@@ -31,13 +44,14 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
       setTableId(guest.tableId);
       setTicketType(guest.ticketType || 'Regular');
       setSeatingRequest('');
+      setTableRequest('');
     }
   }, [guest, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!guest) return;
-    onSave({ id: guest.id, group: group.trim(), meal, dietary, notes: notes.trim(), tableId, ticketType, seatingRequest: seatingRequest.trim() });
+    onSave({ id: guest.id, group: group.trim(), meal, dietary, notes: notes.trim(), tableId, ticketType, seatingRequest: seatingRequest.trim(), tableRequest: tableRequest.trim() });
     onClose();
   };
 
@@ -118,14 +132,28 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
               </select>
             </div>
 
+            {existingGroups.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Table Request</label>
+                <select
+                  value={tableRequest}
+                  onChange={(e) => setTableRequest(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                >
+                  <option value="">No preference</option>
+                  {existingGroups.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+            )}
+
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Seating Request</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Special Request</label>
               <input
                 type="text"
                 value={seatingRequest}
                 onChange={(e) => setSeatingRequest(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
-                placeholder="e.g., near the stage, with their group..."
+                placeholder="e.g., accessibility needs, near the stage..."
               />
             </div>
 
@@ -143,7 +171,7 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Dietary Restrictions</label>
               <div className="flex flex-wrap gap-2">
-                {DIETARY_OPTIONS.map((option) => (
+                {[...DIETARY_OPTIONS, ...customDietaryOptions.map((o) => o.name).filter((n) => !DIETARY_OPTIONS.includes(n))].map((option) => (
                   <button
                     key={option}
                     type="button"

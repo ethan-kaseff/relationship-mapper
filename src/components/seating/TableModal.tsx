@@ -32,8 +32,9 @@ export default function SeatingTableModal({
       setName(table.name);
       setSeatCount(table.seats.length);
       setShape(table.shape || 'round');
-      setWidthFt(table.width ? table.width / PIXELS_PER_FOOT : DEFAULT_TABLE_DIAMETER_FT);
-      setHeightFt(table.height ? table.height / PIXELS_PER_FOOT : DEFAULT_TABLE_DIAMETER_FT);
+      const toHalfFt = (px: number) => Math.round((px / PIXELS_PER_FOOT) * 2) / 2;
+      setWidthFt(table.width ? toHalfFt(table.width) : DEFAULT_TABLE_DIAMETER_FT);
+      setHeightFt(table.height ? toHalfFt(table.height) : DEFAULT_TABLE_DIAMETER_FT);
     } else {
       setName('');
       setSeatCount(8);

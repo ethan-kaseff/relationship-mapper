@@ -36,7 +36,9 @@ export async function POST(
 
   try {
     const { id: eventId } = await params;
-    const { peopleIds = [], guests = [], placeholderCount, notes } = validation.data;
+    const { peopleIds = [], guests = [], placeholderCount, notes, rsvpStatus = "PENDING", meal = "Standard", dietary = [], ticketType = "Regular", seatingRequest, tableRequest, group } = validation.data;
+    const rsvpDate = rsvpStatus !== "PENDING" ? new Date() : null;
+    const sharedFields = { rsvpStatus, meal, dietary, ticketType, ...(seatingRequest ? { seatingRequest } : {}), ...(tableRequest ? { tableRequest } : {}), ...(rsvpDate ? { rsvpDate } : {}), ...(group ? { group } : {}) };
 
     let created = 0;
     let skipped = 0;
@@ -53,10 +55,7 @@ export async function POST(
 
       if (newIds.length > 0) {
         const result = await prisma.eventInvite.createMany({
-          data: newIds.map((peopleId: string) => ({
-            eventId,
-            peopleId,
-          })),
+          data: newIds.map((peopleId: string) => ({ eventId, peopleId, ...sharedFields })),
         });
         created += result.count;
       }
@@ -72,6 +71,7 @@ export async function POST(
           guestName: g.name,
           guestEmail: g.email || null,
           notes: notes || null,
+          ...sharedFields,
         })),
       });
       created += result.count;
@@ -85,6 +85,8 @@ export async function POST(
           peopleId: null,
           isPlaceholder: true,
           notes: notes || null,
+          ticketType,
+          ...(group ? { group } : {}),
         })),
       });
       created += result.count;

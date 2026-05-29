@@ -32,6 +32,8 @@ model Office {
   integrationTokens      IntegrationToken[]
   emailCampaigns         EmailCampaign[]
   emailTemplates         EmailTemplate[]
+  orgTypeColors          OrganizationTypeColor[]
+  dietaryOptions         DietaryOption[]
 
   @@map("office")
 }
@@ -58,11 +60,24 @@ model User {
 // ─── Lookup Tables ───────────────────────────────────────────────────────────
 
 model OrganizationType {
-  id       String    @id @default(uuid())
-  typeName String    @unique @map("type_name")
-  partners Partner[]
+  id           String                  @id @default(uuid())
+  typeName     String                  @unique @map("type_name")
+  partners     Partner[]
+  officeColors OrganizationTypeColor[]
 
   @@map("organization_type")
+}
+
+model OrganizationTypeColor {
+  id        String           @id @default(uuid())
+  orgTypeId String           @map("org_type_id")
+  orgType   OrganizationType @relation(fields: [orgTypeId], references: [id], onDelete: Cascade)
+  officeId  String           @map("office_id")
+  office    Office           @relation(fields: [officeId], references: [id], onDelete: Cascade)
+  color     String
+
+  @@unique([orgTypeId, officeId])
+  @@map("organization_type_color")
 }
 
 model CommunicationMethod {
@@ -71,6 +86,16 @@ model CommunicationMethod {
   people People[]
 
   @@map("communication_method")
+}
+
+model DietaryOption {
+  id       String @id @default(uuid())
+  name     String
+  officeId String @map("office_id")
+  office   Office @relation(fields: [officeId], references: [id], onDelete: Cascade)
+
+  @@unique([name, officeId])
+  @@map("dietary_option")
 }
 
 model RelationshipType {
@@ -172,6 +197,7 @@ model Partner {
 
   partnerRoles            PartnerRole[]
   tags                    PartnerTag[]
+  donations               Donation[]
 
   @@index([officeId])
   @@map("partner")
@@ -328,6 +354,8 @@ model EventInvite {
   isPlaceholder   Boolean   @default(false) @map("is_placeholder")
   ticketType      String    @default("Regular") @map("ticket_type")
   seatingRequest  String?   @map("seating_request")
+  tableRequest    String?   @map("table_request")
+  sponsoredSeats  Int?      @map("sponsored_seats")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
 
@@ -409,14 +437,32 @@ model Fundraiser {
   event           Event?     @relation(fields: [eventId], references: [id], onDelete: SetNull)
   officeId        String     @map("office_id")
   office          Office     @relation(fields: [officeId], references: [id])
-  donations       Donation[]
-  solicitations   FundraiserSolicitation[]
+  donations           Donation[]
+  solicitations       FundraiserSolicitation[]
+  sponsorshipLevels   SponsorshipLevel[]
   createdAt       DateTime   @default(now()) @map("created_at")
   updatedAt       DateTime   @updatedAt @map("updated_at")
 
   @@index([officeId])
   @@index([slug])
   @@map("fundraiser")
+}
+
+model SponsorshipLevel {
+  id           String     @id @default(uuid())
+  fundraiserId String     @map("fundraiser_id")
+  fundraiser   Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
+  name         String
+  amount       Int
+  seats        Int?
+  description  String?
+  displayOrder Int        @default(0) @map("display_order")
+  donations    Donation[]
+  createdAt    DateTime   @default(now()) @map("created_at")
+  updatedAt    DateTime   @updatedAt @map("updated_at")
+
+  @@index([fundraiserId])
+  @@map("sponsorship_level")
 }
 
 model FundraiserSolicitation {
@@ -442,9 +488,15 @@ model Donation {
   amount            Int
   donorName         String?    @map("donor_name")
   donorEmail        String?    @map("donor_email")
-  peopleId          String?    @map("people_id")
-  person            People?    @relation(fields: [peopleId], references: [id], onDelete: SetNull)
-  isAnonymous       Boolean    @default(false) @map("is_anonymous")
+  peopleId              String?          @map("people_id")
+  person                People?          @relation(fields: [peopleId], references: [id], onDelete: SetNull)
+  sponsorshipLevelId    String?          @map("sponsorship_level_id")
+  sponsorshipLevel      SponsorshipLevel? @relation(fields: [sponsorshipLevelId], references: [id], onDelete: SetNull)
+  partnerId             String?          @map("partner_id")
+  sponsoredSeats        Int?             @map("sponsored_seats")
+  seatsUsed             Int?             @map("seats_used")
+  partner               Partner?         @relation(fields: [partnerId], references: [id], onDelete: SetNull)
+  isAnonymous           Boolean          @default(false) @map("is_anonymous")
   paymentMethod     String     @default("stripe") @map("payment_method")
   stripePaymentId   String?    @unique @map("stripe_payment_id")
   zeffyPaymentId    String?    @unique @map("zeffy_payment_id")

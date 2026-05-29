@@ -25,18 +25,27 @@ interface EventInvite {
   guestEmail: string | null;
   ticketType: string;
   seatingRequest: string | null;
+  tableRequest: string | null;
   person: {
     id: string;
     firstName: string;
     lastName: string;
     email1: string | null;
     email2: string | null;
+    partnerRoles: {
+      partner: {
+        organizationType: {
+          officeColors: { officeId: string; color: string }[];
+        } | null;
+      };
+    }[];
   } | null;
 }
 
 interface EventData {
   id: string;
   title: string;
+  officeId: string;
   description: string | null;
   eventDate: string | null;
   eventTime: string | null;

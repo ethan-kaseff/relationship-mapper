@@ -12,6 +12,7 @@ export * from "./fundraiser";
 export * from "./donation";
 export * from "./zeffy";
 export * from "./tag";
+export * from "./sponsorship-level";
 
 import { z } from "zod";
 import { NextResponse } from "next/server";

@@ -23,12 +23,20 @@ interface EventInvite {
     id: string;
     firstName: string;
     lastName: string;
+    partnerRoles: {
+      partner: {
+        organizationType: {
+          officeColors: { officeId: string; color: string }[];
+        } | null;
+      };
+    }[];
   } | null;
 }
 
 interface EventData {
   id: string;
   title: string;
+  officeId: string;
   seatingLayout: unknown;
   invites: EventInvite[];
 }
@@ -60,6 +68,9 @@ export default function SeatingChartWrapper({ event }: SeatingChartWrapperProps)
     isGuest: inv.isGuest,
     isPlaceholder: inv.isPlaceholder,
     ticketType: inv.ticketType,
+    partnerOrgColor: inv.person?.partnerRoles
+      ?.map((r) => r.partner?.organizationType?.officeColors.find((c) => c.officeId === event.officeId)?.color)
+      .find(Boolean) ?? undefined,
   }));
 
   const layout = event.seatingLayout as SeatingLayout | null;

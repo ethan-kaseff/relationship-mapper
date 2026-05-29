@@ -2,6 +2,9 @@
 
 import { useState, useEffect } from "react";
 import AdvancedSearchPanel from "@/components/AdvancedSearch/AdvancedSearchPanel";
+import InviteOptionsPanel from "./InviteOptionsPanel";
+
+interface DietaryOptionRecord { id: string; name: string; }
 
 interface Tag {
   id: string;
@@ -19,11 +22,12 @@ interface Person {
 interface AddPeopleModalProps {
   eventId: string;
   existingPeopleIds: string[];
+  groups: string[];
   onClose: () => void;
   onAdded: () => void;
 }
 
-export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, onAdded }: AddPeopleModalProps) {
+export default function AddPeopleModal({ eventId, existingPeopleIds, groups, onClose, onAdded }: AddPeopleModalProps) {
   const [people, setPeople] = useState<Person[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [search, setSearch] = useState("");
@@ -33,11 +37,23 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
   const [submitting, setSubmitting] = useState(false);
   const [advancedMode, setAdvancedMode] = useState(false);
 
+  const [rsvpStatus, setRsvpStatus] = useState("YES");
+  const [meal, setMeal] = useState("Standard");
+  const [dietary, setDietary] = useState<string[]>([]);
+  const [ticketType, setTicketType] = useState("Regular");
+  const [seatingRequest, setSeatingRequest] = useState("");
+  const [tableRequest, setTableRequest] = useState("");
+  const [customDietary, setCustomDietary] = useState<DietaryOptionRecord[]>([]);
+
   const [showCreate, setShowCreate] = useState(false);
   const [newFirst, setNewFirst] = useState("");
   const [newLast, setNewLast] = useState("");
   const [creating, setCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/lookup/dietary-options").then((r) => r.json()).then((d) => setCustomDietary(Array.isArray(d) ? d : [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     Promise.all([
@@ -95,13 +111,15 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
     setShowCreate(true);
   }
 
+  const invitePayload = { rsvpStatus, meal, dietary, ticketType, seatingRequest: seatingRequest.trim() || null, tableRequest: tableRequest.trim() || null };
+
   async function handleAdd() {
     if (selected.size === 0) return;
     setSubmitting(true);
     await fetch(`/api/events/${eventId}/invites`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ peopleIds: Array.from(selected) }),
+      body: JSON.stringify({ peopleIds: Array.from(selected), ...invitePayload }),
     });
     onAdded();
     onClose();
@@ -129,7 +147,7 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
     await fetch(`/api/events/${eventId}/invites`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ peopleIds: [newPerson.id] }),
+      body: JSON.stringify({ peopleIds: [newPerson.id], ...invitePayload }),
     });
     onAdded();
     onClose();
@@ -151,7 +169,7 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
               await fetch(`/api/events/${eventId}/invites`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ peopleIds: ids }),
+                body: JSON.stringify({ peopleIds: ids, ...invitePayload }),
               });
               onAdded();
               onClose();
@@ -288,30 +306,42 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, onClose, on
           </div>
         )}
 
-        <div className="p-4 border-t flex gap-3">
-          <button
-            onClick={() => { if (showCreate) { setShowCreate(false); } else { onClose(); } }}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
-          >
-            {showCreate ? "Back" : "Cancel"}
-          </button>
-          {showCreate ? (
+        <div className="border-t px-4 pt-3 pb-4 space-y-2.5">
+          <InviteOptionsPanel
+            rsvpStatus={rsvpStatus} onRsvpChange={setRsvpStatus}
+            meal={meal} onMealChange={setMeal}
+            dietary={dietary} onDietaryChange={setDietary}
+            ticketType={ticketType} onTicketTypeChange={setTicketType}
+            seatingRequest={seatingRequest} onSeatingRequestChange={setSeatingRequest}
+            tableRequest={tableRequest} onTableRequestChange={setTableRequest}
+            groups={groups}
+            customDietary={customDietary}
+          />
+          <div className="flex gap-3 pt-1">
             <button
-              onClick={handleCreate}
-              disabled={creating || !newFirst.trim() || !newLast.trim()}
-              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm disabled:opacity-50"
+              onClick={() => { if (showCreate) { setShowCreate(false); } else { onClose(); } }}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
             >
-              {creating ? "Creating..." : "Create & Add"}
+              {showCreate ? "Back" : "Cancel"}
             </button>
-          ) : (
-            <button
-              onClick={handleAdd}
-              disabled={selected.size === 0 || submitting}
-              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm disabled:opacity-50"
-            >
-              {submitting ? "Adding..." : `Add ${selected.size} ${selected.size === 1 ? "Person" : "People"}`}
-            </button>
-          )}
+            {showCreate ? (
+              <button
+                onClick={handleCreate}
+                disabled={creating || !newFirst.trim() || !newLast.trim()}
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm disabled:opacity-50"
+              >
+                {creating ? "Creating..." : "Create & Add"}
+              </button>
+            ) : (
+              <button
+                onClick={handleAdd}
+                disabled={selected.size === 0 || submitting}
+                className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm disabled:opacity-50"
+              >
+                {submitting ? "Adding..." : `Add ${selected.size} ${selected.size === 1 ? "Person" : "People"}`}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
