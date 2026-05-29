@@ -18,6 +18,50 @@ const OBJECT_ICONS: Record<string, string> = {
   kitchen: '👨‍🍳', custom: '📦',
 };
 
+// Rename any fully-filled single-group tables to the group name.
+// If the same group fills multiple tables, suffix them 1, 2, 3…
+function renameTablesByGroup(tables: Table[], guests: SeatingGuest[]): Table[] | null {
+  const tablesToRename = new Map<string, string>(); // tableId -> groupName
+
+  for (const table of tables) {
+    const seated = guests.filter((g) => g.tableId === table.id);
+    if (seated.length === 0 || table.seats.length === 0 || seated.length < table.seats.length) continue;
+    // Every guest must share the same non-empty group — no filtering out blanks
+    const firstGroup = seated[0].group;
+    if (!firstGroup || !seated.every((g) => g.group === firstGroup)) continue;
+    tablesToRename.set(table.id, firstGroup);
+  }
+
+  if (tablesToRename.size === 0) return null;
+
+  const byGroup = new Map<string, string[]>();
+  for (const [tableId, groupName] of tablesToRename) {
+    if (!byGroup.has(groupName)) byGroup.set(groupName, []);
+    byGroup.get(groupName)!.push(tableId);
+  }
+
+  const renames = new Map<string, string>();
+  for (const [groupName, tableIds] of byGroup) {
+    if (tableIds.length === 1) {
+      renames.set(tableIds[0], groupName);
+    } else {
+      const sorted = [...tableIds].sort((a, b) => {
+        const ta = tables.find((t) => t.id === a);
+        const tb = tables.find((t) => t.id === b);
+        if (!ta || !tb) return 0;
+        return ta.y - tb.y || ta.x - tb.x;
+      });
+      sorted.forEach((id, i) => renames.set(id, `${groupName} ${i + 1}`));
+    }
+  }
+
+  return tables.map((t) => {
+    const newName = renames.get(t.id);
+    if (newName === undefined) return t;
+    return { ...t, name: newName };
+  });
+}
+
 interface SeatingChartProps {
   layout: SeatingLayout | null;
   guests: SeatingGuest[];
@@ -36,6 +80,14 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
   const [editingObject, setEditingObject] = useState<VenueObject | null>(null);
   const [saving, setSaving] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [groupSeatingPending, setGroupSeatingPending] = useState<{
+    primaryGuestId: string;
+    targetTableId: string;
+    targetSeatIndex: number;
+    groupMembers: SeatingGuest[];
+    tableRequestMembers: SeatingGuest[];
+    availableSeats: number[];
+  } | null>(null);
   const [snapToGrid, setSnapToGrid] = useState(false);
   const [showCenterLines, setShowCenterLines] = useState(true);
   const [selectedTableIds, setSelectedTableIds] = useState<Set<string>>(new Set());
@@ -52,7 +104,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
 
   const {
     state, addTable, setTables, updateTable, deleteTable, updateGuest,
-    assignGuest, unassignGuest, addObject, updateObject, deleteObject,
+    assignGuest, unassignGuest, clearAllSeating, addObject, updateObject, deleteObject,
     setZoom, setFloorSize, getTableById, undo, redo, canUndo, canRedo,
   } = useSeatingChart(layout, guests, handleSave);
 
@@ -290,13 +342,34 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       groups[key].push(g);
     });
 
-    const sortedGroups = Object.values(groups).sort((a, b) => b.length - a.length);
-    const tableAvail = state.tables.map((t) => {
-      const taken = new Set(state.guests.filter((g) => g.tableId === t.id && g.seatIndex !== null).map((g) => g.seatIndex!));
-      const available: number[] = [];
-      for (let i = 0; i < t.seats.length; i++) { if (!taken.has(i)) available.push(i); }
-      return { tableId: t.id, available };
+    // Re-bucket guests whose tableRequest matches an existing unassigned group
+    const namedGroupKeys = new Set(Object.keys(groups).filter((k) => !k.startsWith('__solo_')));
+    unassigned.forEach((g) => {
+      if (g.tableRequest && namedGroupKeys.has(g.tableRequest)) {
+        const currentKey = g.group || `__solo_${g.id}`;
+        if (currentKey !== g.tableRequest) {
+          groups[currentKey] = groups[currentKey].filter((m) => m.id !== g.id);
+          if (groups[currentKey].length === 0) delete groups[currentKey];
+          if (!groups[g.tableRequest]) groups[g.tableRequest] = [];
+          groups[g.tableRequest].push(g);
+        }
+      }
     });
+
+    const sortedGroups = Object.values(groups).sort((a, b) => b.length - a.length);
+    // Sort by visual position (top-to-bottom, left-to-right) so auto-seat fills
+    // tables in the same order their numbers appear on the floor plan
+    const tableAvail = [...state.tables]
+      .sort((a, b) => a.y - b.y || a.x - b.x)
+      .map((t) => {
+        const taken = new Set(state.guests.filter((g) => g.tableId === t.id && g.seatIndex !== null).map((g) => g.seatIndex!));
+        const available: number[] = [];
+        for (let i = 0; i < t.seats.length; i++) { if (!taken.has(i)) available.push(i); }
+        return { tableId: t.id, available };
+      });
+
+    // Collect all assignments before dispatching so we can project the final state
+    const pendingAssignments: { guestId: string; tableId: string; seatIndex: number }[] = [];
 
     for (const groupGuests of sortedGroups) {
       let bestTable = tableAvail.filter((t) => t.available.length >= groupGuests.length).sort((a, b) => a.available.length - b.available.length)[0];
@@ -305,29 +378,114 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
         for (const ta of tableAvail) {
           if (remaining.length === 0) break;
           while (ta.available.length > 0 && remaining.length > 0) {
-            assignGuest(remaining.shift()!.id, ta.tableId, ta.available.shift()!);
+            pendingAssignments.push({ guestId: remaining.shift()!.id, tableId: ta.tableId, seatIndex: ta.available.shift()! });
           }
         }
         continue;
       }
       for (const guest of groupGuests) {
-        assignGuest(guest.id, bestTable.tableId, bestTable.available.shift()!);
+        pendingAssignments.push({ guestId: guest.id, tableId: bestTable.tableId, seatIndex: bestTable.available.shift()! });
       }
     }
+
+    pendingAssignments.forEach(({ guestId, tableId, seatIndex }) => assignGuest(guestId, tableId, seatIndex));
+
+    // Project final guest state and rename fully-filled single-group tables
+    const assignmentMap = new Map(pendingAssignments.map((a) => [a.guestId, a]));
+    const projectedGuests = state.guests.map((g) => {
+      const a = assignmentMap.get(g.id);
+      return a ? { ...g, tableId: a.tableId, seatIndex: a.seatIndex } : g;
+    });
+    const renamedTables = renameTablesByGroup(state.tables, projectedGuests);
+    if (renamedTables) setTables(renamedTables);
+
     setPendingAutoAction('Auto-seat applied');
-  }, [state.guests, state.tables, assignGuest]);
+  }, [state.guests, state.tables, assignGuest, setTables]);
+
+  const triggerGroupSeating = (primaryGuestId: string, targetTableId: string, targetSeatIndex: number) => {
+    const primary = state.guests.find((g) => g.id === primaryGuestId);
+    if (!primary) return;
+
+    // Intra-table move: skip group modal
+    if (primary.tableId === targetTableId) {
+      if (primary.seatIndex !== null) unassignGuest(primaryGuestId);
+      assignGuest(primaryGuestId, targetTableId, targetSeatIndex);
+      setSelectedGuestId(null);
+      setSelectedSeatInfo(null);
+      return;
+    }
+
+    const group = primary.group;
+    const groupMembers = group
+      ? state.guests.filter((g) => g.group === group && g.id !== primaryGuestId && g.tableId !== targetTableId)
+      : [];
+    const tableRequestMembers = group
+      ? state.guests.filter((g) => g.tableRequest === group && g.id !== primaryGuestId && g.tableId !== targetTableId)
+      : [];
+
+    if (groupMembers.length === 0 && tableRequestMembers.length === 0) {
+      const targetTable = state.tables.find((t) => t.id === targetTableId);
+      if (!confirm(`Move ${primary.name} to ${targetTable?.name ?? 'this table'}, seat ${targetSeatIndex + 1}?`)) return;
+      if (primary.tableId) unassignGuest(primaryGuestId);
+      assignGuest(primaryGuestId, targetTableId, targetSeatIndex);
+      setSelectedGuestId(null);
+      setSelectedSeatInfo(null);
+      return;
+    }
+
+    const takenSeats = new Set(
+      state.guests.filter((g) => g.tableId === targetTableId && g.seatIndex !== null).map((g) => g.seatIndex!)
+    );
+    takenSeats.add(targetSeatIndex);
+    const targetTable = state.tables.find((t) => t.id === targetTableId);
+    const availableSeats = targetTable
+      ? targetTable.seats.map((_, i) => i).filter((i) => !takenSeats.has(i))
+      : [];
+
+    setGroupSeatingPending({ primaryGuestId, targetTableId, targetSeatIndex, groupMembers, tableRequestMembers, availableSeats });
+  };
+
+  const handleGroupSeatingConfirm = (includeGroup: boolean) => {
+    if (!groupSeatingPending) return;
+    const { primaryGuestId, targetTableId, targetSeatIndex, groupMembers, tableRequestMembers, availableSeats } = groupSeatingPending;
+    const primary = state.guests.find((g) => g.id === primaryGuestId);
+
+    // Collect assignments so we can project the final guest state for table renaming
+    const pendingAssignments: { guestId: string; tableId: string; seatIndex: number }[] = [
+      { guestId: primaryGuestId, tableId: targetTableId, seatIndex: targetSeatIndex },
+    ];
+
+    if (primary?.tableId) unassignGuest(primaryGuestId);
+    assignGuest(primaryGuestId, targetTableId, targetSeatIndex);
+
+    if (includeGroup) {
+      const allAdditional = [...groupMembers, ...tableRequestMembers];
+      const unassigned = allAdditional.filter((g) => !g.tableId);
+      const atOtherTable = allAdditional.filter((g) => g.tableId);
+      [...unassigned, ...atOtherTable].slice(0, availableSeats.length).forEach((g, i) => {
+        pendingAssignments.push({ guestId: g.id, tableId: targetTableId, seatIndex: availableSeats[i] });
+        if (g.tableId) unassignGuest(g.id);
+        assignGuest(g.id, targetTableId, availableSeats[i]);
+      });
+    }
+
+    // Project final guest state and rename fully-filled single-group tables
+    const assignmentMap = new Map(pendingAssignments.map((a) => [a.guestId, a]));
+    const projectedGuests = state.guests.map((g) => {
+      const a = assignmentMap.get(g.id);
+      return a ? { ...g, tableId: a.tableId, seatIndex: a.seatIndex } : g;
+    });
+    const renamedTables = renameTablesByGroup(state.tables, projectedGuests);
+    if (renamedTables) setTables(renamedTables);
+
+    setGroupSeatingPending(null);
+    setSelectedGuestId(null);
+    setSelectedSeatInfo(null);
+  };
 
   const handleSeatClick = (tableId: string, seatIndex: number, guestId: string | null) => {
     if (selectedGuestId && !guestId) {
-      // Move selected guest to empty seat
-      const guest = state.guests.find((g) => g.id === selectedGuestId);
-      const table = state.tables.find((t) => t.id === tableId);
-      const guestName = guest?.name || 'this guest';
-      const tableName = table?.name || 'this table';
-      if (!confirm(`Move ${guestName} to ${tableName}, seat ${seatIndex + 1}?`)) return;
-      assignGuest(selectedGuestId, tableId, seatIndex);
-      setSelectedGuestId(null);
-      setSelectedSeatInfo(null);
+      triggerGroupSeating(selectedGuestId, tableId, seatIndex);
       return;
     }
     if (selectedGuestId && guestId && selectedGuestId !== guestId) {
@@ -367,9 +525,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
 
   const handleGuestSelect = (guestId: string | null) => {
     if (guestId && selectedSeatInfo) {
-      assignGuest(guestId, selectedSeatInfo.tableId, selectedSeatInfo.seatIndex);
-      setSelectedSeatInfo(null);
-      setSelectedGuestId(null);
+      triggerGroupSeating(guestId, selectedSeatInfo.tableId, selectedSeatInfo.seatIndex);
     } else {
       setSelectedGuestId(guestId);
       if (guestId) setSelectedSeatInfo(null);
@@ -438,6 +594,13 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
   const handleTableSave = (data: { name: string; seatCount: number; shape: Table['shape']; widthFt: number; heightFt: number; id?: string; preselectedGuestIds?: string[]; tableCount?: number }) => {
     const widthPx = data.widthFt * PIXELS_PER_FOOT;
     const heightPx = data.heightFt * PIXELS_PER_FOOT;
+    const savedArrangeLayout: 'grid' | 'staggered' = (() => {
+      try {
+        const s = localStorage.getItem('arrangeSettings');
+        if (s) return JSON.parse(s)?.layout || 'grid';
+      } catch { /* ignore */ }
+      return 'grid';
+    })();
 
     if (data.id) {
       const table = getTableById(data.id);
@@ -485,7 +648,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       const allTables = [...state.tables, ...newTables];
       const tBody = Math.max(widthPx, heightPx) / 2 + 20 + 14;
       const autoSpacing = tBody * 2 + 5;
-      const arranged = computeArrangedTables(allTables, { layout: 'grid', spacing: autoSpacing, objectSpacing: 30, maxCols: 0 });
+      const arranged = computeArrangedTables(allTables, { layout: savedArrangeLayout, spacing: autoSpacing, objectSpacing: 30, maxCols: 0 });
       setTables(arranged);
       setPendingAutoAction(`Added and arranged ${actualCount} tables`);
     } else {
@@ -516,12 +679,13 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       const allTables = [...state.tables, newTable];
       const tBody = Math.max(widthPx, heightPx) / 2 + 20 + 14;
       const autoSpacing = tBody * 2 + 5;
-      const arranged = computeArrangedTables(allTables, { layout: 'grid', spacing: autoSpacing, objectSpacing: 30, maxCols: 0 });
+      const arranged = computeArrangedTables(allTables, { layout: savedArrangeLayout, spacing: autoSpacing, objectSpacing: 30, maxCols: 0 });
       setTables(arranged);
-      if (data.preselectedGuestIds) {
+      if (data.preselectedGuestIds && data.preselectedGuestIds.length > 0) {
         const placedTable = arranged.find((t) => t.id === newTable.id);
+        const toNew = data.preselectedGuestIds.slice(0, data.seatCount);
         if (placedTable) {
-          data.preselectedGuestIds.forEach((guestId, i) => { if (i < data.seatCount) assignGuest(guestId, placedTable.id, i); });
+          toNew.forEach((guestId, i) => assignGuest(guestId, placedTable.id, i));
         }
       }
     }
@@ -572,6 +736,16 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
                   }
                 }}
                   className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">+ Add Table</button>
+                {assignedCount > 0 && (
+                  <button
+                    onClick={() => {
+                      if (!confirm(`Remove all ${assignedCount} seat assignments? This cannot be undone.`)) return;
+                      clearAllSeating();
+                      setPendingAutoAction(null);
+                    }}
+                    className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  >Clear Seating</button>
+                )}
                 <div className="relative">
                   <button onClick={() => setShowObjectMenu(!showObjectMenu)}
                     className="px-3 py-1.5 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700">+ Add Object</button>
@@ -615,6 +789,37 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
             onZoomChange={setZoom}
             onZoomFit={zoomFit} onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
           /></div>
+          {(() => {
+            const orgTypes = Array.from(
+              new Map(
+                state.guests
+                  .filter((g) => g.partnerOrgColor && g.partnerOrgName)
+                  .map((g) => [g.partnerOrgName!, { name: g.partnerOrgName!, color: g.partnerOrgColor! }])
+              ).values()
+            ).sort((a, b) => a.name.localeCompare(b.name));
+            return (
+              <div className="bg-white border-b border-gray-100 px-4 py-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 print-hide">
+                <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">Legend</span>
+                {[
+                  { color: '#ffffff', border: '#d1d5db', label: 'Empty seat' },
+                  { color: '#374151', border: '#374151', label: 'Confirmed guest' },
+                  { color: '#9333ea', border: '#9333ea', label: 'Additional guest (+1)' },
+                  { color: '#fbbf24', border: '#fbbf24', label: 'Placeholder (TBD)' },
+                ].map(({ color, border, label }) => (
+                  <div key={label} className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full border-2 flex-shrink-0" style={{ backgroundColor: color, borderColor: border }} />
+                    <span className="text-xs text-gray-500">{label}</span>
+                  </div>
+                ))}
+                {orgTypes.map(({ name, color }) => (
+                  <div key={name} className="flex items-center gap-1.5">
+                    <div className="w-4 h-4 rounded-full border-2 flex-shrink-0" style={{ backgroundColor: color, borderColor: color }} />
+                    <span className="text-xs text-gray-500">{name}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
           {capacityWarning && (
             <div className="bg-red-50 border-b border-red-200 px-4 py-2 flex items-center justify-between text-sm print-hide">
               <span className="text-red-700 font-medium">{capacityWarning}</span>
@@ -679,8 +884,6 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
                   (g) => g.tableId === tableId && g.seatIndex === seatIndex
                 );
                 const draggedGuest = state.guests.find((g) => g.id === guestId);
-                const table = state.tables.find((t) => t.id === tableId);
-                const tableName = table?.name || 'this table';
                 if (existingGuest && existingGuest.id !== guestId) {
                   if (!confirm(`Swap ${draggedGuest?.name || 'this guest'} with ${existingGuest.name}?`)) return;
                   // Swap: move existing guest to dragged guest's old seat
@@ -693,39 +896,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
                   }
                   assignGuest(guestId, tableId, seatIndex);
                 } else {
-                  if (!confirm(`Move ${draggedGuest?.name || 'this guest'} to ${tableName}, seat ${seatIndex + 1}?`)) return;
-                  assignGuest(guestId, tableId, seatIndex);
-
-                  // Check if there are other unassigned guests in the same group
-                  if (draggedGuest?.group && !draggedGuest.tableId && table) {
-                    const groupMembers = state.guests.filter(
-                      (g) => g.group === draggedGuest.group && !g.tableId && g.id !== guestId
-                    );
-                    if (groupMembers.length > 0) {
-                      // Find empty seats sorted by proximity to the dropped seat
-                      const emptySeats = table.seats
-                        .map((s, i) => ({ guestId: s.guestId, index: i }))
-                        .filter((s) => !s.guestId && s.index !== seatIndex)
-                        .sort((a, b) => {
-                          const totalSeats = table.seats.length;
-                          const distA = Math.min(Math.abs(a.index - seatIndex), totalSeats - Math.abs(a.index - seatIndex));
-                          const distB = Math.min(Math.abs(b.index - seatIndex), totalSeats - Math.abs(b.index - seatIndex));
-                          return distA - distB;
-                        });
-                      const canFit = Math.min(groupMembers.length, emptySeats.length);
-                      if (canFit > 0) {
-                        const names = groupMembers.slice(0, canFit).map((g) => g.name).join(', ');
-                        const extra = groupMembers.length > canFit
-                          ? ` (only ${canFit} of ${groupMembers.length} will fit)`
-                          : '';
-                        if (confirm(`Also seat ${canFit} other "${draggedGuest.group}" group member${canFit > 1 ? 's' : ''} at ${tableName}?${extra}\n\n${names}`)) {
-                          groupMembers.slice(0, canFit).forEach((g, i) => {
-                            assignGuest(g.id, tableId, emptySeats[i].index);
-                          });
-                        }
-                      }
-                    }
-                  }
+                  triggerGroupSeating(guestId, tableId, seatIndex);
                 }
                 setSelectedGuestId(null);
                 setSelectedSeatInfo(null);
@@ -759,6 +930,84 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
           />
         </div>
       </div>
+
+      {/* Group seating modal */}
+      {groupSeatingPending && (() => {
+        const { primaryGuestId, targetTableId, groupMembers, tableRequestMembers, availableSeats } = groupSeatingPending;
+        const primary = state.guests.find((g) => g.id === primaryGuestId);
+        const targetTable = state.tables.find((t) => t.id === targetTableId);
+        const allAdditional = [...groupMembers, ...tableRequestMembers];
+        const canFit = Math.min(allAdditional.length, availableSeats.length);
+        const willFitAll = canFit >= allAdditional.length;
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg shadow-xl p-6 w-[26rem] max-w-[90vw] max-h-[90vh] overflow-y-auto">
+              <h3 className="text-base font-semibold text-gray-900 mb-0.5">Seating {primary?.name}</h3>
+              <p className="text-sm text-gray-500 mb-4">Table: {targetTable?.name}</p>
+
+              {groupMembers.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Group — {primary?.group}</p>
+                  <ul className="space-y-1.5">
+                    {groupMembers.map((g) => (
+                      <li key={g.id} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-800">{g.name}</span>
+                        {g.tableId
+                          ? <span className="text-xs text-amber-600">at {state.tables.find((t) => t.id === g.tableId)?.name ?? 'another table'}</span>
+                          : <span className="text-xs text-gray-400">unassigned</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {tableRequestMembers.length > 0 && (
+                <div className="mb-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Requested to sit with {primary?.group}</p>
+                  <ul className="space-y-1.5">
+                    {tableRequestMembers.map((g) => (
+                      <li key={g.id} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-800">{g.name}</span>
+                        {g.tableId
+                          ? <span className="text-xs text-amber-600">at {state.tables.find((t) => t.id === g.tableId)?.name ?? 'another table'}</span>
+                          : <span className="text-xs text-gray-400">unassigned</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              <p className="text-sm text-gray-500 mb-3">
+                {availableSeats.length} seat{availableSeats.length !== 1 ? 's' : ''} available after placing {primary?.name}.
+              </p>
+
+              {canFit === 0 && allAdditional.length > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded p-2 mb-4 text-sm text-amber-800 flex items-start gap-2">
+                  <span>⚠</span><span>No room for additional group members at this table.</span>
+                </div>
+              )}
+              {!willFitAll && canFit > 0 && (
+                <div className="bg-amber-50 border border-amber-200 rounded p-2 mb-4 text-sm text-amber-800 flex items-start gap-2">
+                  <span>⚠</span>
+                  <span>Only {canFit} of {allAdditional.length} can fit — {allAdditional.length - canFit} will remain at their current table.</span>
+                </div>
+              )}
+
+              <div className="flex gap-2 justify-end flex-wrap">
+                <button onClick={() => setGroupSeatingPending(null)} className="px-3 py-1.5 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50">Cancel</button>
+                <button onClick={() => handleGroupSeatingConfirm(false)} className="px-3 py-1.5 text-sm border border-indigo-300 text-indigo-700 rounded-md hover:bg-indigo-50">
+                  Just seat {primary?.name}
+                </button>
+                {canFit > 0 && (
+                  <button onClick={() => handleGroupSeatingConfirm(true)} className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700">
+                    Seat {canFit + 1} together{!willFitAll ? ` (${allAdditional.length - canFit} won't fit)` : ''}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Modals */}
       <GuestModal guest={editingGuest} isOpen={guestModalOpen}

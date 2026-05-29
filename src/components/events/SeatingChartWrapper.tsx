@@ -19,6 +19,7 @@ interface EventInvite {
   isPlaceholder: boolean;
   guestName: string | null;
   ticketType: string;
+  tableRequest: string | null;
   person: {
     id: string;
     firstName: string;
@@ -26,6 +27,7 @@ interface EventInvite {
     partnerRoles: {
       partner: {
         organizationType: {
+          typeName: string;
           officeColors: { officeId: string; color: string }[];
         } | null;
       };
@@ -68,8 +70,15 @@ export default function SeatingChartWrapper({ event }: SeatingChartWrapperProps)
     isGuest: inv.isGuest,
     isPlaceholder: inv.isPlaceholder,
     ticketType: inv.ticketType,
+    tableRequest: inv.tableRequest,
     partnerOrgColor: inv.person?.partnerRoles
       ?.map((r) => r.partner?.organizationType?.officeColors.find((c) => c.officeId === event.officeId)?.color)
+      .find(Boolean) ?? undefined,
+    partnerOrgName: inv.person?.partnerRoles
+      ?.map((r) => {
+        const color = r.partner?.organizationType?.officeColors.find((c) => c.officeId === event.officeId)?.color;
+        return color ? r.partner?.organizationType?.typeName : undefined;
+      })
       .find(Boolean) ?? undefined,
   }));
 

@@ -25,7 +25,10 @@ export async function GET(
                     partner: {
                       include: {
                         organizationType: {
-                          include: { officeColors: { select: { officeId: true, color: true } } },
+                          select: {
+                            typeName: true,
+                            officeColors: { select: { officeId: true, color: true } },
+                          },
                         },
                       },
                     },
@@ -43,7 +46,7 @@ export async function GET(
             goalAmount: true,
             currentAmount: true,
             _count: { select: { donations: true } },
-            donations: { where: { approvalStatus: "PENDING" }, select: { id: true } },
+            donations: { select: { id: true, peopleId: true, approvalStatus: true } },
           },
           take: 1,
         },

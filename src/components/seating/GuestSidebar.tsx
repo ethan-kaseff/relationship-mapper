@@ -38,9 +38,16 @@ export default function GuestSidebar({
     return matchesSearch && matchesFilter;
   });
 
-  const getTableName = (tableId: string | null) => {
+  const tableNumberById = useMemo(() => {
+    const sorted = [...tables].sort((a, b) => a.y - b.y || a.x - b.x);
+    return Object.fromEntries(sorted.map((t, i) => [t.id, i + 1]));
+  }, [tables]);
+
+  const getTableLabel = (tableId: string | null) => {
     if (!tableId) return null;
-    return tables.find((t) => t.id === tableId)?.name || null;
+    const num = tableNumberById[tableId];
+    const name = tables.find((t) => t.id === tableId)?.name;
+    return num ? `Table ${num}${name ? ` (${name})` : ''}` : (name || null);
   };
 
   const unassignedCount = guests.filter((g) => !g.tableId).length;
@@ -71,11 +78,15 @@ export default function GuestSidebar({
   const unassignedGuests = filteredGuests.filter((g) => !g.tableId).sort(sortByLastName);
   const showUnassignedList = filter === 'all' || filter === 'unassigned';
   const showTableSections = filter === 'all' || filter === 'assigned';
-  const sortedTables = useMemo(() => [...tables].sort((a, b) => a.name.localeCompare(b.name)), [tables]);
+
+  const sortedTables = useMemo(
+    () => [...tables].sort((a, b) => tableNumberById[a.id] - tableNumberById[b.id]),
+    [tables, tableNumberById]
+  );
 
   const renderGuestCard = (guest: SeatingGuest, hideTableName = false) => {
     const isSelected = selectedGuestId === guest.id;
-    const tableName = getTableName(guest.tableId);
+    const tableName = getTableLabel(guest.tableId);
     const canAssignToSeat = selectedSeatInfo && !guest.tableId;
     const groupColor = guest.group ? groupColorMap[guest.group] : null;
 
@@ -252,7 +263,10 @@ export default function GuestSidebar({
                       >
                         <div className="flex items-center gap-2">
                           <div className="w-3 h-3 rounded-full bg-indigo-500" />
-                          <span className="font-medium text-gray-700">{table.name}</span>
+                          <span className="font-medium text-gray-700">Table {tableNumberById[table.id]}</span>
+                          {table.name && (
+                            <span className="text-xs text-gray-400">{table.name}</span>
+                          )}
                           <span className="text-gray-400">
                             ({(guestsByTable[table.id] || []).length}/{table.seats.length})
                           </span>

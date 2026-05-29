@@ -24,6 +24,7 @@ export type SeatingAction =
   | { type: 'UPDATE_GUEST'; payload: { id: string; updates: Partial<SeatingGuest> } }
   | { type: 'ASSIGN_GUEST'; payload: { guestId: string; tableId: string; seatIndex: number } }
   | { type: 'UNASSIGN_GUEST'; payload: string }
+  | { type: 'CLEAR_ALL_SEATING' }
   | { type: 'ADD_OBJECT'; payload: VenueObject }
   | { type: 'UPDATE_OBJECT'; payload: { id: string; updates: Partial<VenueObject> } }
   | { type: 'DELETE_OBJECT'; payload: string }
@@ -119,6 +120,16 @@ function seatingReducer(state: SeatingState, action: SeatingAction): SeatingStat
           g.id === action.payload ? { ...g, tableId: null, seatIndex: null } : g
         ),
       };
+
+    case 'CLEAR_ALL_SEATING': {
+      const sorted = [...state.tables].sort((a, b) => a.y - b.y || a.x - b.x);
+      const numberById = Object.fromEntries(sorted.map((t, i) => [t.id, i + 1]));
+      return {
+        ...state,
+        guests: state.guests.map((g) => ({ ...g, tableId: null, seatIndex: null })),
+        tables: state.tables.map((t) => ({ ...t, name: `Table ${numberById[t.id]}` })),
+      };
+    }
 
     case 'ADD_OBJECT':
       return { ...state, objects: [...state.objects, action.payload] };
@@ -238,6 +249,9 @@ export function useSeatingChart(
     return () => {
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+        // Flush immediately so tab-switches and unmounts don't lose pending changes
+        onSaveRef.current?.(stateRef.current);
       }
     };
   }, [state, onSave]);
@@ -336,6 +350,10 @@ export function useSeatingChart(
     dispatch({ type: 'UNASSIGN_GUEST', payload: guestId });
   }, [dispatch]);
 
+  const clearAllSeating = useCallback(() => {
+    dispatch({ type: 'CLEAR_ALL_SEATING' });
+  }, [dispatch]);
+
   const addObject = useCallback((object: Omit<VenueObject, 'id'>) => {
     const id = `object-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
     const newObject: VenueObject = { ...object, id };
@@ -392,6 +410,7 @@ export function useSeatingChart(
     updateGuest,
     assignGuest,
     unassignGuest,
+    clearAllSeating,
     addObject,
     updateObject,
     deleteObject,
