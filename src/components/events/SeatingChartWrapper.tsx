@@ -7,7 +7,7 @@ import { SeatingState } from "@/hooks/useSeatingChart";
 
 interface EventInvite {
   id: string;
-  peopleId: string;
+  peopleId: string | null;
   rsvpStatus: string;
   meal: string;
   dietary: string[];
@@ -15,16 +15,28 @@ interface EventInvite {
   group: string;
   tableId: string | null;
   seatIndex: number | null;
+  isGuest: boolean;
+  isPlaceholder: boolean;
+  guestName: string | null;
+  ticketType: string;
   person: {
     id: string;
     firstName: string;
     lastName: string;
-  };
+    partnerRoles: {
+      partner: {
+        organizationType: {
+          officeColors: { officeId: string; color: string }[];
+        } | null;
+      };
+    }[];
+  } | null;
 }
 
 interface EventData {
   id: string;
   title: string;
+  officeId: string;
   seatingLayout: unknown;
   invites: EventInvite[];
 }
@@ -40,13 +52,25 @@ export default function SeatingChartWrapper({ event }: SeatingChartWrapperProps)
 
   const guests: SeatingGuest[] = confirmedInvites.map((inv) => ({
     id: inv.id, // Use invite ID as the seating guest ID
-    name: `${inv.person.firstName} ${inv.person.lastName}`,
+    name: inv.isPlaceholder
+      ? "TBD"
+      : inv.isGuest && inv.guestName
+      ? inv.guestName
+      : inv.person
+      ? `${inv.person.firstName} ${inv.person.lastName}`
+      : "Unknown",
     meal: inv.meal,
     dietary: Array.isArray(inv.dietary) ? inv.dietary : [],
     notes: inv.notes || "",
     group: inv.group || "",
     tableId: inv.tableId,
     seatIndex: inv.seatIndex,
+    isGuest: inv.isGuest,
+    isPlaceholder: inv.isPlaceholder,
+    ticketType: inv.ticketType,
+    partnerOrgColor: inv.person?.partnerRoles
+      ?.map((r) => r.partner?.organizationType?.officeColors.find((c) => c.officeId === event.officeId)?.color)
+      .find(Boolean) ?? undefined,
   }));
 
   const layout = event.seatingLayout as SeatingLayout | null;

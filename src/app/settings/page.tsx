@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { DIETARY_OPTIONS } from "@/lib/seating-constants";
 import { useSession } from "next-auth/react";
 
 interface Tag {
@@ -16,11 +17,59 @@ interface CommunicationMethod {
   _count?: { people: number };
 }
 
+interface OrganizationType {
+  id: string;
+  typeName: string;
+  color: string | null;
+}
+
+function hexToHue(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (d === 0) return 0;
+  let h = 0;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return ((h * 60) + 360) % 360;
+}
+
+function hueDistance(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+function checkOrgTypeColor(
+  hex: string,
+  others?: { id: string; typeName: string; color: string | null }[],
+  excludeId?: string,
+): string | null {
+  const hue = hexToHue(hex);
+  if (hue >= 230 && hue <= 325) return "Too similar to guest seat color (purple/violet). Choose red, green, blue, or teal.";
+  if (hue >= 20 && hue <= 70) return "Too similar to placeholder seat color (amber/yellow). Choose red, green, blue, or teal.";
+  if (others) {
+    for (const ot of others) {
+      if (ot.id === excludeId || !ot.color) continue;
+      if (hueDistance(hue, hexToHue(ot.color)) < 30) {
+        return `Too similar to "${ot.typeName}" color. Choose something more distinct.`;
+      }
+    }
+  }
+  return null;
+}
+
 interface RelationshipType {
   id: string;
   relationshipDesc: string;
   notes: string | null;
   _count?: { relationshipToTypes: number };
+}
+
+interface DietaryOptionRecord {
+  id: string;
+  name: string;
 }
 
 interface Office {
@@ -203,6 +252,22 @@ export default function SettingsPage() {
   const [deletingCommMethodId, setDeletingCommMethodId] = useState<string | null>(null);
   const commMethodInputRef = useRef<HTMLInputElement>(null);
 
+  // Organization types state
+  const [orgTypes, setOrgTypes] = useState<OrganizationType[]>([]);
+  const [orgTypesLoading, setOrgTypesLoading] = useState(true);
+  const [showOrgTypeForm, setShowOrgTypeForm] = useState(false);
+  const [newOrgTypeName, setNewOrgTypeName] = useState("");
+  const [newOrgTypeColor, setNewOrgTypeColor] = useState("#6366F1");
+  const [orgTypeSubmitting, setOrgTypeSubmitting] = useState(false);
+  const [orgTypeError, setOrgTypeError] = useState("");
+  const [savingOrgTypeColorId, setSavingOrgTypeColorId] = useState<string | null>(null);
+  const [orgTypeColorError, setOrgTypeColorError] = useState<Record<string, string>>({});
+
+  // Dietary options state
+  const [dietaryOptions, setDietaryOptions] = useState<DietaryOptionRecord[]>([]);
+  const [dietaryOptionsLoading, setDietaryOptionsLoading] = useState(true);
+  const [deletingDietaryId, setDeletingDietaryId] = useState<string | null>(null);
+
   // Auto-focus refs
   const relTypeInputRef = useRef<HTMLInputElement>(null);
   const userFirstNameRef = useRef<HTMLInputElement>(null);
@@ -260,6 +325,26 @@ export default function SettingsPage() {
       .catch(() => setCommMethodsLoading(false));
   }
 
+  function fetchOrgTypes() {
+    fetch("/api/lookup/organization-types")
+      .then((res) => res.json())
+      .then((data) => {
+        setOrgTypes(Array.isArray(data) ? data : []);
+        setOrgTypesLoading(false);
+      })
+      .catch(() => setOrgTypesLoading(false));
+  }
+
+  function fetchDietaryOptions() {
+    fetch("/api/lookup/dietary-options")
+      .then((res) => res.json())
+      .then((data) => {
+        setDietaryOptions(Array.isArray(data) ? data : []);
+        setDietaryOptionsLoading(false);
+      })
+      .catch(() => setDietaryOptionsLoading(false));
+  }
+
   function fetchEmailTemplates() {
     fetch("/api/email-templates")
       .then((res) => res.json())
@@ -296,6 +381,8 @@ export default function SettingsPage() {
 
   useEffect(() => {
     fetchCommMethods();
+    fetchOrgTypes();
+    fetchDietaryOptions();
   }, []);
 
   useEffect(() => {
@@ -2144,6 +2231,243 @@ export default function SettingsPage() {
             </tbody>
           </table>
         )}
+      </div>
+
+      {/* Organization Types */}
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-indigo-900">Organization Types</h2>
+          {!showOrgTypeForm && (
+            <button
+              onClick={() => { setShowOrgTypeForm(true); setOrgTypeError(""); setNewOrgTypeName(""); setNewOrgTypeColor("#6366F1"); }}
+              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium border border-indigo-200 px-2 py-1 rounded-md hover:bg-indigo-50"
+            >
+              + Add Type
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 mb-4">Assign a color to each organization type — seats on the seating chart will use these colors.</p>
+
+        {showOrgTypeForm && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!newOrgTypeName.trim()) return;
+              setOrgTypeSubmitting(true);
+              setOrgTypeError("");
+              const res = await fetch("/api/lookup/organization-types", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ typeName: newOrgTypeName.trim(), color: newOrgTypeColor }),
+              });
+              if (!res.ok) {
+                const data = await res.json();
+                setOrgTypeError(data.error || "Failed to create type");
+              } else {
+                setNewOrgTypeName("");
+                setNewOrgTypeColor("#6366F1");
+                setShowOrgTypeForm(false);
+                fetchOrgTypes();
+              }
+              setOrgTypeSubmitting(false);
+            }}
+            className="flex gap-2 items-center mb-4 flex-wrap"
+          >
+            <input
+              type="text"
+              value={newOrgTypeName}
+              onChange={(e) => setNewOrgTypeName(e.target.value)}
+              placeholder="Type name"
+              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48"
+              required
+              autoFocus
+            />
+            <div className="flex flex-col gap-1">
+              <input
+                type="color"
+                value={newOrgTypeColor}
+                onInput={(e) => {
+                  const val = (e.target as HTMLInputElement).value;
+                  setNewOrgTypeColor(val);
+                  setOrgTypeError(checkOrgTypeColor(val, orgTypes) ?? "");
+                }}
+                onChange={(e) => {
+                  setNewOrgTypeColor(e.target.value);
+                  setOrgTypeError(checkOrgTypeColor(e.target.value, orgTypes) ?? "");
+                }}
+                className={`w-10 h-8 rounded cursor-pointer border-2 ${checkOrgTypeColor(newOrgTypeColor, orgTypes) ? "border-red-500" : "border-gray-300"}`}
+                title="Pick a color"
+              />
+              {checkOrgTypeColor(newOrgTypeColor, orgTypes) && (
+                <span className="text-red-600 text-xs max-w-[240px] leading-tight">{checkOrgTypeColor(newOrgTypeColor, orgTypes)}</span>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={orgTypeSubmitting || !!checkOrgTypeColor(newOrgTypeColor, orgTypes)}
+              className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {orgTypeSubmitting ? "Saving..." : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowOrgTypeForm(false)}
+              className="text-gray-500 hover:text-gray-700 text-sm px-2 py-1.5"
+            >
+              Cancel
+            </button>
+            {orgTypeError && <span className="text-red-600 text-xs">{orgTypeError}</span>}
+          </form>
+        )}
+
+        {orgTypesLoading ? (
+          <p className="text-gray-400 text-sm">Loading...</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Name</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Seat Color</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {orgTypes.map((ot) => (
+                <tr key={ot.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2 font-medium text-gray-800">{ot.typeName}</td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-1">
+                        <input
+                          type="color"
+                          defaultValue={ot.color ?? "#6366F1"}
+                          className={`w-8 h-7 rounded cursor-pointer border-2 ${orgTypeColorError[ot.id] ? "border-red-500" : "border-gray-300"}`}
+                          title="Pick a color"
+                          onInput={(e) => {
+                            const val = (e.target as HTMLInputElement).value;
+                            const err = checkOrgTypeColor(val, orgTypes, ot.id);
+                            setOrgTypeColorError((prev) => ({ ...prev, [ot.id]: err ?? "" }));
+                          }}
+                          onChange={(e) => {
+                            const err = checkOrgTypeColor(e.target.value, orgTypes, ot.id);
+                            setOrgTypeColorError((prev) => ({ ...prev, [ot.id]: err ?? "" }));
+                          }}
+                          onBlur={async (e) => {
+                            const color = e.target.value;
+                            const err = checkOrgTypeColor(color, orgTypes, ot.id);
+                            if (err) return;
+                            if (color === (ot.color ?? "#6366F1")) return;
+                            setSavingOrgTypeColorId(ot.id);
+                            const res = await fetch(`/api/lookup/organization-types/${ot.id}`, {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ color }),
+                            });
+                            if (!res.ok) {
+                              const data = await res.json();
+                              setOrgTypeColorError((prev) => ({ ...prev, [ot.id]: data.error ?? "Failed to save" }));
+                            }
+                            setSavingOrgTypeColorId(null);
+                            fetchOrgTypes();
+                          }}
+                        />
+                        {orgTypeColorError[ot.id] && (
+                          <span className="text-red-600 text-xs max-w-[220px] leading-tight">{orgTypeColorError[ot.id]}</span>
+                        )}
+                      </div>
+                      {ot.color ? (
+                        <span className="inline-block w-4 h-4 rounded-full border border-gray-200" style={{ backgroundColor: ot.color }} />
+                      ) : (
+                        <span className="text-gray-400 text-xs">No color set</span>
+                      )}
+                      {savingOrgTypeColorId === ot.id && <span className="text-xs text-gray-400">Saving...</span>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {orgTypes.length === 0 && (
+                <tr>
+                  <td colSpan={2} className="px-4 py-8 text-center text-gray-400">
+                    No organization types defined.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Dietary Options */}
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-indigo-900">Dietary Options</h2>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Built-in options are always available. Custom options are added on-the-fly from any event&apos;s Invites tab and can be deleted here.
+        </p>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left px-4 py-2 font-medium text-gray-600">Option</th>
+              <th className="text-left px-4 py-2 font-medium text-gray-600">Type</th>
+              <th className="px-4 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {DIETARY_OPTIONS.map((name) => (
+              <tr key={name} className="border-b border-gray-100 bg-gray-50">
+                <td className="px-4 py-3 text-gray-800">{name}</td>
+                <td className="px-4 py-3 text-xs text-gray-400">Built-in</td>
+                <td className="px-4 py-3"></td>
+              </tr>
+            ))}
+            {dietaryOptionsLoading ? (
+              <tr>
+                <td colSpan={3} className="px-4 py-3 text-sm text-gray-400">Loading custom options...</td>
+              </tr>
+            ) : dietaryOptions.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="px-4 py-3 text-sm text-gray-400 italic">No custom options yet — add them from any event&apos;s Invites tab.</td>
+              </tr>
+            ) : (
+              dietaryOptions.map((opt) => (
+                <tr key={opt.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="px-4 py-3 text-gray-800">{opt.name}</td>
+                  <td className="px-4 py-3 text-xs text-indigo-600 font-medium">Custom</td>
+                  <td className="px-4 py-3 text-right">
+                    {deletingDietaryId === opt.id ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="text-xs text-gray-600">Delete &ldquo;{opt.name}&rdquo;?</span>
+                        <button
+                          onClick={async () => {
+                            await fetch(`/api/lookup/dietary-options/${opt.id}`, { method: "DELETE" });
+                            setDeletingDietaryId(null);
+                            fetchDietaryOptions();
+                          }}
+                          className="text-red-600 hover:underline text-xs font-medium"
+                        >
+                          Yes, delete
+                        </button>
+                        <button
+                          onClick={() => setDeletingDietaryId(null)}
+                          className="text-gray-500 hover:text-gray-700 text-xs"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setDeletingDietaryId(opt.id)}
+                        className="text-red-600 hover:underline text-xs"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
 
       {/* Data Management — SYSTEM_ADMIN and OFFICE_ADMIN */}

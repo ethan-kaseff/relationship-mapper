@@ -1,8 +1,24 @@
 import { z } from "zod";
 
 export const bulkCreateInvitesSchema = z.object({
-  peopleIds: z.array(z.string().uuid()).min(1, "At least one person is required"),
-});
+  peopleIds: z.array(z.string().uuid()).optional().default([]),
+  guests: z.array(z.object({
+    name: z.string().min(1).max(200),
+    email: z.string().email().max(200).optional(),
+  })).optional().default([]),
+  placeholderCount: z.number().int().min(1).max(100).optional(),
+  notes: z.string().max(1000).optional().nullable(),
+  rsvpStatus: z.enum(["PENDING", "YES", "NO", "MAYBE"]).optional().default("PENDING"),
+  meal: z.string().max(100).optional().default("Standard"),
+  dietary: z.array(z.string()).optional().default([]),
+  ticketType: z.string().max(50).optional().default("Regular"),
+  seatingRequest: z.string().max(500).optional().nullable(),
+  tableRequest: z.string().max(200).optional().nullable(),
+  group: z.string().max(100).optional(),
+}).refine(
+  (data) => (data.peopleIds && data.peopleIds.length > 0) || (data.guests && data.guests.length > 0) || (data.placeholderCount && data.placeholderCount > 0),
+  { message: "At least one person, guest, or placeholder count is required" }
+);
 
 export const updateInviteSchema = z.object({
   rsvpStatus: z.enum(["PENDING", "YES", "NO", "MAYBE"]).optional(),
@@ -11,6 +27,14 @@ export const updateInviteSchema = z.object({
   notes: z.string().max(1000).optional().nullable(),
   group: z.string().max(100).optional(),
   attended: z.boolean().optional(),
+  ticketType: z.string().max(50).optional(),
+  seatingRequest: z.string().max(500).optional().nullable(),
+  tableRequest: z.string().max(200).optional().nullable(),
+  guestName: z.string().max(200).optional().nullable(),
+  guestEmail: z.string().email().max(200).optional().nullable(),
+  peopleId: z.string().uuid().optional().nullable(),
+  isPlaceholder: z.boolean().optional(),
+  isGuest: z.boolean().optional(),
 });
 
 export const bulkSaveSeatingSchema = z.object({
@@ -27,6 +51,14 @@ export const bulkSaveSeatingSchema = z.object({
 export const inviteFromPartnerSchema = z.object({
   partnerId: z.string().uuid(),
   roleIds: z.array(z.string().uuid()).optional(),
+  rsvpStatus: z.enum(["PENDING", "YES", "NO", "MAYBE"]).optional().default("PENDING"),
+  meal: z.string().max(100).optional().default("Standard"),
+  dietary: z.array(z.string()).optional().default([]),
+  ticketType: z.string().max(50).optional().default("Regular"),
+  seatingRequest: z.string().max(500).optional().nullable(),
+  tableRequest: z.string().max(200).optional().nullable(),
+  sponsoredSeats: z.number().int().min(1).optional(),
+  seatsUsing: z.number().int().min(1).optional(),
 });
 
 export type BulkCreateInvitesInput = z.infer<typeof bulkCreateInvitesSchema>;

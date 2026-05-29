@@ -20,6 +20,8 @@ export async function GET(
       where: { fundraiserId: id },
       include: {
         person: { select: { id: true, firstName: true, lastName: true } },
+        sponsorshipLevel: { select: { id: true, name: true, amount: true, seats: true } },
+        partner: { select: { id: true, organizationName: true } },
       },
       orderBy: { donatedAt: "desc" },
     });
@@ -45,11 +47,21 @@ export async function POST(
     const data = validation.data;
 
     // Use a transaction to create donation and update currentAmount atomically
-    const donation = await prisma.$transaction(async (tx) => {
+    const { donation, eventId } = await prisma.$transaction(async (tx) => {
       const fundraiser = await tx.fundraiser.findUnique({
         where: { id: fundraiserId },
       });
       if (!fundraiser) throw new Error("FUNDRAISER_NOT_FOUND");
+
+      // Auto-set sponsoredSeats from level if not explicitly provided
+      let sponsoredSeats = data.sponsoredSeats ?? null;
+      if (data.sponsorshipLevelId && sponsoredSeats === null) {
+        const level = await tx.sponsorshipLevel.findUnique({ where: { id: data.sponsorshipLevelId } });
+        sponsoredSeats = level?.seats ?? null;
+      }
+
+      // Default seatsUsed to sponsoredSeats (max) if not explicitly provided
+      const seatsUsed = data.seatsUsed !== undefined ? data.seatsUsed : sponsoredSeats;
 
       const newDonation = await tx.donation.create({
         data: {
@@ -58,6 +70,10 @@ export async function POST(
           donorName: data.donorName,
           donorEmail: data.donorEmail,
           peopleId: data.peopleId ?? null,
+          sponsorshipLevelId: data.sponsorshipLevelId ?? null,
+          partnerId: data.partnerId ?? null,
+          sponsoredSeats,
+          seatsUsed,
           isAnonymous: data.isAnonymous ?? false,
           paymentMethod: data.paymentMethod ?? "other",
           tributeType: data.tributeType ?? null,
@@ -75,8 +91,94 @@ export async function POST(
         data: { currentAmount: { increment: data.amount } },
       });
 
-      return newDonation;
+      return { donation: newDonation, eventId: fundraiser.eventId };
     });
+
+    // Determine the group name for this donation
+    let group: string | null = null;
+    if (data.partnerId) {
+      const partner = await prisma.partner.findUnique({ where: { id: data.partnerId }, select: { organizationName: true } });
+      group = partner?.organizationName ?? null;
+    }
+    if (!group) group = data.donorName ?? null;
+
+    if (eventId && group) {
+      if (data.peopleId) {
+        // Person is in system: update existing invite or create one
+        const existingInvite = await prisma.eventInvite.findFirst({
+          where: { eventId, peopleId: data.peopleId },
+        });
+        if (existingInvite) {
+          await prisma.eventInvite.update({
+            where: { id: existingInvite.id },
+            data: { group, rsvpStatus: "YES" },
+          });
+        } else {
+          await prisma.eventInvite.create({
+            data: {
+              eventId,
+              peopleId: data.peopleId,
+              isPlaceholder: false,
+              isGuest: false,
+              group,
+              rsvpStatus: "YES",
+              ticketType: "Regular",
+            },
+          });
+        }
+      } else if (data.donorName) {
+        // Manual name (not in system): create one named guest invite if none exists for this group
+        const existingNamed = await prisma.eventInvite.findFirst({
+          where: { eventId, group, isPlaceholder: false },
+        });
+        if (!existingNamed) {
+          await prisma.eventInvite.create({
+            data: {
+              eventId,
+              peopleId: null,
+              guestName: data.donorName,
+              isGuest: true,
+              isPlaceholder: false,
+              group,
+              rsvpStatus: "YES",
+              ticketType: "Regular",
+            },
+          });
+        }
+      }
+    }
+
+    // Reconcile event invite placeholders for new donation
+    const effectiveSeatsUsed = donation.seatsUsed;
+    const effectiveSponsoredSeats = donation.sponsoredSeats;
+    if (eventId && effectiveSeatsUsed !== null && (effectiveSponsoredSeats ?? 0) > 0 && group) {
+      const invites = await prisma.eventInvite.findMany({
+        where: { eventId, group },
+        select: { id: true, isPlaceholder: true, tableId: true },
+      });
+      const namedCount = invites.filter((i) => !i.isPlaceholder).length;
+      const placeholders = invites.filter((i) => i.isPlaceholder);
+      const desiredPlaceholders = Math.max(0, effectiveSeatsUsed - namedCount);
+      const diff = desiredPlaceholders - placeholders.length;
+
+      if (diff > 0) {
+        await prisma.eventInvite.createMany({
+          data: Array.from({ length: diff }, () => ({
+            eventId,
+            peopleId: null,
+            isPlaceholder: true,
+            group,
+            ticketType: "Regular",
+          })),
+        });
+      } else if (diff < 0) {
+        const toRemove = [...placeholders]
+          .sort((a, b) => (a.tableId ? 1 : 0) - (b.tableId ? 1 : 0))
+          .slice(0, Math.abs(diff))
+          .map((p) => p.id);
+        await prisma.eventInvite.deleteMany({ where: { id: { in: toRemove } } });
+      }
+    }
 
     return NextResponse.json(donation, { status: 201 });
   } catch (error) {

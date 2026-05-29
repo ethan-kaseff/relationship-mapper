@@ -18,9 +18,14 @@ export async function GET(
       include: {
         donations: {
           orderBy: { donatedAt: "desc" },
-          include: { person: { select: { id: true, firstName: true, lastName: true } } },
+          include: {
+            person: { select: { id: true, firstName: true, lastName: true } },
+            sponsorshipLevel: { select: { id: true, name: true, amount: true, seats: true } },
+            partner: { select: { id: true, organizationName: true } },
+          },
         },
-        event: { select: { id: true, title: true } },
+        event: { select: { id: true, title: true, trackSeating: true } },
+        sponsorshipLevels: { orderBy: [{ displayOrder: "asc" }, { amount: "desc" }] },
       },
     });
     if (!fundraiser) return notFound("Fundraiser not found");

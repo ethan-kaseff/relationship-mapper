@@ -3,13 +3,24 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { formatCurrency, dollarsToCents } from "@/lib/currency";
+import { formatCurrency, dollarsToCents, centsToDollars } from "@/lib/currency";
 import AddSolicitationsModal from "@/components/fundraisers/AddSolicitationsModal";
 
 interface Person {
   id: string;
   firstName: string;
   lastName: string;
+}
+
+interface PartnerOption { id: string; organizationName: string | null; }
+
+interface SponsorshipLevel {
+  id: string;
+  name: string;
+  amount: number;
+  seats: number | null;
+  description: string | null;
+  displayOrder: number;
 }
 
 interface Donation {
@@ -19,6 +30,12 @@ interface Donation {
   donorEmail: string | null;
   peopleId: string | null;
   person: Person | null;
+  sponsorshipLevelId: string | null;
+  sponsorshipLevel: Pick<SponsorshipLevel, "id" | "name" | "amount" | "seats"> | null;
+  partnerId: string | null;
+  partner: PartnerOption | null;
+  sponsoredSeats: number | null;
+  seatsUsed: number | null;
   isAnonymous: boolean;
   paymentMethod: string;
   tributeType: string | null;
@@ -42,8 +59,9 @@ interface Fundraiser {
   startDate: string | null;
   endDate: string | null;
   isActive: boolean;
-  event: { id: string; title: string } | null;
+  event: { id: string; title: string; trackSeating: boolean } | null;
   donations: Donation[];
+  sponsorshipLevels: SponsorshipLevel[];
 }
 
 interface Solicitation {
@@ -52,7 +70,7 @@ interface Solicitation {
   person: { id: string; firstName: string; lastName: string; email1: string | null; email2: string | null };
 }
 
-type Tab = "overview" | "donations" | "solicitations" | "approvals" | "settings";
+type Tab = "overview" | "levels" | "donations" | "solicitations" | "approvals" | "settings";
 
 export default function FundraiserDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -93,6 +111,7 @@ export default function FundraiserDetailPage() {
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: "overview", label: "Overview" },
+    { key: "levels", label: "Sponsorship Levels", badge: fundraiser.sponsorshipLevels.length || undefined },
     ...(!fundraiser.event ? [{ key: "solicitations" as Tab, label: "Ask List", badge: solicitations.length || undefined }] : []),
     { key: "donations", label: "Donations" },
     { key: "approvals", label: "Approvals", badge: pendingDonations.length },
@@ -138,6 +157,7 @@ export default function FundraiserDetailPage() {
       </div>
 
       {tab === "overview" && <OverviewTab fundraiser={fundraiser} pct={pct} />}
+      {tab === "levels" && <LevelsTab fundraiser={fundraiser} onRefresh={load} />}
       {tab === "donations" && <DonationsTab fundraiser={fundraiser} onRefresh={load} />}
       {tab === "solicitations" && !fundraiser.event && (
         <SolicitationsTab
@@ -233,11 +253,246 @@ function OverviewTab({ fundraiser, pct }: { fundraiser: Fundraiser; pct: number 
   );
 }
 
+function LevelsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefresh: () => void }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [form, setForm] = useState({ name: "", amountDollars: "", seats: "", description: "" });
+
+  function resetForm() {
+    setForm({ name: "", amountDollars: "", seats: "", description: "" });
+    setEditingId(null);
+    setShowForm(false);
+  }
+
+  function startEdit(level: SponsorshipLevel) {
+    setForm({
+      name: level.name,
+      amountDollars: centsToDollars(level.amount).toString(),
+      seats: level.seats != null ? String(level.seats) : "",
+      description: level.description ?? "",
+    });
+    setEditingId(level.id);
+    setShowForm(true);
+  }
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      const amount = dollarsToCents(parseFloat(form.amountDollars));
+      const seats = form.seats !== "" ? parseInt(form.seats) : null;
+      const body = { name: form.name, amount, seats, description: form.description || null };
+      const url = editingId
+        ? `/api/fundraisers/${fundraiser.id}/sponsorship-levels/${editingId}`
+        : `/api/fundraisers/${fundraiser.id}/sponsorship-levels`;
+      const res = await fetch(url, {
+        method: editingId ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) { resetForm(); onRefresh(); }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDelete(levelId: string) {
+    if (!confirm("Delete this sponsorship level?")) return;
+    setDeletingId(levelId);
+    try {
+      await fetch(`/api/fundraisers/${fundraiser.id}/sponsorship-levels/${levelId}`, { method: "DELETE" });
+      onRefresh();
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  const levels = fundraiser.sponsorshipLevels;
+  const hasEvent = !!fundraiser.event;
+  const seatsRequired = !!fundraiser.event?.trackSeating;
+
+  return (
+    <div className="space-y-4 max-w-2xl">
+      <div className="bg-white rounded-lg shadow">
+        <div className="flex items-center justify-between p-4 border-b">
+          <h3 className="text-sm font-medium text-gray-900">Sponsorship Levels ({levels.length})</h3>
+          {!showForm && (
+            <button
+              onClick={() => setShowForm(true)}
+              className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700"
+            >
+              Add Level
+            </button>
+          )}
+        </div>
+
+        {showForm && (
+          <form onSubmit={handleSave} className="p-4 border-b bg-gray-50 space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Level Name</label>
+                <input
+                  required
+                  placeholder="e.g. Platinum, Gold"
+                  value={form.name}
+                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Amount ($)</label>
+                <input
+                  required
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="e.g. 5000"
+                  value={form.amountDollars}
+                  onChange={(e) => setForm((p) => ({ ...p, amountDollars: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+            </div>
+            {hasEvent && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Seats at Event{seatsRequired ? <span className="text-red-500 ml-0.5">*</span> : " (optional)"}
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  required={seatsRequired}
+                  placeholder="e.g. 10"
+                  value={form.seats}
+                  onChange={(e) => setForm((p) => ({ ...p, seats: e.target.value }))}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+            )}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Description (optional)</label>
+              <input
+                placeholder="e.g. Includes VIP reception, logo on materials"
+                value={form.description}
+                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={saving}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50"
+              >
+                {saving ? "Saving..." : editingId ? "Update Level" : "Add Level"}
+              </button>
+              <button type="button" onClick={resetForm} className="border border-gray-300 text-gray-700 px-4 py-2 rounded-md text-sm hover:bg-gray-50">
+                Cancel
+              </button>
+            </div>
+          </form>
+        )}
+
+        {levels.length === 0 && !showForm ? (
+          <p className="p-4 text-sm text-gray-500">No sponsorship levels defined yet.</p>
+        ) : levels.length > 0 ? (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="text-left px-4 py-2 font-medium text-gray-500">Level</th>
+                <th className="text-left px-4 py-2 font-medium text-gray-500">Amount</th>
+                {hasEvent && <th className="text-left px-4 py-2 font-medium text-gray-500">Seats</th>}
+                <th className="text-left px-4 py-2 font-medium text-gray-500">Description</th>
+                <th className="px-4 py-2" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {levels.map((level) => (
+                <tr key={level.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-3 font-medium text-gray-900">{level.name}</td>
+                  <td className="px-4 py-3">{formatCurrency(level.amount)}</td>
+                  {hasEvent && (
+                    <td className="px-4 py-3">
+                      {level.seats != null
+                        ? level.seats
+                        : seatsRequired
+                          ? <span className="text-red-500 text-xs font-medium">Missing</span>
+                          : <span className="text-gray-400">—</span>}
+                    </td>
+                  )}
+                  <td className="px-4 py-3 text-gray-500 text-xs">{level.description || "—"}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex gap-3 justify-end">
+                      <button onClick={() => startEdit(level)} className="text-xs text-indigo-600 hover:underline">Edit</button>
+                      <button
+                        onClick={() => handleDelete(level.id)}
+                        disabled={deletingId === level.id}
+                        className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                      >
+                        {deletingId === level.id ? "Deleting..." : "Delete"}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [syncingAll, setSyncingAll] = useState(false);
-  const [form, setForm] = useState({ donorName: "", donorEmail: "", amountDollars: "", paymentMethod: "cash" as string, notes: "", taxDeductibleDollars: "" });
+  const [partners, setPartners] = useState<PartnerOption[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
+  const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
+  const [personSearch, setPersonSearch] = useState("");
+  const [showPersonDropdown, setShowPersonDropdown] = useState(false);
+  const [manualDonorName, setManualDonorName] = useState(false);
+  const [highlightedPersonIndex, setHighlightedPersonIndex] = useState(-1);
+  const [form, setForm] = useState({ partnerId: "", donorName: "", donorEmail: "", amountDollars: "", paymentMethod: "cash" as string, notes: "", taxDeductibleDollars: "", sponsorshipLevelId: "" });
+  const [updatingSeatsId, setUpdatingSeatsId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (showForm) {
+      fetch("/api/partners").then((r) => r.json()).then((d) => setPartners(Array.isArray(d) ? d.filter((p: PartnerOption) => p.organizationName).sort((a: PartnerOption, b: PartnerOption) => (a.organizationName ?? "").localeCompare(b.organizationName ?? "")) : [])).catch(() => {});
+      fetch("/api/people").then((r) => r.json()).then((d) => setPeople(Array.isArray(d) ? d.filter((p: Person) => p.firstName || p.lastName).sort((a: Person, b: Person) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)) : [])).catch(() => {});
+    }
+  }, [showForm]);
+
+  const filteredPeople = personSearch
+    ? people.filter((p) => {
+        const q = personSearch.toLowerCase();
+        return `${p.firstName} ${p.lastName}`.toLowerCase().includes(q) ||
+          `${p.lastName}, ${p.firstName}`.toLowerCase().includes(q);
+      }).slice(0, 8)
+    : [];
+
+  const selectedLevel = fundraiser.sponsorshipLevels.find((l) => l.id === form.sponsorshipLevelId);
+  const hasEvent = !!fundraiser.event;
+
+  async function updateSeatsUsed(donationId: string, value: string) {
+    const parsed = value === "" ? null : parseInt(value);
+    if (parsed !== null && isNaN(parsed)) return;
+    setUpdatingSeatsId(donationId);
+    try {
+      await fetch(`/api/fundraisers/${fundraiser.id}/donations/${donationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seatsUsed: parsed }),
+      });
+      onRefresh();
+    } finally {
+      setUpdatingSeatsId(null);
+    }
+  }
 
   function exportEmailsCSV() {
     const rows = [["First Name", "Last Name", "Email"]];
@@ -279,21 +534,38 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
       const taxDeductibleCents = form.taxDeductibleDollars
         ? dollarsToCents(parseFloat(form.taxDeductibleDollars))
         : null;
+
+      // Determine donor identity: partner > linked person > manual name
+      const selectedPartner = partners.find((p) => p.id === form.partnerId);
+      const donorName = selectedPartner
+        ? selectedPartner.organizationName
+        : selectedPerson
+          ? `${selectedPerson.firstName} ${selectedPerson.lastName}`
+          : form.donorName || null;
+      const peopleId = !selectedPartner && selectedPerson ? selectedPerson.id : null;
+
       const res = await fetch(`/api/fundraisers/${fundraiser.id}/donations`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount,
-          donorName: form.donorName || null,
+          donorName,
           donorEmail: form.donorEmail || null,
           paymentMethod: form.paymentMethod,
           notes: form.notes || null,
           taxDeductibleAmount: taxDeductibleCents,
+          sponsorshipLevelId: form.sponsorshipLevelId || null,
+          partnerId: form.partnerId || null,
+          peopleId,
         }),
       });
       if (!res.ok) throw new Error("Failed");
+
       setShowForm(false);
-      setForm({ donorName: "", donorEmail: "", amountDollars: "", paymentMethod: "cash", notes: "", taxDeductibleDollars: "" });
+      setForm({ partnerId: "", donorName: "", donorEmail: "", amountDollars: "", paymentMethod: "cash", notes: "", taxDeductibleDollars: "", sponsorshipLevelId: "" });
+      setSelectedPerson(null);
+      setPersonSearch("");
+      setManualDonorName(false);
       onRefresh();
     } catch {
       // error handled by UI
@@ -323,7 +595,7 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
             {syncingAll ? "Syncing..." : "Sync All to QB"}
           </button>
           <button
-            onClick={() => setShowForm(!showForm)}
+            onClick={() => { setShowForm(!showForm); setSelectedPerson(null); setPersonSearch(""); setManualDonorName(false); }}
             className="text-sm bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700"
           >
             {showForm ? "Cancel" : "Add Manual Donation"}
@@ -333,21 +605,126 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
 
       {showForm && (
         <form onSubmit={handleAdd} className="p-4 border-b border-gray-200 bg-gray-50 space-y-3">
+          {/* Partner or guest donor */}
           <div className="grid grid-cols-2 gap-3">
-            <input
-              placeholder="Donor Name"
-              value={form.donorName}
-              onChange={(e) => setForm((p) => ({ ...p, donorName: e.target.value }))}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
-            <input
-              placeholder="Email"
-              type="email"
-              value={form.donorEmail}
-              onChange={(e) => setForm((p) => ({ ...p, donorEmail: e.target.value }))}
-              className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            />
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Partner (optional)</label>
+              <select
+                value={form.partnerId}
+                onChange={(e) => setForm((p) => ({ ...p, partnerId: e.target.value, donorName: "" }))}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">No partner / guest donor</option>
+                {partners.map((p) => (
+                  <option key={p.id} value={p.id}>{p.organizationName}</option>
+                ))}
+              </select>
+            </div>
+            {!form.partnerId ? (
+              <div className="relative">
+                <label className="block text-xs font-medium text-gray-500 mb-1">Donor</label>
+                {selectedPerson ? (
+                  <div className="flex items-center gap-2 border border-gray-300 rounded-md px-3 py-2 bg-white">
+                    <span className="text-sm text-gray-800 flex-1">{selectedPerson.lastName}, {selectedPerson.firstName}</span>
+                    <button type="button" onClick={() => { setSelectedPerson(null); setPersonSearch(""); }} className="text-gray-400 hover:text-gray-600 text-xs">✕</button>
+                  </div>
+                ) : manualDonorName ? (
+                  <div className="space-y-1">
+                    <input
+                      placeholder="Donor name"
+                      value={form.donorName}
+                      onChange={(e) => setForm((p) => ({ ...p, donorName: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    <button type="button" onClick={() => { setManualDonorName(false); setForm((p) => ({ ...p, donorName: "" })); }} className="text-xs text-indigo-600 hover:underline">Search by name instead</button>
+                  </div>
+                ) : (
+                  <div>
+                    <input
+                      placeholder="Search by name…"
+                      value={personSearch}
+                      onChange={(e) => { setPersonSearch(e.target.value); setShowPersonDropdown(true); setHighlightedPersonIndex(-1); }}
+                      onFocus={() => setShowPersonDropdown(true)}
+                      onBlur={() => setTimeout(() => setShowPersonDropdown(false), 150)}
+                      onKeyDown={(e) => {
+                        if (!showPersonDropdown || filteredPeople.length === 0) return;
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setHighlightedPersonIndex((i) => Math.min(i + 1, filteredPeople.length - 1));
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setHighlightedPersonIndex((i) => Math.max(i - 1, 0));
+                        } else if (e.key === "Enter" && highlightedPersonIndex >= 0) {
+                          e.preventDefault();
+                          const p = filteredPeople[highlightedPersonIndex];
+                          setSelectedPerson(p); setPersonSearch(""); setShowPersonDropdown(false); setHighlightedPersonIndex(-1);
+                        } else if (e.key === "Escape") {
+                          setShowPersonDropdown(false); setHighlightedPersonIndex(-1);
+                        }
+                      }}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                    {showPersonDropdown && filteredPeople.length > 0 && (
+                      <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg mt-1 max-h-48 overflow-y-auto">
+                        {filteredPeople.map((p, idx) => (
+                          <li key={p.id}>
+                            <button
+                              type="button"
+                              onMouseDown={() => { setSelectedPerson(p); setPersonSearch(""); setShowPersonDropdown(false); setHighlightedPersonIndex(-1); }}
+                              className={`w-full text-left px-3 py-2 text-sm ${idx === highlightedPersonIndex ? "bg-indigo-100" : "hover:bg-indigo-50"}`}
+                            >
+                              {p.lastName}, {p.firstName}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    <button type="button" onClick={() => setManualDonorName(true)} className="text-xs text-gray-400 hover:text-gray-600 mt-1">Not in our system?</button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-end pb-2">
+                <span className="text-sm text-gray-500">
+                  Donor name: <span className="font-medium text-gray-800">{partners.find((p) => p.id === form.partnerId)?.organizationName}</span>
+                </span>
+              </div>
+            )}
           </div>
+          <input
+            placeholder="Email (optional)"
+            type="email"
+            value={form.donorEmail}
+            onChange={(e) => setForm((p) => ({ ...p, donorEmail: e.target.value }))}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+          {fundraiser.sponsorshipLevels.length > 0 && (
+            <div className="flex items-center gap-3">
+              <select
+                value={form.sponsorshipLevelId}
+                onChange={(e) => {
+                  const levelId = e.target.value;
+                  const level = fundraiser.sponsorshipLevels.find((l) => l.id === levelId);
+                  setForm((p) => ({
+                    ...p,
+                    sponsorshipLevelId: levelId,
+                    amountDollars: level ? centsToDollars(level.amount).toString() : p.amountDollars,
+                  }));
+                }}
+                className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              >
+                <option value="">No sponsorship level</option>
+                {fundraiser.sponsorshipLevels.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name} — {formatCurrency(l.amount)}{l.seats ? ` (${l.seats} seats)` : ""}
+                  </option>
+                ))}
+              </select>
+              {selectedLevel?.seats != null && selectedLevel.seats > 0 && (
+                <span className="text-xs text-gray-500 shrink-0">{selectedLevel.seats} seat{selectedLevel.seats !== 1 ? "s" : ""} — placeholders will be added to the invite list automatically</span>
+              )}
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <input
               placeholder="Amount ($)"
@@ -386,6 +763,7 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
               className="border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
           </div>
+
           <button
             type="submit"
             disabled={submitting}
@@ -407,6 +785,8 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
                 <th className="px-4 py-2">Amount</th>
                 <th className="px-4 py-2">Tax-Deductible</th>
                 <th className="px-4 py-2">Method</th>
+                {hasEvent && <th className="px-4 py-2">Sponsored</th>}
+                {hasEvent && <th className="px-4 py-2">Used</th>}
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">QB</th>
                 <th className="px-4 py-2">Date</th>
@@ -416,20 +796,59 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
               {fundraiser.donations.map((d) => (
                 <tr key={d.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2">
-                    {d.isAnonymous
-                      ? "Anonymous"
-                      : d.person
-                        ? `${d.person.firstName} ${d.person.lastName}`
-                        : d.donorName || "Unknown"}
-                    {d.tributeType && (
-                      <span className="text-xs text-gray-500 ml-1">
-                        ({d.tributeType === "in_honor_of" ? "In honor of" : "In memory of"} {d.tributeName})
-                      </span>
-                    )}
+                    <div>
+                      {d.isAnonymous
+                        ? "Anonymous"
+                        : d.partner
+                          ? d.partner.organizationName
+                          : d.person
+                            ? `${d.person.firstName} ${d.person.lastName}`
+                            : d.donorName || "Unknown"}
+                      {d.tributeType && (
+                        <span className="text-xs text-gray-500 ml-1">
+                          ({d.tributeType === "in_honor_of" ? "In honor of" : "In memory of"} {d.tributeName})
+                        </span>
+                      )}
+                      {d.sponsorshipLevel && (
+                        <span className="ml-1.5 text-xs font-medium px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">
+                          {d.sponsorshipLevel.name}
+                        </span>
+                      )}
+                      {d.partner && (
+                        <span className="ml-1 text-xs text-gray-400">Partner</span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-2 font-medium">{formatCurrency(d.amount)}</td>
                   <td className="px-4 py-2 text-gray-600">{formatCurrency(d.taxDeductibleAmount ?? d.amount)}</td>
                   <td className="px-4 py-2 capitalize">{d.paymentMethod}</td>
+                  {hasEvent && (
+                    <td className="px-4 py-2 text-gray-500 text-center">
+                      {d.sponsoredSeats ?? "—"}
+                    </td>
+                  )}
+                  {hasEvent && (
+                    <td className="px-4 py-2">
+                      {d.sponsoredSeats != null && d.sponsoredSeats > 0 ? (
+                        <input
+                          type="number"
+                          min={0}
+                          max={d.sponsoredSeats}
+                          defaultValue={d.seatsUsed ?? ""}
+                          placeholder="0"
+                          disabled={updatingSeatsId === d.id}
+                          onBlur={(e) => {
+                            const cur = d.seatsUsed != null ? String(d.seatsUsed) : "";
+                            if (e.target.value !== cur) updateSeatsUsed(d.id, e.target.value);
+                          }}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                          className="w-16 border border-gray-300 rounded px-2 py-0.5 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
+                        />
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </td>
+                  )}
                   <td className="px-4 py-2">
                     <StatusBadge status={d.approvalStatus} />
                   </td>

@@ -193,9 +193,11 @@ export default function SeatingTable({
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDragging || !dragStartRef.current || !tableRef.current) return;
-    didDragRef.current = true;
     const dx = (e.clientX - dragStartRef.current.x) / zoom;
     const dy = (e.clientY - dragStartRef.current.y) / zoom;
+    if (Math.abs(e.clientX - dragStartRef.current.x) > 4 || Math.abs(e.clientY - dragStartRef.current.y) > 4) {
+      didDragRef.current = true;
+    }
     const newX = clampX(snapFn(dragStartRef.current.tableX + dx));
     const newY = clampY(snapFn(dragStartRef.current.tableY + dy));
     tableRef.current.style.left = `${newX - containerW / 2}px`;
@@ -296,27 +298,40 @@ export default function SeatingTable({
 
         return (
           <React.Fragment key={index}>
+          {(() => {
+            const guestColorClass = guest
+              ? guest.isPlaceholder
+                ? 'bg-amber-400 border-amber-400 text-gray-800'
+                : guest.isGuest
+                ? 'bg-purple-600 border-purple-600 text-white'
+                : 'bg-gray-700 border-gray-700 text-white'
+              : '';
+            const guestInlineStyle = guest?.partnerOrgColor && !guest.isPlaceholder && !guest.isGuest
+              ? { width: seatSize, height: seatSize, left: seatX, top: seatY, backgroundColor: guest.partnerOrgColor, borderColor: guest.partnerOrgColor }
+              : { width: seatSize, height: seatSize, left: seatX, top: seatY };
+            return (
           <div
             className={`table-seat absolute rounded-full border-2 flex items-center justify-center text-xs font-medium cursor-pointer transition-all ${
               isSelected
                 ? 'bg-indigo-200 border-indigo-500 ring-2 ring-indigo-400'
                 : guest
-                ? 'bg-gray-700 border-gray-700 text-white hover:ring-2 hover:ring-gray-400'
+                ? `${guestColorClass} hover:ring-2 hover:ring-gray-400`
                 : isAvailableForGuest
                 ? 'bg-green-100 border-green-400 hover:bg-green-200 animate-pulse'
                 : 'bg-white border-gray-300 hover:border-gray-400'
             }`}
-            style={{ width: seatSize, height: seatSize, left: seatX, top: seatY }}
+            style={guestInlineStyle}
             draggable={!!guest}
             onDragStart={(e) => {
               if (guest) {
                 e.dataTransfer.setData('guestId', guest.id);
                 e.dataTransfer.effectAllowed = 'move';
                 const el = document.createElement('div');
-                el.textContent = guest.name.charAt(0).toUpperCase();
+                el.textContent = guest.isPlaceholder ? '?' : guest.name.charAt(0).toUpperCase();
                 Object.assign(el.style, {
                   width: '28px', height: '28px', borderRadius: '50%',
-                  backgroundColor: '#374151', color: '#fff',
+                  backgroundColor: guest.isPlaceholder ? '#FBBF24' : guest.isGuest ? '#9333EA' : (guest.partnerOrgColor || '#374151'),
+                  color: guest.isPlaceholder ? '#1F2937' : '#fff',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: '12px', fontWeight: '600', position: 'absolute', top: '-9999px',
                 });
@@ -341,10 +356,12 @@ export default function SeatingTable({
                 onGuestDrop(guestId, table.id, index);
               }
             }}
-            title={guest?.name || (selectedGuestId ? 'Click to place guest here' : `Seat ${index + 1}`)}
+            title={guest?.isPlaceholder ? 'Placeholder seat (TBD)' : guest?.name || (selectedGuestId ? 'Click to place guest here' : `Seat ${index + 1}`)}
           >
-            {guest ? guest.name.charAt(0).toUpperCase() : ''}
+            {guest ? (guest.isPlaceholder ? '?' : guest.name.charAt(0).toUpperCase()) : ''}
           </div>
+          );
+          })()}
           {guest && (
             <div
               className="absolute pointer-events-none text-gray-700 font-medium text-center"
@@ -357,7 +374,7 @@ export default function SeatingTable({
                 whiteSpace: 'nowrap',
               }}
             >
-              {guest.name}
+              {guest.isPlaceholder ? 'TBD' : guest.name}
             </div>
           )}
           </React.Fragment>

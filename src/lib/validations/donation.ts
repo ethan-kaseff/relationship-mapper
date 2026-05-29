@@ -13,6 +13,15 @@ export const createDonationSchema = z.object({
   taxDeductibleAmount: z.number().int().min(0).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
   donatedAt: z.string().optional().nullable(),
+  sponsorshipLevelId: z.string().uuid().optional().nullable(),
+  partnerId: z.string().uuid().optional().nullable(),
+  sponsoredSeats: z.number().int().min(0).optional().nullable(),
+  seatsUsed: z.number().int().min(0).optional().nullable(),
+});
+
+export const updateDonationSeatsSchema = z.object({
+  seatsUsed: z.number().int().min(0).nullable(),
+  sponsoredSeats: z.number().int().min(0).optional().nullable(),
 });
 
 export const updateDonationApprovalSchema = z.object({

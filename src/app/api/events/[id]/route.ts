@@ -17,7 +17,23 @@ export async function GET(
       where: { id },
       include: {
         invites: {
-          include: { person: true },
+          include: {
+            person: {
+              include: {
+                partnerRoles: {
+                  include: {
+                    partner: {
+                      include: {
+                        organizationType: {
+                          include: { officeColors: { select: { officeId: true, color: true } } },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
           orderBy: { createdAt: "asc" },
         },
         fundraisers: {
