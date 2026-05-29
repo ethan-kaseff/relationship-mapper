@@ -151,7 +151,7 @@ export async function POST(
     // Reconcile event invite placeholders for new donation
     const effectiveSeatsUsed = donation.seatsUsed;
     const effectiveSponsoredSeats = donation.sponsoredSeats;
-    if (eventId && effectiveSeatsUsed !== null && (effectiveSponsoredSeats ?? 0) > 0 && group) {
+    if (eventId && effectiveSeatsUsed !== null && effectiveSponsoredSeats !== 0 && group) {
       const invites = await prisma.eventInvite.findMany({
         where: { eventId, group },
         select: { id: true, isPlaceholder: true, tableId: true },

@@ -62,7 +62,7 @@ export async function PATCH(
     const effectiveSponsoredSeats = sponsoredSeats ?? donation.sponsoredSeats;
     const eventId = donation.fundraiser.eventId;
 
-    if (eventId && seatsUsed !== null && (effectiveSponsoredSeats ?? 0) > 0) {
+    if (eventId && seatsUsed !== null && effectiveSponsoredSeats !== 0) {
       const group = donation.partner?.organizationName ?? donation.donorName ?? null;
 
       if (group) {
