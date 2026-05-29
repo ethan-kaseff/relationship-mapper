@@ -193,7 +193,7 @@ export default async function Dashboard() {
               <ul className="space-y-0.5">
                 {pendingByFundraiser.map((g) => (
                   <li key={g.fundraiserId} className="text-sm text-yellow-700">
-                    <Link href={`/fundraisers/${g.fundraiserId}`} className="hover:underline font-medium">
+                    <Link href={`/fundraisers/${g.fundraiserId}?tab=approvals`} className="hover:underline font-medium">
                       {g.title}
                     </Link>
                     {" — "}{g.count} pending
