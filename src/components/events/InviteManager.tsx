@@ -420,6 +420,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [tableRequestOverrides, setTableRequestOverrides] = useState<Record<string, string | null>>({});
+  const [compPromptInviteId, setCompPromptInviteId] = useState<string | null>(null);
 
   // Clear optimistic overrides whenever fresh invite data arrives
   useEffect(() => {
@@ -430,12 +431,6 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
     Array.from(new Set(invites.map((i) => i.group).filter(Boolean))).sort(),
     [invites]
   );
-
-  // Alert banner counts
-  const placeholderCount = invites.filter((i) => i.isPlaceholder).length;
-  const unfulfilledSeatingRequests = invites.filter(
-    (i) => i.seatingRequest && i.seatingRequest.trim() !== "" && !i.tableId
-  ).length;
 
   function handleSort(key: SortKey) {
     if (sortKey === key) {
@@ -490,13 +485,21 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
     usePagination(filtered.length);
   const paginated = filtered.slice(startIndex, endIndex);
 
-  async function updateRsvp(inviteId: string, rsvpStatus: string) {
+  async function updateRsvp(inviteId: string, rsvpStatus: string, extraFields?: Record<string, unknown>) {
     await fetch(`/api/events/${eventId}/invites/${inviteId}`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rsvpStatus }),
+      body: JSON.stringify({ rsvpStatus, ...extraFields }),
     });
     onRefresh();
+  }
+
+  function handleRsvpChange(inv: EventInvite, newStatus: string) {
+    if (newStatus === "YES" && inv.ticketType !== "Comp") {
+      setCompPromptInviteId(inv.id);
+    } else {
+      updateRsvp(inv.id, newStatus);
+    }
   }
 
   async function updateMeal(inviteId: string, meal: string) {
@@ -566,20 +569,6 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
 
   return (
     <div>
-      {/* Alert banners */}
-      {placeholderCount > 0 && (
-        <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">
-          <span>⚠</span>
-          <span>{placeholderCount} seat{placeholderCount !== 1 ? "s" : ""} still need names — follow up with sponsors to confirm attendees</span>
-        </div>
-      )}
-      {unfulfilledSeatingRequests > 0 && (
-        <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2">
-          <span>⚠</span>
-          <span>{unfulfilledSeatingRequests} seating request{unfulfilledSeatingRequests !== 1 ? "s" : ""} not yet placed</span>
-        </div>
-      )}
-
       {/* Search, filters, and action buttons */}
       <div className="flex gap-3 mb-4 items-center flex-wrap">
         <input
@@ -734,16 +723,32 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <select
-                    value={inv.rsvpStatus}
-                    onChange={(e) => updateRsvp(inv.id, e.target.value)}
-                    className={`px-2 py-1 text-xs font-medium rounded border ${RSVP_COLORS[inv.rsvpStatus]}`}
-                  >
-                    <option value="PENDING">Pending</option>
-                    <option value="YES">Yes</option>
-                    <option value="NO">No</option>
-                    <option value="MAYBE">Maybe</option>
-                  </select>
+                  <div className="flex flex-col gap-1">
+                    <select
+                      value={inv.rsvpStatus}
+                      onChange={(e) => handleRsvpChange(inv, e.target.value)}
+                      className={`px-2 py-1 text-xs font-medium rounded border ${RSVP_COLORS[inv.rsvpStatus]}`}
+                    >
+                      <option value="PENDING">Pending</option>
+                      <option value="YES">Yes</option>
+                      <option value="NO">No</option>
+                      <option value="MAYBE">Maybe</option>
+                    </select>
+                    {compPromptInviteId === inv.id && (
+                      <span className="text-xs text-gray-700 whitespace-nowrap flex items-center gap-1">
+                        Comp ticket?
+                        <button
+                          onClick={() => { updateRsvp(inv.id, "YES", { ticketType: "Comp" }); setCompPromptInviteId(null); }}
+                          className="font-semibold text-indigo-600 hover:text-indigo-800 underline"
+                        >Yes</button>
+                        <span className="text-gray-400">·</span>
+                        <button
+                          onClick={() => { updateRsvp(inv.id, "YES"); setCompPromptInviteId(null); }}
+                          className="text-gray-500 hover:text-gray-700 underline"
+                        >No</button>
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   {inv.group && (

@@ -35,6 +35,7 @@ interface EventInvite {
     partnerRoles: {
       partner: {
         organizationType: {
+          typeName: string;
           officeColors: { officeId: string; color: string }[];
         } | null;
       };
@@ -61,7 +62,7 @@ interface EventData {
     title: string;
     goalAmount: number;
     currentAmount: number;
-    donations: { id: string }[];
+    donations: { id: string; peopleId: string | null; approvalStatus: string }[];
   }[];
 }
 
@@ -73,6 +74,8 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const initialTab = searchParams.get("tab") as "details" | "invites" | "seating" | null;
   const [activeTab, setActiveTab] = useState<"details" | "invites" | "seating">(initialTab || "details");
+  // Track whether the seating chart has been opened at least once so we can keep it mounted
+  const [seatingEverOpened, setSeatingEverOpened] = useState(initialTab === "seating");
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", eventDate: "", eventTime: "", location: "", trackSeating: true, trackMeals: true, ticketPriceDollars: "", mealCostDollars: "" });
   const [saving, setSaving] = useState(false);
@@ -231,32 +234,48 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      {/* RSVP Summary */}
-      <div className="grid grid-cols-4 gap-3 mb-6 print-hide">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-green-700">{rsvpCounts.YES}</div>
-          <div className="text-xs text-green-600">Yes</div>
-        </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-red-700">{rsvpCounts.NO}</div>
-          <div className="text-xs text-red-600">No</div>
-        </div>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-yellow-700">{rsvpCounts.MAYBE}</div>
-          <div className="text-xs text-yellow-600">Maybe</div>
-        </div>
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-gray-700">{rsvpCounts.PENDING}</div>
-          <div className="text-xs text-gray-600">Pending</div>
-        </div>
-      </div>
+      {/* Alert banners */}
+      {(() => {
+        const placeholderCount = event.invites.filter((i) => i.isPlaceholder).length;
+        const unfulfilledSeatingRequests = event.invites.filter(
+          (i) => i.seatingRequest && i.seatingRequest.trim() !== "" && !i.tableId
+        ).length;
+        const paidPeopleIds = new Set(
+          event.fundraisers.flatMap((f) => f.donations.map((d) => d.peopleId)).filter(Boolean)
+        );
+        const unpaidRegularCount = event.invites.filter(
+          (i) => i.rsvpStatus === "YES" && i.ticketType === "Regular" && !i.isPlaceholder && i.peopleId && !paidPeopleIds.has(i.peopleId)
+        ).length;
+        return (
+          <>
+            {placeholderCount > 0 && (
+              <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2 print-hide">
+                <span>⚠</span>
+                <span>{placeholderCount} seat{placeholderCount !== 1 ? "s" : ""} still need names — follow up with sponsors to confirm attendees</span>
+              </div>
+            )}
+            {unfulfilledSeatingRequests > 0 && (
+              <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2 print-hide">
+                <span>⚠</span>
+                <span>{unfulfilledSeatingRequests} seating request{unfulfilledSeatingRequests !== 1 ? "s" : ""} not yet placed</span>
+              </div>
+            )}
+            {unpaidRegularCount > 0 && (
+              <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2 print-hide">
+                <span>⚠</span>
+                <span>{unpaidRegularCount} {unpaidRegularCount !== 1 ? "people have" : "person has"} RSVP&apos;d Yes with a regular ticket but {unpaidRegularCount !== 1 ? "have" : "has"} not paid</span>
+              </div>
+            )}
+          </>
+        );
+      })()}
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-6 print-hide">
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => { setActiveTab(tab.id); if (tab.id === "seating") setSeatingEverOpened(true); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === tab.id
                 ? "border-indigo-500 text-indigo-600"
@@ -452,7 +471,7 @@ export default function EventDetailPage() {
             title: event.fundraisers[0].title,
             goalAmount: event.fundraisers[0].goalAmount,
             currentAmount: event.fundraisers[0].currentAmount,
-            pendingCount: event.fundraisers[0].donations.length,
+            pendingCount: event.fundraisers[0].donations.filter((d) => d.approvalStatus === "PENDING").length,
           } : null}
           onCreated={fetchEvent}
         />
@@ -478,11 +497,13 @@ export default function EventDetailPage() {
         />
       )}
 
-      {activeTab === "seating" && (
-        <SeatingChartWrapper
-          event={event}
-          onRefresh={fetchEvent}
-        />
+      {seatingEverOpened && (
+        <div style={{ display: activeTab === "seating" ? "block" : "none" }}>
+          <SeatingChartWrapper
+            event={event}
+            onRefresh={fetchEvent}
+          />
+        </div>
       )}
 
       {showExportModal && (

@@ -18,6 +18,7 @@ interface TableProps {
   isMultiSelected?: boolean;
   snapToGrid?: boolean;
   gridSize?: number;
+  tableNumber?: number;
 }
 
 // Place seats evenly around a rectangle perimeter, offset outward
@@ -110,6 +111,7 @@ export default function SeatingTable({
   isMultiSelected,
   snapToGrid,
   gridSize = 20,
+  tableNumber,
 }: TableProps) {
   const tableRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -278,11 +280,11 @@ export default function SeatingTable({
           if (!didDragRef.current) onTableClick(table.id, e);
         }}
       >
-        <div className="flex flex-col items-center">
-          <span>{table.name}</span>
-          <span className="text-xs opacity-80 font-normal">
-            {guests.filter((g) => g.tableId === table.id).length}/{table.seats.length}
-          </span>
+        <div className="flex flex-col items-center leading-tight text-center w-full overflow-hidden px-2">
+          <span className="font-bold">{tableNumber ?? table.name}</span>
+          {tableNumber && table.name && (
+            <span className="text-xs opacity-80 font-normal">{table.name}</span>
+          )}
         </div>
       </div>
 

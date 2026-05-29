@@ -126,6 +126,37 @@ export async function POST(
             },
           });
         }
+      } else if (data.partnerId) {
+        // Partner org: create named invites for people who hold roles at this partner
+        const roles = await prisma.partnerRole.findMany({
+          where: { partnerId: data.partnerId, peopleId: { not: null } },
+          select: { peopleId: true },
+          distinct: ["peopleId"],
+        });
+        for (const role of roles) {
+          const pid = role.peopleId!;
+          const existing = await prisma.eventInvite.findFirst({
+            where: { eventId, peopleId: pid },
+          });
+          if (existing) {
+            await prisma.eventInvite.update({
+              where: { id: existing.id },
+              data: { group, rsvpStatus: "YES" },
+            });
+          } else {
+            await prisma.eventInvite.create({
+              data: {
+                eventId,
+                peopleId: pid,
+                isPlaceholder: false,
+                isGuest: false,
+                group,
+                rsvpStatus: "YES",
+                ticketType: "Regular",
+              },
+            });
+          }
+        }
       } else if (data.donorName) {
         // Manual name (not in system): create one named guest invite if none exists for this group
         const existingNamed = await prisma.eventInvite.findFirst({

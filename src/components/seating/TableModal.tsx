@@ -214,6 +214,11 @@ export default function SeatingTableModal({
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Pre-assign Guests ({selectedGuestIds.size} selected)
                 </label>
+                {selectedGuestIds.size > seatCount && (
+                  <div className="mb-2 px-3 py-2 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                    This group has {selectedGuestIds.size} people but this table only fits {seatCount}. Add another table to seat the remaining {selectedGuestIds.size - seatCount} together — or increase the seat count above to fit everyone here.
+                  </div>
+                )}
                 <div className="border border-gray-200 rounded-lg max-h-48 overflow-y-auto">
                   {Object.entries(guestsByGroup).sort(([a], [b]) => a.localeCompare(b)).map(([group, groupGuests]) => {
                     const allSelected = groupGuests.every((g) => selectedGuestIds.has(g.id));

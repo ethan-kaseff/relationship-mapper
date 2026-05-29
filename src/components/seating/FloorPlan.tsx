@@ -122,24 +122,29 @@ export default function FloorPlan({
           />
         ))}
 
-        {tables.map((table) => (
-          <SeatingTable
-            key={table.id}
-            table={table}
-            guests={guests}
-            zoom={zoom}
-            floorSize={floorSize}
-            onDragEnd={onTableDrag}
-            onSeatClick={onSeatClick}
-            onTableClick={onTableClick}
-            onGuestDrop={onGuestDrop}
-            selectedGuestId={selectedGuestId}
-            selectedSeatInfo={selectedSeatInfo}
-            isMultiSelected={selectedTableIds?.has(table.id)}
-            snapToGrid={snapToGrid}
-            gridSize={gridSize}
-          />
-        ))}
+        {(() => {
+          const sorted = [...tables].sort((a, b) => a.y - b.y || a.x - b.x);
+          const numberByTableId = Object.fromEntries(sorted.map((t, i) => [t.id, i + 1]));
+          return tables.map((table) => (
+            <SeatingTable
+              key={table.id}
+              table={table}
+              guests={guests}
+              zoom={zoom}
+              floorSize={floorSize}
+              onDragEnd={onTableDrag}
+              onSeatClick={onSeatClick}
+              onTableClick={onTableClick}
+              onGuestDrop={onGuestDrop}
+              selectedGuestId={selectedGuestId}
+              selectedSeatInfo={selectedSeatInfo}
+              isMultiSelected={selectedTableIds?.has(table.id)}
+              snapToGrid={snapToGrid}
+              gridSize={gridSize}
+              tableNumber={numberByTableId[table.id]}
+            />
+          ));
+        })()}
       </div>
       </div>
     </div>

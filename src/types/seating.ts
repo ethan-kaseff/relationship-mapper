@@ -13,6 +13,8 @@ export interface SeatingGuest {
   isPlaceholder?: boolean;
   ticketType?: string;
   partnerOrgColor?: string;
+  partnerOrgName?: string;
+  tableRequest?: string | null;
 }
 
 export interface Seat {
