@@ -59,7 +59,7 @@ interface Fundraiser {
   startDate: string | null;
   endDate: string | null;
   isActive: boolean;
-  event: { id: string; title: string; trackSeating: boolean } | null;
+  event: { id: string; title: string; trackSeating: boolean; ticketPrice: number | null; mealCost: number | null } | null;
   donations: Donation[];
   sponsorshipLevels: SponsorshipLevel[];
 }
@@ -467,6 +467,8 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
     Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsUsed != null ? String(d.seatsUsed) : ""]))
   );
 
+  const selectedLevel = fundraiser.sponsorshipLevels.find((l) => l.id === form.sponsorshipLevelId);
+
   useEffect(() => {
     setSeatsValues(
       Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsUsed != null ? String(d.seatsUsed) : ""]))
@@ -480,6 +482,17 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
     }
   }, [showForm]);
 
+  useEffect(() => {
+    const costPerSeat = (fundraiser.event?.ticketPrice ?? 0) + (fundraiser.event?.mealCost ?? 0);
+    if (costPerSeat <= 0) return;
+    const seats = selectedLevel?.seats;
+    if (!seats || seats <= 0) return;
+    const amount = parseFloat(form.amountDollars);
+    if (isNaN(amount) || amount <= 0) return;
+    const deductible = Math.max(0, amount - centsToDollars(costPerSeat * seats));
+    setForm((prev) => ({ ...prev, taxDeductibleDollars: deductible.toFixed(2) }));
+  }, [form.amountDollars, selectedLevel, fundraiser.event]);
+
   const filteredPeople = personSearch
     ? people.filter((p) => {
         const q = personSearch.toLowerCase();
@@ -488,7 +501,6 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
       }).slice(0, 8)
     : [];
 
-  const selectedLevel = fundraiser.sponsorshipLevels.find((l) => l.id === form.sponsorshipLevelId);
   const hasEvent = !!fundraiser.event;
 
   async function updateSeatsUsed(donationId: string, value: string) {
@@ -791,6 +803,9 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
             >
               <option value="cash">Cash</option>
               <option value="check">Check</option>
+              <option value="ach">ACH</option>
+              <option value="online">Online</option>
+              <option value="pledge">Pledge</option>
               <option value="other">Other</option>
             </select>
           </div>
@@ -869,7 +884,7 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
                   </td>
                   <td className="px-4 py-2 font-medium">{formatCurrency(d.amount)}</td>
                   <td className="px-4 py-2 text-gray-600">{formatCurrency(d.taxDeductibleAmount ?? d.amount)}</td>
-                  <td className="px-4 py-2 capitalize">{d.paymentMethod}</td>
+                  <td className="px-4 py-2 capitalize">{d.paymentMethod === "ach" ? "ACH" : d.paymentMethod}</td>
                   {hasEvent && (
                     <td className="px-4 py-2 text-gray-500 text-center">
                       {d.sponsoredSeats ?? "—"}

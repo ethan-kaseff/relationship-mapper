@@ -64,8 +64,8 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
   if (!isOpen || !guest) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-auto">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto flex-shrink-0">
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-1">Edit Guest Details</h2>
           <p className="text-sm text-gray-500 mb-4">{guest.name}</p>

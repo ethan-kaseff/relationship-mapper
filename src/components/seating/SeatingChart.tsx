@@ -18,6 +18,33 @@ const OBJECT_ICONS: Record<string, string> = {
   kitchen: '👨‍🍳', custom: '📦',
 };
 
+function numberTablesForLayout(tables: Table[], mode: 'ltr' | 'snake'): Table[] {
+  if (tables.length === 0) return tables;
+  const ROW_THRESHOLD = 90;
+  const sorted = [...tables].sort((a, b) => a.y - b.y || a.x - b.x);
+  const rows: Table[][] = [];
+  for (const table of sorted) {
+    const lastRow = rows[rows.length - 1];
+    if (lastRow && Math.abs(table.y - lastRow[0].y) <= ROW_THRESHOLD) {
+      lastRow.push(table);
+    } else {
+      rows.push([table]);
+    }
+  }
+  const numbered: Table[] = [];
+  let n = 1;
+  rows.forEach((row, i) => {
+    const orderedRow = mode === 'snake' && i % 2 === 1
+      ? [...row].sort((a, b) => b.x - a.x)
+      : [...row].sort((a, b) => a.x - b.x);
+    for (const table of orderedRow) {
+      numbered.push({ ...table, name: `Table ${String(n).padStart(2, '0')}` });
+      n++;
+    }
+  });
+  return numbered;
+}
+
 // Rename any fully-filled single-group tables to the group name.
 // If the same group fills multiple tables, suffix them 1, 2, 3…
 function renameTablesByGroup(tables: Table[], guests: SeatingGuest[]): Table[] | null {
@@ -105,7 +132,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
   const {
     state, addTable, setTables, updateTable, deleteTable, updateGuest,
     assignGuest, unassignGuest, clearAllSeating, addObject, updateObject, deleteObject,
-    setZoom, setFloorSize, getTableById, undo, redo, canUndo, canRedo,
+    setZoom, setFloorSize, getTableById, undo, redo, canUndo, canRedo, batchDispatch,
   } = useSeatingChart(layout, guests, handleSave);
 
   const computeArrangedTables = useCallback((tables: Table[], options: {
@@ -372,7 +399,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
     const pendingAssignments: { guestId: string; tableId: string; seatIndex: number }[] = [];
 
     for (const groupGuests of sortedGroups) {
-      let bestTable = tableAvail.filter((t) => t.available.length >= groupGuests.length).sort((a, b) => a.available.length - b.available.length)[0];
+      let bestTable = tableAvail.find((t) => t.available.length >= groupGuests.length);
       if (!bestTable) {
         let remaining = [...groupGuests];
         for (const ta of tableAvail) {
@@ -388,8 +415,6 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       }
     }
 
-    pendingAssignments.forEach(({ guestId, tableId, seatIndex }) => assignGuest(guestId, tableId, seatIndex));
-
     // Project final guest state and rename fully-filled single-group tables
     const assignmentMap = new Map(pendingAssignments.map((a) => [a.guestId, a]));
     const projectedGuests = state.guests.map((g) => {
@@ -397,10 +422,15 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       return a ? { ...g, tableId: a.tableId, seatIndex: a.seatIndex } : g;
     });
     const renamedTables = renameTablesByGroup(state.tables, projectedGuests);
-    if (renamedTables) setTables(renamedTables);
+
+    const actions: Parameters<typeof batchDispatch>[0] = pendingAssignments.map(({ guestId, tableId, seatIndex }) => ({
+      type: 'ASSIGN_GUEST' as const, payload: { guestId, tableId, seatIndex },
+    }));
+    if (renamedTables) actions.push({ type: 'SET_TABLES', payload: renamedTables });
+    batchDispatch(actions);
 
     setPendingAutoAction('Auto-seat applied');
-  }, [state.guests, state.tables, assignGuest, setTables]);
+  }, [state.guests, state.tables, batchDispatch]);
 
   const triggerGroupSeating = (primaryGuestId: string, targetTableId: string, targetSeatIndex: number) => {
     const primary = state.guests.find((g) => g.id === primaryGuestId);
@@ -419,8 +449,9 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
     const groupMembers = group
       ? state.guests.filter((g) => g.group === group && g.id !== primaryGuestId && g.tableId !== targetTableId)
       : [];
+    const groupMemberIds = new Set(groupMembers.map((g) => g.id));
     const tableRequestMembers = group
-      ? state.guests.filter((g) => g.tableRequest === group && g.id !== primaryGuestId && g.tableId !== targetTableId)
+      ? state.guests.filter((g) => g.tableRequest === group && g.id !== primaryGuestId && g.tableId !== targetTableId && !groupMemberIds.has(g.id))
       : [];
 
     if (groupMembers.length === 0 && tableRequestMembers.length === 0) {
@@ -455,17 +486,13 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       { guestId: primaryGuestId, tableId: targetTableId, seatIndex: targetSeatIndex },
     ];
 
-    if (primary?.tableId) unassignGuest(primaryGuestId);
-    assignGuest(primaryGuestId, targetTableId, targetSeatIndex);
-
     if (includeGroup) {
-      const allAdditional = [...groupMembers, ...tableRequestMembers];
+      const seen = new Set(groupMembers.map((g) => g.id));
+      const allAdditional = [...groupMembers, ...tableRequestMembers.filter((g) => !seen.has(g.id))];
       const unassigned = allAdditional.filter((g) => !g.tableId);
       const atOtherTable = allAdditional.filter((g) => g.tableId);
       [...unassigned, ...atOtherTable].slice(0, availableSeats.length).forEach((g, i) => {
         pendingAssignments.push({ guestId: g.id, tableId: targetTableId, seatIndex: availableSeats[i] });
-        if (g.tableId) unassignGuest(g.id);
-        assignGuest(g.id, targetTableId, availableSeats[i]);
       });
     }
 
@@ -476,7 +503,17 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       return a ? { ...g, tableId: a.tableId, seatIndex: a.seatIndex } : g;
     });
     const renamedTables = renameTablesByGroup(state.tables, projectedGuests);
-    if (renamedTables) setTables(renamedTables);
+
+    const actions: Parameters<typeof batchDispatch>[0] = [];
+    if (primary?.tableId) actions.push({ type: 'UNASSIGN_GUEST', payload: primaryGuestId });
+    actions.push({ type: 'ASSIGN_GUEST', payload: { guestId: primaryGuestId, tableId: targetTableId, seatIndex: targetSeatIndex } });
+    pendingAssignments.filter((a) => a.guestId !== primaryGuestId).forEach(({ guestId, tableId, seatIndex }) => {
+      const g = state.guests.find((guest) => guest.id === guestId);
+      if (g?.tableId) actions.push({ type: 'UNASSIGN_GUEST', payload: guestId });
+      actions.push({ type: 'ASSIGN_GUEST', payload: { guestId, tableId, seatIndex } });
+    });
+    if (renamedTables) actions.push({ type: 'SET_TABLES', payload: renamedTables });
+    batchDispatch(actions);
 
     setGroupSeatingPending(null);
     setSelectedGuestId(null);
@@ -496,10 +533,12 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
       if (selectedGuest?.tableId != null && selectedGuest?.seatIndex != null) {
         const fromTable = selectedGuest.tableId;
         const fromSeat = selectedGuest.seatIndex;
-        unassignGuest(selectedGuestId);
-        unassignGuest(guestId);
-        assignGuest(guestId, fromTable, fromSeat);
-        assignGuest(selectedGuestId, tableId, seatIndex);
+        batchDispatch([
+          { type: 'UNASSIGN_GUEST', payload: selectedGuestId },
+          { type: 'UNASSIGN_GUEST', payload: guestId },
+          { type: 'ASSIGN_GUEST', payload: { guestId, tableId: fromTable, seatIndex: fromSeat } },
+          { type: 'ASSIGN_GUEST', payload: { guestId: selectedGuestId, tableId, seatIndex } },
+        ]);
       }
       setSelectedGuestId(null);
       setSelectedSeatInfo(null);
@@ -788,6 +827,8 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
             showCenterLines={showCenterLines} onToggleCenterLines={() => setShowCenterLines(!showCenterLines)}
             onZoomChange={setZoom}
             onZoomFit={zoomFit} onToggleFullscreen={() => setIsFullscreen(!isFullscreen)}
+            onNumberTables={(mode) => setTables(numberTablesForLayout(state.tables, mode))}
+            hasTables={state.tables.length > 0}
           /></div>
           {(() => {
             const orgTypes = Array.from(
@@ -889,12 +930,15 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
                   // Swap: move existing guest to dragged guest's old seat
                   const fromTable = draggedGuest?.tableId ?? null;
                   const fromSeat = draggedGuest?.seatIndex ?? null;
-                  unassignGuest(guestId);
-                  unassignGuest(existingGuest.id);
+                  const swapActions: Parameters<typeof batchDispatch>[0] = [
+                    { type: 'UNASSIGN_GUEST', payload: guestId },
+                    { type: 'UNASSIGN_GUEST', payload: existingGuest.id },
+                  ];
                   if (fromTable != null && fromSeat != null) {
-                    assignGuest(existingGuest.id, fromTable, fromSeat);
+                    swapActions.push({ type: 'ASSIGN_GUEST', payload: { guestId: existingGuest.id, tableId: fromTable, seatIndex: fromSeat } });
                   }
-                  assignGuest(guestId, tableId, seatIndex);
+                  swapActions.push({ type: 'ASSIGN_GUEST', payload: { guestId, tableId, seatIndex } });
+                  batchDispatch(swapActions);
                 } else {
                   triggerGroupSeating(guestId, tableId, seatIndex);
                 }
@@ -936,7 +980,8 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
         const { primaryGuestId, targetTableId, groupMembers, tableRequestMembers, availableSeats } = groupSeatingPending;
         const primary = state.guests.find((g) => g.id === primaryGuestId);
         const targetTable = state.tables.find((t) => t.id === targetTableId);
-        const allAdditional = [...groupMembers, ...tableRequestMembers];
+        const seenIds = new Set(groupMembers.map((g) => g.id));
+        const allAdditional = [...groupMembers, ...tableRequestMembers.filter((g) => !seenIds.has(g.id))];
         const canFit = Math.min(allAdditional.length, availableSeats.length);
         const willFitAll = canFit >= allAdditional.length;
         return (
