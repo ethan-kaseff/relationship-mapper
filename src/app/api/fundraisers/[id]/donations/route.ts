@@ -104,7 +104,7 @@ export async function POST(
 
     if (eventId && group) {
       if (data.peopleId) {
-        // Person is in system: update existing invite or create one
+        // Individual person: RSVP yes and update group on existing invite or create one
         const existingInvite = await prisma.eventInvite.findFirst({
           where: { eventId, peopleId: data.peopleId },
         });
@@ -127,7 +127,7 @@ export async function POST(
           });
         }
       } else if (data.partnerId) {
-        // Partner org: create named invites for people who hold roles at this partner
+        // Partner org: create named invites for people who hold roles at this partner (no RSVP change)
         const roles = await prisma.partnerRole.findMany({
           where: { partnerId: data.partnerId, peopleId: { not: null } },
           select: { peopleId: true },
@@ -141,7 +141,7 @@ export async function POST(
           if (existing) {
             await prisma.eventInvite.update({
               where: { id: existing.id },
-              data: { group, rsvpStatus: "YES" },
+              data: { group },
             });
           } else {
             await prisma.eventInvite.create({
@@ -151,18 +151,22 @@ export async function POST(
                 isPlaceholder: false,
                 isGuest: false,
                 group,
-                rsvpStatus: "YES",
                 ticketType: "Regular",
               },
             });
           }
         }
       } else if (data.donorName) {
-        // Manual name (not in system): create one named guest invite if none exists for this group
+        // Manual guest name (not in system): RSVP yes and create one named guest invite if none exists for this group
         const existingNamed = await prisma.eventInvite.findFirst({
           where: { eventId, group, isPlaceholder: false },
         });
-        if (!existingNamed) {
+        if (existingNamed) {
+          await prisma.eventInvite.update({
+            where: { id: existingNamed.id },
+            data: { rsvpStatus: "YES" },
+          });
+        } else {
           await prisma.eventInvite.create({
             data: {
               eventId,

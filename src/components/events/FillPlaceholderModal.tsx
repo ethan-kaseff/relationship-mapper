@@ -178,6 +178,15 @@ export default function FillPlaceholderModal({ eventId, inviteId, existingPeople
         </div>
 
         <div className="border-t px-4 pt-3 pb-4 space-y-2.5 flex-shrink-0">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={rsvpStatus === "YES"}
+              onChange={(e) => setRsvpStatus(e.target.checked ? "YES" : "PENDING")}
+              className="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+            />
+            <span className="text-sm font-medium text-gray-700">Mark as attending (RSVP: Yes)</span>
+          </label>
           <InviteOptionsPanel
             rsvpStatus={rsvpStatus} onRsvpChange={setRsvpStatus}
             meal={meal} onMealChange={setMeal}
@@ -187,6 +196,7 @@ export default function FillPlaceholderModal({ eventId, inviteId, existingPeople
             tableRequest={tableRequest} onTableRequestChange={setTableRequest}
             groups={groups}
             customDietary={customDietary}
+            showRsvp={false}
           />
           <div className="flex gap-3 pt-1">
             <button onClick={onClose} className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm">

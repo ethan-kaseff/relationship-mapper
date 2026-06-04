@@ -29,6 +29,7 @@ interface InviteOptionsPanelProps {
   onTableRequestChange: (v: string) => void;
   groups: string[];
   customDietary: DietaryOptionRecord[];
+  showRsvp?: boolean;
 }
 
 export default function InviteOptionsPanel({
@@ -40,6 +41,7 @@ export default function InviteOptionsPanel({
   tableRequest, onTableRequestChange,
   groups,
   customDietary,
+  showRsvp = true,
 }: InviteOptionsPanelProps) {
   const builtInSet = new Set(DIETARY_OPTIONS);
   const allDietary = [
@@ -54,23 +56,25 @@ export default function InviteOptionsPanel({
   return (
     <div className="space-y-2.5">
       {/* RSVP */}
-      <div className="flex items-center gap-2">
-        <span className="text-xs font-medium text-gray-600 w-24 shrink-0">RSVP</span>
-        <div className="flex gap-1.5 flex-wrap">
-          {RSVP_OPTIONS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              onClick={() => onRsvpChange(s)}
-              className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
-                rsvpStatus === s ? RSVP_ACTIVE[s] : "bg-white border-gray-200 text-gray-400 hover:border-gray-400"
-              }`}
-            >
-              {s.charAt(0) + s.slice(1).toLowerCase()}
-            </button>
-          ))}
+      {showRsvp && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-gray-600 w-24 shrink-0">RSVP</span>
+          <div className="flex gap-1.5 flex-wrap">
+            {RSVP_OPTIONS.map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => onRsvpChange(s)}
+                className={`px-2.5 py-1 text-xs font-medium rounded-full border transition-colors ${
+                  rsvpStatus === s ? RSVP_ACTIVE[s] : "bg-white border-gray-200 text-gray-400 hover:border-gray-400"
+                }`}
+              >
+                {s.charAt(0) + s.slice(1).toLowerCase()}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Ticket Type */}
       <div className="flex items-center gap-2">

@@ -24,7 +24,7 @@ export async function GET(
             partner: { select: { id: true, organizationName: true } },
           },
         },
-        event: { select: { id: true, title: true, trackSeating: true } },
+        event: { select: { id: true, title: true, trackSeating: true, ticketPrice: true, mealCost: true } },
         sponsorshipLevels: { orderBy: [{ displayOrder: "asc" }, { amount: "desc" }] },
       },
     });

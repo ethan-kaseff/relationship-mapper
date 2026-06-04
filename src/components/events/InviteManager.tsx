@@ -495,7 +495,7 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
   }
 
   function handleRsvpChange(inv: EventInvite, newStatus: string) {
-    if (newStatus === "YES" && inv.ticketType !== "Comp") {
+    if (newStatus === "YES" && inv.ticketType !== "Comp" && !inv.group) {
       setCompPromptInviteId(inv.id);
     } else {
       updateRsvp(inv.id, newStatus);

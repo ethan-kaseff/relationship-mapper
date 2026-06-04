@@ -29,7 +29,8 @@ export type SeatingAction =
   | { type: 'UPDATE_OBJECT'; payload: { id: string; updates: Partial<VenueObject> } }
   | { type: 'DELETE_OBJECT'; payload: string }
   | { type: 'SET_ZOOM'; payload: number }
-  | { type: 'SET_FLOOR_SIZE'; payload: { width: number; height: number } };
+  | { type: 'SET_FLOOR_SIZE'; payload: { width: number; height: number } }
+  | { type: 'SYNC_GUESTS'; payload: SeatingGuest[] };
 
 interface HistoryState {
   past: SeatingState[];
@@ -39,6 +40,7 @@ interface HistoryState {
 
 type HistoryAction =
   | { type: 'DISPATCH'; action: SeatingAction }
+  | { type: 'BATCH'; actions: SeatingAction[] }
   | { type: 'UNDO' }
   | { type: 'REDO' };
 
@@ -154,12 +156,22 @@ function seatingReducer(state: SeatingState, action: SeatingAction): SeatingStat
     case 'SET_FLOOR_SIZE':
       return { ...state, floorSize: action.payload };
 
+    case 'SYNC_GUESTS': {
+      const existingById = new Map(state.guests.map((g) => [g.id, g]));
+      const synced = action.payload.map((g) => {
+        const existing = existingById.get(g.id);
+        // Preserve seating assignments; update all other metadata from server
+        return existing ? { ...g, tableId: existing.tableId, seatIndex: existing.seatIndex } : g;
+      });
+      return { ...state, guests: synced };
+    }
+
     default:
       return state;
   }
 }
 
-const NON_UNDOABLE_ACTIONS = new Set(['SET_ZOOM', 'SET_FLOOR_SIZE']);
+const NON_UNDOABLE_ACTIONS = new Set(['SET_ZOOM', 'SET_FLOOR_SIZE', 'SYNC_GUESTS']);
 
 function historyReducer(state: HistoryState, action: HistoryAction): HistoryState {
   switch (action.type) {
@@ -171,6 +183,12 @@ function historyReducer(state: HistoryState, action: HistoryAction): HistoryStat
         return { ...state, present: newPresent };
       }
 
+      const past = [...state.past, state.present].slice(-MAX_HISTORY);
+      return { past, present: newPresent, future: [] };
+    }
+    case 'BATCH': {
+      const newPresent = action.actions.reduce((s, a) => seatingReducer(s, a), state.present);
+      if (newPresent === state.present) return state;
       const past = [...state.past, state.present].slice(-MAX_HISTORY);
       return { past, present: newPresent, future: [] };
     }
@@ -218,6 +236,10 @@ export function useSeatingChart(
     historyDispatch({ type: 'DISPATCH', action });
   }, []);
 
+  const batchDispatch = useCallback((actions: SeatingAction[]) => {
+    historyDispatch({ type: 'BATCH', actions });
+  }, []);
+
   const undo = useCallback(() => {
     historyDispatch({ type: 'UNDO' });
   }, []);
@@ -225,6 +247,19 @@ export function useSeatingChart(
   const redo = useCallback(() => {
     historyDispatch({ type: 'REDO' });
   }, []);
+
+  const prevGuestsJsonRef = useRef<string | null>(null);
+  useEffect(() => {
+    const json = JSON.stringify(initialGuests);
+    if (prevGuestsJsonRef.current === null) {
+      prevGuestsJsonRef.current = json;
+      return;
+    }
+    if (json !== prevGuestsJsonRef.current) {
+      prevGuestsJsonRef.current = json;
+      dispatch({ type: 'SYNC_GUESTS', payload: initialGuests });
+    }
+  }, [initialGuests, dispatch]);
 
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -402,6 +437,7 @@ export function useSeatingChart(
   return {
     state,
     dispatch,
+    batchDispatch,
     addTable,
     addTables,
     setTables,

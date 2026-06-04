@@ -6,7 +6,7 @@ export const createDonationSchema = z.object({
   donorEmail: z.string().email().max(300).optional().nullable(),
   peopleId: z.string().uuid().optional().nullable(),
   isAnonymous: z.boolean().optional(),
-  paymentMethod: z.enum(["stripe", "cash", "check", "other"]).optional(),
+  paymentMethod: z.enum(["stripe", "cash", "check", "ach", "online", "pledge", "other"]).optional(),
   tributeType: z.enum(["in_honor_of", "in_memory_of"]).optional().nullable(),
   tributeName: z.string().max(200).optional().nullable(),
   isTaxDeductible: z.boolean().optional(),
