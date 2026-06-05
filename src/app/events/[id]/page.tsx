@@ -72,8 +72,8 @@ export default function EventDetailPage() {
   const searchParams = useSearchParams();
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
-  const initialTab = searchParams.get("tab") as "details" | "invites" | "seating" | null;
-  const [activeTab, setActiveTab] = useState<"details" | "invites" | "seating">(initialTab || "details");
+  const initialTab = searchParams.get("tab") as "details" | "invites" | "notices" | "seating" | null;
+  const [activeTab, setActiveTab] = useState<"details" | "invites" | "notices" | "seating">(initialTab || "details");
   // Track whether the seating chart has been opened at least once so we can keep it mounted
   const [seatingEverOpened, setSeatingEverOpened] = useState(initialTab === "seating");
   const [editing, setEditing] = useState(false);
@@ -201,9 +201,28 @@ export default function EventDetailPage() {
     PENDING: event.invites.filter((i) => i.rsvpStatus === "PENDING").length,
   };
 
-  const tabs: { id: "details" | "invites" | "seating"; label: string; count?: number }[] = [
+  const placeholderCount = event.invites.filter((i) => i.isPlaceholder).length;
+  const unfulfilledSeatingRequests = event.invites.filter(
+    (i) => i.seatingRequest && i.seatingRequest.trim() !== "" && !i.tableId
+  );
+  const paidPeopleIds = new Set(
+    event.fundraisers.flatMap((f) => f.donations.map((d) => d.peopleId)).filter(Boolean)
+  );
+  const unpaidRegular = event.invites.filter(
+    (i) => i.rsvpStatus === "YES" && i.ticketType === "Regular" && !i.isPlaceholder && i.peopleId && !paidPeopleIds.has(i.peopleId)
+  );
+  const unfulfilledTableRequests = event.invites.filter((i) => {
+    if (!i.tableRequest || !i.tableId) return false;
+    return !event.invites.some(
+      (other) => other.id !== i.id && other.tableId === i.tableId && other.group === i.tableRequest
+    );
+  });
+  const totalNoticeCount = placeholderCount + unfulfilledSeatingRequests.length + unpaidRegular.length + unfulfilledTableRequests.length;
+
+  const tabs: { id: "details" | "invites" | "notices" | "seating"; label: string; count?: number }[] = [
     { id: "details", label: "Details" },
     { id: "invites", label: "Invites", count: event.invites.length },
+    { id: "notices", label: "Notices", count: totalNoticeCount },
   ];
   if (event.trackSeating) {
     tabs.push({ id: "seating", label: "Seating Chart", count: rsvpCounts.YES });
@@ -233,42 +252,6 @@ export default function EventDetailPage() {
           </button>
         </div>
       </div>
-
-      {/* Alert banners */}
-      {(() => {
-        const placeholderCount = event.invites.filter((i) => i.isPlaceholder).length;
-        const unfulfilledSeatingRequests = event.invites.filter(
-          (i) => i.seatingRequest && i.seatingRequest.trim() !== "" && !i.tableId
-        ).length;
-        const paidPeopleIds = new Set(
-          event.fundraisers.flatMap((f) => f.donations.map((d) => d.peopleId)).filter(Boolean)
-        );
-        const unpaidRegularCount = event.invites.filter(
-          (i) => i.rsvpStatus === "YES" && i.ticketType === "Regular" && !i.isPlaceholder && i.peopleId && !paidPeopleIds.has(i.peopleId)
-        ).length;
-        return (
-          <>
-            {placeholderCount > 0 && (
-              <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2 print-hide">
-                <span>⚠</span>
-                <span>{placeholderCount} seat{placeholderCount !== 1 ? "s" : ""} still need names — follow up with sponsors to confirm attendees</span>
-              </div>
-            )}
-            {unfulfilledSeatingRequests > 0 && (
-              <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2 print-hide">
-                <span>⚠</span>
-                <span>{unfulfilledSeatingRequests} seating request{unfulfilledSeatingRequests !== 1 ? "s" : ""} not yet placed</span>
-              </div>
-            )}
-            {unpaidRegularCount > 0 && (
-              <div className="mb-3 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800 flex items-center gap-2 print-hide">
-                <span>⚠</span>
-                <span>{unpaidRegularCount} {unpaidRegularCount !== 1 ? "people have" : "person has"} RSVP&apos;d Yes with a regular ticket but {unpaidRegularCount !== 1 ? "have" : "has"} not paid</span>
-              </div>
-            )}
-          </>
-        );
-      })()}
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-6 print-hide">
@@ -495,6 +478,81 @@ export default function EventDetailPage() {
             return Object.fromEntries(layout.tables.map((t) => [t.id, t.name]));
           })()}
         />
+      )}
+
+      {activeTab === "notices" && (
+        <div className="max-w-2xl space-y-3">
+          {totalNoticeCount === 0 ? (
+            <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 flex items-center gap-2">
+              <span>✓</span>
+              <span>No notices — everything looks good!</span>
+            </div>
+          ) : (
+            <>
+              {placeholderCount > 0 && (
+                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <div className="flex items-start gap-2">
+                    <span>⚠</span>
+                    <span className="font-medium">{placeholderCount} seat{placeholderCount !== 1 ? "s" : ""} still need names — follow up with sponsors to confirm attendees</span>
+                  </div>
+                </div>
+              )}
+              {unfulfilledSeatingRequests.length > 0 && (
+                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <div className="flex items-start gap-2">
+                    <span>⚠</span>
+                    <div>
+                      <p className="font-medium">{unfulfilledSeatingRequests.length} special seating request{unfulfilledSeatingRequests.length !== 1 ? "s" : ""} not yet placed:</p>
+                      <ul className="mt-1.5 space-y-0.5 text-xs">
+                        {unfulfilledSeatingRequests.map((i) => (
+                          <li key={i.id}>
+                            <span className="font-medium">{i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown"}</span>
+                            {" — "}&ldquo;{i.seatingRequest}&rdquo;
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {unpaidRegular.length > 0 && (
+                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <div className="flex items-start gap-2">
+                    <span>⚠</span>
+                    <div>
+                      <p className="font-medium">{unpaidRegular.length} {unpaidRegular.length !== 1 ? "people have" : "person has"} RSVP&apos;d Yes with a regular ticket but {unpaidRegular.length !== 1 ? "have" : "has"} not paid:</p>
+                      <ul className="mt-1.5 space-y-0.5 text-xs">
+                        {unpaidRegular.map((i) => (
+                          <li key={i.id} className="font-medium">
+                            {i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown"}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {unfulfilledTableRequests.length > 0 && (
+                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <div className="flex items-start gap-2">
+                    <span>⚠</span>
+                    <div>
+                      <p className="font-medium">{unfulfilledTableRequests.length} guest{unfulfilledTableRequests.length !== 1 ? "s are" : " is"} not seated with their requested group:</p>
+                      <ul className="mt-1.5 space-y-0.5 text-xs">
+                        {unfulfilledTableRequests.map((i) => (
+                          <li key={i.id}>
+                            <span className="font-medium">{i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown"}</span>
+                            {" — requested: "}{i.tableRequest}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
       )}
 
       {seatingEverOpened && (
