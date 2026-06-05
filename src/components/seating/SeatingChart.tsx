@@ -752,6 +752,7 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
   const unassignedCount = state.guests.filter((g) => !g.tableId).length;
   const assignedCount = state.guests.length - unassignedCount;
 
+
   return (
     <div className="h-[calc(100vh-200px)] flex flex-col bg-gray-50 rounded-lg overflow-hidden border border-gray-200">
       {/* Main content */}
