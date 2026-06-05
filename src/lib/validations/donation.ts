@@ -12,6 +12,7 @@ export const createDonationSchema = z.object({
   isTaxDeductible: z.boolean().optional(),
   taxDeductibleAmount: z.number().int().min(0).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
+  group: z.string().max(200).optional().nullable(),
   donatedAt: z.string().optional().nullable(),
   sponsorshipLevelId: z.string().uuid().optional().nullable(),
   partnerId: z.string().uuid().optional().nullable(),
