@@ -100,7 +100,7 @@ export async function POST(
       const partner = await prisma.partner.findUnique({ where: { id: data.partnerId }, select: { organizationName: true } });
       group = partner?.organizationName ?? null;
     }
-    if (!group) group = data.donorName ?? null;
+    if (!group) group = data.group || data.donorName || null;
 
     if (eventId && group) {
       if (data.peopleId) {

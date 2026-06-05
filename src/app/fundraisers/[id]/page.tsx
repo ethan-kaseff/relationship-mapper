@@ -459,10 +459,11 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
   const [showPersonDropdown, setShowPersonDropdown] = useState(false);
   const [manualDonorName, setManualDonorName] = useState(false);
   const [highlightedPersonIndex, setHighlightedPersonIndex] = useState(-1);
-  const [form, setForm] = useState({ partnerId: "", donorName: "", donorEmail: "", amountDollars: "", paymentMethod: "cash" as string, notes: "", taxDeductibleDollars: "", sponsorshipLevelId: "" });
+  const [form, setForm] = useState({ partnerId: "", donorName: "", donorEmail: "", amountDollars: "", paymentMethod: "cash" as string, notes: "", taxDeductibleDollars: "", sponsorshipLevelId: "", group: "" });
   const [updatingSeatsId, setUpdatingSeatsId] = useState<string | null>(null);
   const [seatsSavedId, setSeatsSavedId] = useState<string | null>(null);
   const [confirmPending, setConfirmPending] = useState<{ donationId: string; value: string; tableAssignedCount: number } | null>(null);
+  const [eventGroups, setEventGroups] = useState<string[]>([]);
   const [seatsValues, setSeatsValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsUsed != null ? String(d.seatsUsed) : ""]))
   );
@@ -479,8 +480,18 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
     if (showForm) {
       fetch("/api/partners").then((r) => r.json()).then((d) => setPartners(Array.isArray(d) ? d.filter((p: PartnerOption) => p.organizationName).sort((a: PartnerOption, b: PartnerOption) => (a.organizationName ?? "").localeCompare(b.organizationName ?? "")) : [])).catch(() => {});
       fetch("/api/people").then((r) => r.json()).then((d) => setPeople(Array.isArray(d) ? d.filter((p: Person) => p.firstName || p.lastName).sort((a: Person, b: Person) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)) : [])).catch(() => {});
+      const eventId = fundraiser.event?.id;
+      if (eventId) {
+        fetch(`/api/events/${eventId}/invites`)
+          .then((r) => r.json())
+          .then((invites: { group?: string | null }[]) => {
+            const groups = [...new Set(invites.map((i) => i.group).filter((g): g is string => !!g))].sort();
+            setEventGroups(groups);
+          })
+          .catch(() => {});
+      }
     }
-  }, [showForm]);
+  }, [showForm, fundraiser.event?.id]);
 
   useEffect(() => {
     const costPerSeat = (fundraiser.event?.ticketPrice ?? 0) + (fundraiser.event?.mealCost ?? 0);
@@ -617,12 +628,13 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
           sponsorshipLevelId: form.sponsorshipLevelId || null,
           partnerId: form.partnerId || null,
           peopleId,
+          group: !form.partnerId && form.group.trim() ? form.group.trim() : null,
         }),
       });
       if (!res.ok) throw new Error("Failed");
 
       setShowForm(false);
-      setForm({ partnerId: "", donorName: "", donorEmail: "", amountDollars: "", paymentMethod: "cash", notes: "", taxDeductibleDollars: "", sponsorshipLevelId: "" });
+      setForm({ partnerId: "", donorName: "", donorEmail: "", amountDollars: "", paymentMethod: "cash", notes: "", taxDeductibleDollars: "", sponsorshipLevelId: "", group: "" });
       setSelectedPerson(null);
       setPersonSearch("");
       setManualDonorName(false);
@@ -751,13 +763,31 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
               </div>
             )}
           </div>
-          <input
-            placeholder="Email (optional)"
-            type="email"
-            value={form.donorEmail}
-            onChange={(e) => setForm((p) => ({ ...p, donorEmail: e.target.value }))}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+          <div className={`grid gap-3 ${!form.partnerId ? "grid-cols-2" : ""}`}>
+            <input
+              placeholder="Email (optional)"
+              type="email"
+              value={form.donorEmail}
+              onChange={(e) => setForm((p) => ({ ...p, donorEmail: e.target.value }))}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            {!form.partnerId && (
+              <>
+                <input
+                  placeholder="Group (optional)"
+                  value={form.group}
+                  onChange={(e) => setForm((p) => ({ ...p, group: e.target.value }))}
+                  list="event-groups-list"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                />
+                {eventGroups.length > 0 && (
+                  <datalist id="event-groups-list">
+                    {eventGroups.map((g) => <option key={g} value={g} />)}
+                  </datalist>
+                )}
+              </>
+            )}
+          </div>
           {fundraiser.sponsorshipLevels.length > 0 && (
             <div className="flex items-center gap-3">
               <select
