@@ -36,7 +36,17 @@ const STATUS_COLORS: Record<string, string> = {
 
 type SortOption = "name" | "newest";
 
-export default function PeopleTable({ people, onAdvancedSearch }: { people: Person[]; onAdvancedSearch: () => void }) {
+export default function PeopleTable({
+  people,
+  advancedOpen,
+  advancedResultCount,
+  onToggleAdvanced,
+}: {
+  people: Person[];
+  advancedOpen: boolean;
+  advancedResultCount: number | null;
+  onToggleAdvanced: () => void;
+}) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("name");
@@ -113,14 +123,22 @@ export default function PeopleTable({ people, onAdvancedSearch }: { people: Pers
           className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-64"
         />
         <button
-          onClick={onAdvancedSearch}
-          className="inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border border-indigo-300 text-indigo-700 hover:bg-indigo-50 transition-colors"
+          onClick={onToggleAdvanced}
+          className={`inline-flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-md border transition-colors ${
+            advancedOpen
+              ? "bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700"
+              : "border-indigo-300 text-indigo-700 hover:bg-indigo-50"
+          }`}
         >
           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
               d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2a1 1 0 01-.293.707L13 13.414V19a1 1 0 01-.553.894l-4 2A1 1 0 017 21v-7.586L3.293 6.707A1 1 0 013 6V4z" />
           </svg>
-          Advanced Search
+          {advancedOpen
+            ? advancedResultCount !== null
+              ? `Advanced Filters (${advancedResultCount})`
+              : "Advanced Filters ▲"
+            : "Advanced Filters"}
         </button>
         <select
           value={sort}
@@ -186,7 +204,7 @@ export default function PeopleTable({ people, onAdvancedSearch }: { people: Pers
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
-                  {search ? "No people match your search." : "No people found. Add your first person above."}
+                  {search ? "No people match your search." : advancedOpen ? "No people match these filters." : "No people found. Add your first person above."}
                 </td>
               </tr>
             )}
