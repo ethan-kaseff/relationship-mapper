@@ -138,6 +138,7 @@ function buildOrGroups(filters: FilterRow[]): FilterRow[][] {
 
 type Props =
   | { mode: "page"; onClose: () => void }
+  | { mode: "inline"; onResults: (results: AdvancedSearchPerson[] | null) => void; onClose: () => void }
   | {
       mode: "modal";
       existingPeopleIds: string[];
@@ -152,6 +153,7 @@ const SS_RESULTS = "adv-search-results";
 
 export default function AdvancedSearchPanel(props: Props) {
   const isPage = props.mode === "page";
+  const isInline = props.mode === "inline";
 
   const [refData, setRefData] = useState<RefData>({
     tags: [], events: [], fundraisers: [], users: [],
@@ -242,6 +244,11 @@ export default function AdvancedSearchPanel(props: Props) {
     if (!isPage || !hydrated || results === null) return;
     try { sessionStorage.setItem(SS_RESULTS, JSON.stringify(results)); } catch { /* sessionStorage unavailable */ }
   }, [results, isPage, hydrated]);
+
+  // In inline mode, report results to the parent whenever they change
+  useEffect(() => {
+    if (isInline) (props as { mode: "inline"; onResults: (r: AdvancedSearchPerson[] | null) => void }).onResults(results);
+  }, [results, isInline]);
 
   useEffect(() => {
     Promise.all([
@@ -653,7 +660,7 @@ export default function AdvancedSearchPanel(props: Props) {
   // ── Render ────────────────────────────────────────────────────────────────
 
   const filterBuilder = (
-    <div className={isPage ? "" : "p-4 border-b overflow-y-auto max-h-72"}>
+    <div className={isPage || isInline ? "" : "p-4 border-b overflow-y-auto max-h-72"}>
       <div className="space-y-1">
         {filters.map((filter, idx) => (
           <div key={filter.id}>
@@ -827,6 +834,16 @@ export default function AdvancedSearchPanel(props: Props) {
       )}
     </div>
   );
+
+  // ── Inline mode ───────────────────────────────────────────────────────────
+
+  if (isInline) {
+    return (
+      <div className="mb-4 bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+        {filterBuilder}
+      </div>
+    );
+  }
 
   // ── Page mode ─────────────────────────────────────────────────────────────
 
