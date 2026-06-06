@@ -291,7 +291,7 @@ describe("syncZeffyContacts", () => {
 
     const result = await syncZeffyContacts(OFFICE_ID);
 
-    expect(result).toEqual({ created: 1, skipped: 0, errors: 0 });
+    expect(result).toEqual({ created: 1, skipped: 0, errors: 0, pendingDuplicates: [] });
     expect(mp.people.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({
@@ -317,7 +317,7 @@ describe("syncZeffyContacts", () => {
 
     const result = await syncZeffyContacts(OFFICE_ID);
 
-    expect(result).toEqual({ created: 0, skipped: 1, errors: 0 });
+    expect(result).toEqual({ created: 0, skipped: 1, errors: 0, pendingDuplicates: [] });
     expect(mp.people.create).not.toHaveBeenCalled();
   });
 
@@ -331,7 +331,7 @@ describe("syncZeffyContacts", () => {
 
     const result = await syncZeffyContacts(OFFICE_ID);
 
-    expect(result).toEqual({ created: 0, skipped: 1, errors: 0 });
+    expect(result).toEqual({ created: 0, skipped: 1, errors: 0, pendingDuplicates: [] });
     expect(mp.people.create).not.toHaveBeenCalled();
   });
 
@@ -371,7 +371,7 @@ describe("syncZeffyContacts", () => {
 
     const result = await syncZeffyContacts(OFFICE_ID);
 
-    expect(result).toEqual({ created: 2, skipped: 0, errors: 0 });
+    expect(result).toEqual({ created: 2, skipped: 0, errors: 0, pendingDuplicates: [] });
   });
 });
 

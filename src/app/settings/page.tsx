@@ -223,6 +223,11 @@ export default function SettingsPage() {
     if (typeof window === "undefined") return null;
     try { return JSON.parse(sessionStorage.getItem("zeffy-sync-message") ?? "null"); } catch { return null; }
   });
+  const [pendingDuplicates, setPendingDuplicates] = useState<Array<{
+    zeffyContact: { firstName: string; lastName: string; email: string; phoneNumber: string | null; address: string | null; city: string | null; state: string | null; zip: string | null };
+    existingPerson: { id: string; firstName: string; lastName: string; email1: string | null; email2: string | null };
+    resolving?: boolean;
+  }>>([]);
 
   // Data management state
   const [importType, setImportType] = useState<"people" | "partners" | "roles">("people");
@@ -568,6 +573,7 @@ export default function SettingsPage() {
   async function handleZeffySync() {
     setZeffySyncing(true);
     saveZeffyMessage(null);
+    setPendingDuplicates([]);
     try {
       const res = await fetch("/api/zeffy/sync", { method: "POST" });
       if (res.ok) {
@@ -575,11 +581,14 @@ export default function SettingsPage() {
         const parts: string[] = [];
         if (data.donations.synced > 0) parts.push(`${data.donations.synced} donation(s) synced`);
         if (data.contacts.created > 0) parts.push(`${data.contacts.created} contact(s) created`);
+        const dupes = data.contacts.pendingDuplicates ?? [];
+        if (dupes.length > 0) parts.push(`${dupes.length} possible duplicate(s) need review`);
         if (parts.length === 0) parts.push("Everything is up to date");
         const totalErrors = (data.donations.errors ?? 0) + (data.contacts.errors ?? 0);
         const errorSuffix = totalErrors > 0 ? ` — ${totalErrors} item(s) had errors and were skipped` : "";
         const msg = { type: totalErrors > 0 && parts[0] === "Everything is up to date" ? "error" as const : "success" as const, text: parts.join(", ") + errorSuffix };
         saveZeffyMessage(msg);
+        if (dupes.length > 0) setPendingDuplicates(dupes);
       } else {
         saveZeffyMessage({ type: "error", text: "Sync failed. Check server logs for details." });
       }
@@ -587,6 +596,21 @@ export default function SettingsPage() {
       saveZeffyMessage({ type: "error", text: "Sync failed. Check server logs for details." });
     } finally {
       setZeffySyncing(false);
+    }
+  }
+
+  async function handleResolveDuplicate(index: number, action: "link" | "create") {
+    const dupe = pendingDuplicates[index];
+    setPendingDuplicates((prev) => prev.map((d, i) => i === index ? { ...d, resolving: true } : d));
+    try {
+      await fetch("/api/zeffy/resolve-duplicate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action, zeffyContact: dupe.zeffyContact, existingPersonId: dupe.existingPerson.id }),
+      });
+      setPendingDuplicates((prev) => prev.filter((_, i) => i !== index));
+    } catch {
+      setPendingDuplicates((prev) => prev.map((d, i) => i === index ? { ...d, resolving: false } : d));
     }
   }
 
@@ -2789,6 +2813,39 @@ export default function SettingsPage() {
               <div className={`mb-3 p-3 rounded-md text-sm ${zeffyMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
                 {zeffyMessage.text}
                 <button onClick={() => saveZeffyMessage(null)} className="float-right text-xs underline">Dismiss</button>
+              </div>
+            )}
+
+            {emailPlatform === "zeffy" && pendingDuplicates.length > 0 && (
+              <div className="mb-3 border border-amber-200 rounded-md bg-amber-50 p-3">
+                <p className="text-sm font-medium text-amber-800 mb-2">
+                  Possible duplicate{pendingDuplicates.length > 1 ? "s" : ""} — please review before importing
+                </p>
+                <div className="space-y-2">
+                  {pendingDuplicates.map((dupe, i) => (
+                    <div key={i} className="bg-white border border-amber-200 rounded p-3 text-sm">
+                      <p className="font-medium text-gray-900">{dupe.zeffyContact.firstName} {dupe.zeffyContact.lastName}</p>
+                      <p className="text-gray-500 text-xs mt-0.5">Zeffy email: {dupe.zeffyContact.email}</p>
+                      <p className="text-gray-500 text-xs">Existing record: {dupe.existingPerson.email1 ?? dupe.existingPerson.email2 ?? "no email on file"}</p>
+                      <div className="flex gap-2 mt-2">
+                        <button
+                          onClick={() => handleResolveDuplicate(i, "link")}
+                          disabled={dupe.resolving}
+                          className="px-3 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          {dupe.resolving ? "Saving…" : "Link to existing record"}
+                        </button>
+                        <button
+                          onClick={() => handleResolveDuplicate(i, "create")}
+                          disabled={dupe.resolving}
+                          className="px-3 py-1 text-xs border border-gray-300 text-gray-700 rounded hover:bg-gray-50 disabled:opacity-50"
+                        >
+                          Create as new person
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 

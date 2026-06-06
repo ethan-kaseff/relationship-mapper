@@ -116,12 +116,23 @@ export default function Pagination({
 /** Hook to manage pagination state. Resets to page 1 when items change. */
 export function usePagination(totalItems: number, defaultPageSize = 25) {
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(defaultPageSize);
+  const [pageSize, setPageSize] = useState(() => {
+    try {
+      const stored = localStorage.getItem("page-size");
+      if (stored && PAGE_SIZE_OPTIONS.includes(Number(stored))) return Number(stored);
+    } catch { /* localStorage unavailable */ }
+    return defaultPageSize;
+  });
 
   // Reset to page 1 when the total changes (e.g. after a search)
   useEffect(() => {
     setCurrentPage(1);
   }, [totalItems]);
+
+  function setPageSizeAndSave(size: number) {
+    setPageSize(size);
+    try { localStorage.setItem("page-size", String(size)); } catch { /* localStorage unavailable */ }
+  }
 
   const startIndex = (currentPage - 1) * pageSize;
   const endIndex = startIndex + pageSize;
@@ -132,6 +143,6 @@ export function usePagination(totalItems: number, defaultPageSize = 25) {
     startIndex,
     endIndex,
     setCurrentPage,
-    setPageSize,
+    setPageSize: setPageSizeAndSave,
   };
 }
