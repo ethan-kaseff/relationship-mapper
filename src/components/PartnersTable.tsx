@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Pagination, { usePagination } from "./Pagination";
@@ -13,24 +13,32 @@ interface Partner {
   city: string | null;
   state: string | null;
   priority: number | null;
+  status: string;
   _count: { partnerRoles: number };
 }
 
 export default function PartnersTable({ partners }: { partners: Partner[] }) {
   const router = useRouter();
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() =>
+    typeof window !== "undefined" ? (sessionStorage.getItem("partners-search") ?? "") : ""
+  );
+  const [showInactive, setShowInactive] = useState(false);
 
-  const filtered = search
-    ? partners.filter((p) => {
-        const q = search.toLowerCase();
-        return (
-          (p.organizationName?.toLowerCase().includes(q) ?? false) ||
-          (p.organizationType?.typeName.toLowerCase().includes(q) ?? false) ||
-          (p.city?.toLowerCase().includes(q) ?? false) ||
-          (p.state?.toLowerCase().includes(q) ?? false)
-        );
-      })
-    : partners;
+  useEffect(() => {
+    sessionStorage.setItem("partners-search", search);
+  }, [search]);
+
+  const filtered = partners.filter((p) => {
+    if (!showInactive && p.status === "INACTIVE") return false;
+    if (!search) return true;
+    const q = search.toLowerCase();
+    return (
+      (p.organizationName?.toLowerCase().includes(q) ?? false) ||
+      (p.organizationType?.typeName.toLowerCase().includes(q) ?? false) ||
+      (p.city?.toLowerCase().includes(q) ?? false) ||
+      (p.state?.toLowerCase().includes(q) ?? false)
+    );
+  });
 
   const { currentPage, pageSize, startIndex, endIndex, setCurrentPage, setPageSize } =
     usePagination(filtered.length);
@@ -39,7 +47,7 @@ export default function PartnersTable({ partners }: { partners: Partner[] }) {
 
   return (
     <>
-      <div className="mb-4">
+      <div className="mb-4 flex items-center gap-3">
         <input
           type="text"
           value={search}
@@ -53,6 +61,15 @@ export default function PartnersTable({ partners }: { partners: Partner[] }) {
           autoFocus
           className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent w-64"
         />
+        <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={showInactive}
+            onChange={(e) => setShowInactive(e.target.checked)}
+            className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+          />
+          Show Inactive
+        </label>
       </div>
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <table className="w-full text-sm">
@@ -64,6 +81,7 @@ export default function PartnersTable({ partners }: { partners: Partner[] }) {
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">City</th>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">State</th>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">Priority</th>
+              <th className="text-left px-4 py-3 font-semibold text-indigo-900">Status</th>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">Roles</th>
             </tr>
           </thead>
@@ -95,12 +113,19 @@ export default function PartnersTable({ partners }: { partners: Partner[] }) {
                 <td className="px-4 py-3 text-gray-600">{partner.city ?? "—"}</td>
                 <td className="px-4 py-3 text-gray-600">{partner.state ?? "—"}</td>
                 <td className="px-4 py-3 text-gray-600">{partner.priority ?? "—"}</td>
+                <td className="px-4 py-3">
+                  {partner.status === "INACTIVE" ? (
+                    <span className="inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Inactive</span>
+                  ) : (
+                    <span className="inline-block text-xs font-semibold px-2 py-0.5 rounded-full bg-green-100 text-green-700">Active</span>
+                  )}
+                </td>
                 <td className="px-4 py-3 text-gray-600">{partner._count.partnerRoles}</td>
               </tr>
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-gray-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-gray-400">
                   {search ? "No partners match your search." : "No partners found. Add your first partner above."}
                 </td>
               </tr>

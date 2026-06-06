@@ -16,7 +16,7 @@ export async function GET() {
 
   try {
     const relationshipTypes = await prisma.relationshipType.findMany({
-      include: { _count: { select: { relationships: true } } },
+      include: { _count: { select: { relationshipToTypes: true } } },
     });
     return NextResponse.json(relationshipTypes);
   } catch (error) {

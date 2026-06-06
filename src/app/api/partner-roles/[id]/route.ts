@@ -89,15 +89,13 @@ export async function PATCH(
       },
     });
 
-    // Handle annual event type associations
-    if (body.annualEventTypeIds !== undefined) {
-      await prisma.partnerRoleAnnualEventType.deleteMany({ where: { partnerRoleId: id } });
-      if (body.annualEventTypeIds.length > 0) {
-        await prisma.partnerRoleAnnualEventType.createMany({
-          data: body.annualEventTypeIds.map((typeId) => ({
-            partnerRoleId: id,
-            annualEventTypeId: typeId,
-          })),
+    // Handle tag associations
+    if (body.tagIds !== undefined) {
+      await prisma.partnerRoleTag.deleteMany({ where: { partnerRoleId: id } });
+      if (body.tagIds.length > 0) {
+        await prisma.partnerRoleTag.createMany({
+          data: body.tagIds.map((tagId: string) => ({ partnerRoleId: id, tagId })),
+          skipDuplicates: true,
         });
       }
     }

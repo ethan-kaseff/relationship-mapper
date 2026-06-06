@@ -33,6 +33,8 @@ interface FloorControlsProps {
   onZoomChange: (zoom: number) => void;
   onZoomFit: () => void;
   onToggleFullscreen: () => void;
+  onNumberTables: (mode: 'ltr' | 'snake') => void;
+  hasTables: boolean;
 }
 
 export default function FloorControls({
@@ -40,6 +42,7 @@ export default function FloorControls({
   onFloorSizeChange, onArrangeTables, onAutoSeat,
   snapToGrid, onToggleSnap, showCenterLines, onToggleCenterLines,
   onZoomChange, onZoomFit, onToggleFullscreen,
+  onNumberTables, hasTables,
 }: FloorControlsProps) {
   const [customWidth, setCustomWidth] = useState(Math.round(floorWidth / PIXELS_PER_FOOT));
   const [customHeight, setCustomHeight] = useState(Math.round(floorHeight / PIXELS_PER_FOOT));
@@ -58,6 +61,7 @@ export default function FloorControls({
     }));
   }, [arrangeLayout, arrangeSpacingFt, arrangeObjectSpacingFt, arrangeMaxCols]);
   const [showArrangeOptions, setShowArrangeOptions] = useState(false);
+  const [showRenumberMenu, setShowRenumberMenu] = useState(false);
 
   const handlePresetChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const preset = FLOOR_PRESETS.find((p) => p.label === e.target.value);
@@ -157,6 +161,27 @@ export default function FloorControls({
             <input type="number" min={0} value={arrangeMaxCols} onChange={(e) => setArrangeMaxCols(Math.max(0, parseInt(e.target.value) || 0))}
               className="w-16 px-2 py-1 border border-gray-300 rounded text-sm text-center" title="0 = auto" />
           </div>
+          {hasTables && (
+            <div className="relative">
+              <button onClick={() => setShowRenumberMenu(!showRenumberMenu)}
+                className="px-3 py-1 bg-gray-600 text-white rounded hover:bg-gray-700 font-medium text-sm">Number Tables ▾</button>
+              {showRenumberMenu && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setShowRenumberMenu(false)} />
+                  <div className="absolute left-0 mt-2 w-44 bg-white rounded-lg shadow-lg border border-gray-200 z-20">
+                    <button onClick={() => { onNumberTables('ltr'); setShowRenumberMenu(false); }}
+                      className="w-full px-4 py-2 text-left hover:bg-gray-50 text-sm text-gray-700 rounded-t-lg">
+                      Left to Right
+                    </button>
+                    <button onClick={() => { onNumberTables('snake'); setShowRenumberMenu(false); }}
+                      className="w-full px-4 py-2 text-left hover:bg-gray-50 text-sm text-gray-700 rounded-b-lg">
+                      Snaking
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>

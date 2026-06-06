@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import PartnersWithoutRelationships from "@/components/PartnersWithoutRelationships";
 import { getOfficeFilter } from "@/lib/office-filter";
+import { auth } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -49,6 +50,8 @@ function StatIcon({ label }: { label: string }) {
 }
 
 export default async function Dashboard() {
+  const session = await auth();
+  const userId = (session?.user as { id?: string } | undefined)?.id;
   const officeFilter = await getOfficeFilter();
   const personFilter = officeFilter.officeId ? { person: { officeId: officeFilter.officeId } } : {};
 
@@ -65,13 +68,69 @@ export default async function Dashboard() {
   const partnersWithoutRelationships = await prisma.partner.findMany({
     where: {
       ...officeFilter,
+      status: "ACTIVE",
       partnerRoles: {
         some: {
           relationships: { none: {} },
         },
       },
     },
-    include: { organizationType: true, partnerRoles: { include: { _count: { select: { relationships: true } } } } },
+    include: { organizationType: true, partnerRoles: { include: { _count: { select: { relationships: true } }, person: { select: { id: true, firstName: true, lastName: true } } } } },
+    orderBy: { organizationName: "asc" },
+  });
+
+  const pendingDonationsByFundraiser = await prisma.donation.groupBy({
+    by: ["fundraiserId"],
+    where: {
+      approvalStatus: "PENDING",
+      fundraiser: officeFilter.officeId ? { officeId: officeFilter.officeId } : undefined,
+    },
+    _count: { id: true },
+  });
+
+  const pendingFundraiserIds = pendingDonationsByFundraiser.map((g) => g.fundraiserId);
+  const pendingFundraisers = pendingFundraiserIds.length > 0
+    ? await prisma.fundraiser.findMany({
+        where: { id: { in: pendingFundraiserIds } },
+        select: { id: true, title: true },
+      })
+    : [];
+
+  const pendingByFundraiser = pendingDonationsByFundraiser.map((g) => ({
+    fundraiserId: g.fundraiserId,
+    count: g._count.id,
+    title: pendingFundraisers.find((f) => f.id === g.fundraiserId)?.title ?? "Unknown Fundraiser",
+  }));
+
+  const myProspects = userId
+    ? await prisma.people.findMany({
+        where: { ...officeFilter, status: "PROSPECT", assignedToId: userId },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email1: true,
+          assignedDate: true,
+          emailTemplateId: true,
+        },
+        orderBy: { assignedDate: "desc" },
+      })
+    : [];
+
+  const inactiveOrgsWithRoles = await prisma.partner.findMany({
+    where: {
+      ...officeFilter,
+      orgPeopleFlag: "O",
+      status: "INACTIVE",
+      partnerRoles: { some: { peopleId: { not: null } } },
+    },
+    include: {
+      partnerRoles: {
+        where: { peopleId: { not: null } },
+        include: { person: { select: { id: true, firstName: true, lastName: true } } },
+        orderBy: { roleDescription: "asc" },
+      },
+    },
     orderBy: { organizationName: "asc" },
   });
 
@@ -121,7 +180,95 @@ export default async function Dashboard() {
         ))}
       </div>
 
+      {pendingByFundraiser.length > 0 && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-8">
+          <div className="flex items-start gap-3">
+            <svg className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            <div>
+              <p className="text-sm font-semibold text-yellow-800 mb-1">
+                {pendingByFundraiser.reduce((s, g) => s + g.count, 0)} donation(s) awaiting approval
+              </p>
+              <ul className="space-y-0.5">
+                {pendingByFundraiser.map((g) => (
+                  <li key={g.fundraiserId} className="text-sm text-yellow-700">
+                    <Link href={`/fundraisers/${g.fundraiserId}?tab=approvals`} className="hover:underline font-medium">
+                      {g.title}
+                    </Link>
+                    {" — "}{g.count} pending
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       <PartnersWithoutRelationships partners={JSON.parse(JSON.stringify(partnersWithoutRelationships))} />
+
+      {inactiveOrgsWithRoles.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-indigo-900">Inactive Organizations with Assigned Roles</h2>
+            <Link href="/partners" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+              View all &rarr;
+            </Link>
+          </div>
+          <p className="text-xs text-gray-500 mb-3">These organizations are inactive but still have people in assigned roles. Consider updating the roles or contacting the people to find their new positions.</p>
+          <div className="space-y-3">
+            {inactiveOrgsWithRoles.map((org) => (
+              <div key={org.id} className="border border-gray-200 rounded-md p-3">
+                <Link href={`/partners/${org.id}`} className="font-medium text-indigo-600 hover:underline text-sm">
+                  {org.organizationName}
+                </Link>
+                <div className="mt-1 space-y-0.5">
+                  {org.partnerRoles.map((role) => (
+                    <div key={role.id} className="text-xs text-gray-500 flex items-center gap-1">
+                      <span className="font-medium text-gray-700">{role.roleDescription}:</span>
+                      {role.person && (
+                        <Link href={`/people/${role.person.id}`} className="text-indigo-600 hover:underline">
+                          {role.person.firstName} {role.person.lastName}
+                        </Link>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {myProspects.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-indigo-900">My Prospects</h2>
+            <Link href="/people?status=PROSPECT" className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
+              View all &rarr;
+            </Link>
+          </div>
+          <div className="space-y-2">
+            {myProspects.map((p) => (
+              <div key={p.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                <div>
+                  <Link href={`/people/${p.id}`} className="text-indigo-600 hover:underline font-medium text-sm">
+                    {p.firstName} {p.lastName}
+                  </Link>
+                  {p.assignedDate && (
+                    <span className="text-xs text-gray-400 ml-2">
+                      assigned {new Date(p.assignedDate).toLocaleDateString("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" })}
+                    </span>
+                  )}
+                </div>
+                {p.email1 && p.emailTemplateId && (
+                  <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">has template</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow p-6">
         <div className="flex items-center justify-between mb-4">

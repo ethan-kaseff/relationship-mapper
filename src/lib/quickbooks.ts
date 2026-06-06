@@ -195,6 +195,7 @@ export async function syncDonationsByDay(
       fundraiserId,
       qbSyncStatus: { in: ["NOT_SYNCED", "ERROR"] },
       approvalStatus: { in: ["AUTO_APPROVED", "APPROVED"] },
+      paymentMethod: { notIn: ["zeffy", "stripe"] },
     },
     include: { fundraiser: { select: { title: true } } },
     orderBy: { donatedAt: "asc" },

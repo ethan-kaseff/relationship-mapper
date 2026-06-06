@@ -1,24 +1,75 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { DIETARY_OPTIONS } from "@/lib/seating-constants";
 import { useSession } from "next-auth/react";
 
-interface AnnualEventType {
+interface Tag {
   id: string;
   name: string;
-  office?: { name: string };
-  _count?: {
-    peopleAnnualEventTypes: number;
-    partnerAnnualEventTypes: number;
-    partnerRoleAnnualEventTypes: number;
-  };
+  office?: { id: string; name: string };
+  _count?: { personTags: number; partnerTags: number; partnerRoleTags: number };
+}
+
+interface CommunicationMethod {
+  id: string;
+  name: string;
+  _count?: { people: number };
+}
+
+interface OrganizationType {
+  id: string;
+  typeName: string;
+  color: string | null;
+}
+
+function hexToHue(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b), d = max - min;
+  if (d === 0) return 0;
+  let h = 0;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  return ((h * 60) + 360) % 360;
+}
+
+function hueDistance(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360;
+  return d > 180 ? 360 - d : d;
+}
+
+function checkOrgTypeColor(
+  hex: string,
+  others?: { id: string; typeName: string; color: string | null }[],
+  excludeId?: string,
+): string | null {
+  const hue = hexToHue(hex);
+  if (hue >= 230 && hue <= 325) return "Too similar to guest seat color (purple/violet). Choose red, green, blue, or teal.";
+  if (hue >= 20 && hue <= 70) return "Too similar to placeholder seat color (amber/yellow). Choose red, green, blue, or teal.";
+  if (others) {
+    for (const ot of others) {
+      if (ot.id === excludeId || !ot.color) continue;
+      if (hueDistance(hue, hexToHue(ot.color)) < 30) {
+        return `Too similar to "${ot.typeName}" color. Choose something more distinct.`;
+      }
+    }
+  }
+  return null;
 }
 
 interface RelationshipType {
   id: string;
   relationshipDesc: string;
   notes: string | null;
-  _count?: { relationships: number };
+  _count?: { relationshipToTypes: number };
+}
+
+interface DietaryOptionRecord {
+  id: string;
+  name: string;
 }
 
 interface Office {
@@ -38,12 +89,21 @@ interface User {
   office?: { name: string };
 }
 
+interface EmailTemplate {
+  id: string;
+  name: string;
+  subject: string;
+  body: string;
+  office?: { id: string; name: string };
+}
+
 export default function SettingsPage() {
   const { data: session, status: sessionStatus } = useSession();
   const role = session?.user?.role;
   const isSystemAdmin = role === "SYSTEM_ADMIN";
   const isOfficeAdmin = role === "OFFICE_ADMIN";
   const canManageUsers = isSystemAdmin || isOfficeAdmin;
+  const canEditTemplates = role !== "CONNECTOR" && role !== "VIEWER" && !!role;
 
   const [relTypes, setRelTypes] = useState<RelationshipType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,17 +126,35 @@ export default function SettingsPage() {
   const [reassignNeeded, setReassignNeeded] = useState<{ id: string; count: number } | null>(null);
   const [reassignTo, setReassignTo] = useState("");
 
-  // Annual event types state
-  const [aetTypes, setAetTypes] = useState<AnnualEventType[]>([]);
-  const [aetLoading, setAetLoading] = useState(true);
-  const [showAetForm, setShowAetForm] = useState(false);
-  const [newAetName, setNewAetName] = useState("");
-  const [aetSubmitting, setAetSubmitting] = useState(false);
-  const [aetError, setAetError] = useState("");
-  const [editingAetId, setEditingAetId] = useState<string | null>(null);
-  const [editAetName, setEditAetName] = useState("");
-  const [deletingAetId, setDeletingAetId] = useState<string | null>(null);
-  const aetInputRef = useRef<HTMLInputElement>(null);
+  // Tags state
+  const [tagTypes, setTagTypes] = useState<Tag[]>([]);
+  const [tagsLoading, setTagsLoading] = useState(true);
+  const [showTagForm, setShowTagForm] = useState(false);
+  const [newTagName, setNewTagName] = useState("");
+  const [newTagOfficeId, setNewTagOfficeId] = useState("");
+  const [tagSubmitting, setTagSubmitting] = useState(false);
+  const [tagError, setTagError] = useState("");
+  const [editingTagId, setEditingTagId] = useState<string | null>(null);
+  const [editTagName, setEditTagName] = useState("");
+  const [editTagOfficeId, setEditTagOfficeId] = useState("");
+  const [deletingTagId, setDeletingTagId] = useState<string | null>(null);
+  const tagInputRef = useRef<HTMLInputElement>(null);
+
+  // Email templates state
+  const [emailTemplates, setEmailTemplates] = useState<EmailTemplate[]>([]);
+  const [templatesLoading, setTemplatesLoading] = useState(true);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [newTemplateSubject, setNewTemplateSubject] = useState("");
+  const [newTemplateBody, setNewTemplateBody] = useState("");
+  const [newTemplateOfficeId, setNewTemplateOfficeId] = useState("");
+  const [templateSubmitting, setTemplateSubmitting] = useState(false);
+  const [templateError, setTemplateError] = useState("");
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
+  const [editTemplateName, setEditTemplateName] = useState("");
+  const [editTemplateSubject, setEditTemplateSubject] = useState("");
+  const [editTemplateBody, setEditTemplateBody] = useState("");
+  const [deletingTemplateId, setDeletingTemplateId] = useState<string | null>(null);
 
   // User management state
   const [users, setUsers] = useState<User[]>([]);
@@ -115,6 +193,9 @@ export default function SettingsPage() {
   // Office dropdown for user form
   const [userOfficeId, setUserOfficeId] = useState("");
 
+  // Email platform toggle
+  const [emailPlatform, setEmailPlatform] = useState<"constant_contact" | "zeffy">("zeffy");
+
   // Constant Contact integration state
   const [ccConnected, setCcConnected] = useState(false);
   const [ccLoading, setCcLoading] = useState(true);
@@ -131,6 +212,18 @@ export default function SettingsPage() {
   const [qbDisconnecting, setQbDisconnecting] = useState(false);
   const [qbMessage, setQbMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
+  // Zeffy integration state
+  const [zeffyConnected, setZeffyConnected] = useState(false);
+  const [zeffyLoading, setZeffyLoading] = useState(true);
+  const [zeffyApiKey, setZeffyApiKey] = useState("");
+  const [zeffyConnecting, setZeffyConnecting] = useState(false);
+  const [zeffyDisconnecting, setZeffyDisconnecting] = useState(false);
+  const [zeffySyncing, setZeffySyncing] = useState(false);
+  const [zeffyMessage, setZeffyMessage] = useState<{ type: "success" | "error"; text: string } | null>(() => {
+    if (typeof window === "undefined") return null;
+    try { return JSON.parse(sessionStorage.getItem("zeffy-sync-message") ?? "null"); } catch { return null; }
+  });
+
   // Data management state
   const [importType, setImportType] = useState<"people" | "partners" | "roles">("people");
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -144,6 +237,34 @@ export default function SettingsPage() {
   const [importErrorFile, setImportErrorFile] = useState("");
   const [exporting, setExporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Communication methods state
+  const [commMethods, setCommMethods] = useState<CommunicationMethod[]>([]);
+  const [commMethodsLoading, setCommMethodsLoading] = useState(true);
+  const [showCommMethodForm, setShowCommMethodForm] = useState(false);
+  const [newCommMethodName, setNewCommMethodName] = useState("");
+  const [commMethodSubmitting, setCommMethodSubmitting] = useState(false);
+  const [commMethodError, setCommMethodError] = useState("");
+  const [editingCommMethodId, setEditingCommMethodId] = useState<string | null>(null);
+  const [editCommMethodName, setEditCommMethodName] = useState("");
+  const [deletingCommMethodId, setDeletingCommMethodId] = useState<string | null>(null);
+  const commMethodInputRef = useRef<HTMLInputElement>(null);
+
+  // Organization types state
+  const [orgTypes, setOrgTypes] = useState<OrganizationType[]>([]);
+  const [orgTypesLoading, setOrgTypesLoading] = useState(true);
+  const [showOrgTypeForm, setShowOrgTypeForm] = useState(false);
+  const [newOrgTypeName, setNewOrgTypeName] = useState("");
+  const [newOrgTypeColor, setNewOrgTypeColor] = useState("#6366F1");
+  const [orgTypeSubmitting, setOrgTypeSubmitting] = useState(false);
+  const [orgTypeError, setOrgTypeError] = useState("");
+  const [savingOrgTypeColorId, setSavingOrgTypeColorId] = useState<string | null>(null);
+  const [orgTypeColorError, setOrgTypeColorError] = useState<Record<string, string>>({});
+
+  // Dietary options state
+  const [dietaryOptions, setDietaryOptions] = useState<DietaryOptionRecord[]>([]);
+  const [dietaryOptionsLoading, setDietaryOptionsLoading] = useState(true);
+  const [deletingDietaryId, setDeletingDietaryId] = useState<string | null>(null);
 
   // Auto-focus refs
   const relTypeInputRef = useRef<HTMLInputElement>(null);
@@ -160,14 +281,14 @@ export default function SettingsPage() {
       .catch(() => setLoading(false));
   }
 
-  function fetchAetTypes() {
-    fetch("/api/lookup/annual-event-types")
+  function fetchTags() {
+    fetch("/api/tags")
       .then((res) => res.json())
       .then((data) => {
-        setAetTypes(data);
-        setAetLoading(false);
+        setTagTypes(data);
+        setTagsLoading(false);
       })
-      .catch(() => setAetLoading(false));
+      .catch(() => setTagsLoading(false));
   }
 
   function fetchUsers() {
@@ -192,13 +313,53 @@ export default function SettingsPage() {
       .catch(() => setOfficesLoading(false));
   }
 
+  function fetchCommMethods() {
+    fetch("/api/lookup/communication-methods")
+      .then((res) => res.json())
+      .then((data) => {
+        setCommMethods(Array.isArray(data) ? data : []);
+        setCommMethodsLoading(false);
+      })
+      .catch(() => setCommMethodsLoading(false));
+  }
+
+  function fetchOrgTypes() {
+    fetch("/api/lookup/organization-types")
+      .then((res) => res.json())
+      .then((data) => {
+        setOrgTypes(Array.isArray(data) ? data : []);
+        setOrgTypesLoading(false);
+      })
+      .catch(() => setOrgTypesLoading(false));
+  }
+
+  function fetchDietaryOptions() {
+    fetch("/api/lookup/dietary-options")
+      .then((res) => res.json())
+      .then((data) => {
+        setDietaryOptions(Array.isArray(data) ? data : []);
+        setDietaryOptionsLoading(false);
+      })
+      .catch(() => setDietaryOptionsLoading(false));
+  }
+
+  function fetchEmailTemplates() {
+    fetch("/api/email-templates")
+      .then((res) => res.json())
+      .then((data) => {
+        setEmailTemplates(Array.isArray(data) ? data : []);
+        setTemplatesLoading(false);
+      })
+      .catch(() => setTemplatesLoading(false));
+  }
+
   useEffect(() => {
     if (showForm && relTypeInputRef.current) relTypeInputRef.current.focus();
   }, [showForm]);
 
   useEffect(() => {
-    if (showAetForm && aetInputRef.current) aetInputRef.current.focus();
-  }, [showAetForm]);
+    if (showTagForm && tagInputRef.current) tagInputRef.current.focus();
+  }, [showTagForm]);
 
   useEffect(() => {
     if (showUserForm && userFirstNameRef.current) userFirstNameRef.current.focus();
@@ -209,11 +370,22 @@ export default function SettingsPage() {
   }, [showOfficeForm]);
 
   useEffect(() => {
-    if (isSystemAdmin) {
-      fetchTypes();
-      fetchAetTypes();
-    }
+    if (showCommMethodForm && commMethodInputRef.current) commMethodInputRef.current.focus();
+  }, [showCommMethodForm]);
+
+  useEffect(() => {
+    if (isSystemAdmin) fetchTypes();
   }, [isSystemAdmin]);
+
+  useEffect(() => {
+    fetchCommMethods();
+    fetchOrgTypes();
+    fetchDietaryOptions();
+  }, []);
+
+  useEffect(() => {
+    if (canManageUsers) fetchTags();
+  }, [canManageUsers]);
 
   useEffect(() => {
     if (canManageUsers) {
@@ -221,6 +393,10 @@ export default function SettingsPage() {
       fetchOffices();
     }
   }, [canManageUsers]);
+
+  useEffect(() => {
+    if (canEditTemplates) fetchEmailTemplates();
+  }, [canEditTemplates]);
 
   // Constant Contact: check status & handle OAuth callback params
   useEffect(() => {
@@ -243,6 +419,7 @@ export default function SettingsPage() {
       .then((res) => res.json())
       .then((data) => {
         setCcConnected(data.connected);
+        if (data.connected) setEmailPlatform("constant_contact");
         setCcLoading(false);
       })
       .catch(() => setCcLoading(false));
@@ -277,6 +454,14 @@ export default function SettingsPage() {
         setQbLoading(false);
       })
       .catch(() => setQbLoading(false));
+
+    fetch("/api/zeffy/status")
+      .then((res) => res.json())
+      .then((data) => {
+        setZeffyConnected(data.connected);
+        setZeffyLoading(false);
+      })
+      .catch(() => setZeffyLoading(false));
   }, []);
 
   async function handleQbDisconnect() {
@@ -297,6 +482,7 @@ export default function SettingsPage() {
     }
   }
 
+
   async function handleCcDisconnect() {
     if (!confirm("Disconnect Constant Contact? You can reconnect later.")) return;
     setCcDisconnecting(true);
@@ -313,6 +499,101 @@ export default function SettingsPage() {
     } finally {
       setCcDisconnecting(false);
     }
+  }
+
+  async function handleSwitchEmailPlatform(platform: "constant_contact" | "zeffy") {
+    if (platform === emailPlatform) return;
+    if (platform === "zeffy" && ccConnected) {
+      if (!confirm("Switching to Zeffy will disconnect Constant Contact. Continue?")) return;
+      try {
+        await fetch("/api/constant-contact/disconnect", { method: "POST" });
+        setCcConnected(false);
+      } catch { /* ignore */ }
+    } else if (platform === "constant_contact" && zeffyConnected) {
+      if (!confirm("Switching to Constant Contact will disconnect Zeffy. Continue?")) return;
+      try {
+        await fetch("/api/zeffy/disconnect", { method: "POST" });
+        setZeffyConnected(false);
+      } catch { /* ignore */ }
+    }
+    setEmailPlatform(platform);
+    setCcMessage(null);
+    setZeffyMessage(null);
+  }
+
+  async function handleZeffyConnect(e: React.FormEvent) {
+    e.preventDefault();
+    if (!zeffyApiKey.trim()) return;
+    setZeffyConnecting(true);
+    setZeffyMessage(null);
+    try {
+      const res = await fetch("/api/zeffy/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: zeffyApiKey }),
+      });
+      if (res.ok) {
+        setZeffyConnected(true);
+        setZeffyApiKey("");
+        setZeffyMessage({ type: "success", text: "Zeffy connected successfully!" });
+      } else {
+        const data = await res.json();
+        setZeffyMessage({ type: "error", text: data.error || "Failed to connect." });
+      }
+    } catch {
+      setZeffyMessage({ type: "error", text: "Failed to connect." });
+    } finally {
+      setZeffyConnecting(false);
+    }
+  }
+
+  async function handleZeffyDisconnect() {
+    if (!confirm("Disconnect Zeffy? Donations will no longer sync.")) return;
+    setZeffyDisconnecting(true);
+    try {
+      const res = await fetch("/api/zeffy/disconnect", { method: "POST" });
+      if (res.ok) {
+        setZeffyConnected(false);
+        setZeffyMessage({ type: "success", text: "Zeffy disconnected." });
+      } else {
+        setZeffyMessage({ type: "error", text: "Failed to disconnect." });
+      }
+    } catch {
+      setZeffyMessage({ type: "error", text: "Failed to disconnect." });
+    } finally {
+      setZeffyDisconnecting(false);
+    }
+  }
+
+  async function handleZeffySync() {
+    setZeffySyncing(true);
+    saveZeffyMessage(null);
+    try {
+      const res = await fetch("/api/zeffy/sync", { method: "POST" });
+      if (res.ok) {
+        const data = await res.json();
+        const parts: string[] = [];
+        if (data.donations.synced > 0) parts.push(`${data.donations.synced} donation(s) synced`);
+        if (data.contacts.created > 0) parts.push(`${data.contacts.created} contact(s) created`);
+        if (parts.length === 0) parts.push("Everything is up to date");
+        const totalErrors = (data.donations.errors ?? 0) + (data.contacts.errors ?? 0);
+        const errorSuffix = totalErrors > 0 ? ` — ${totalErrors} item(s) had errors and were skipped` : "";
+        const msg = { type: totalErrors > 0 && parts[0] === "Everything is up to date" ? "error" as const : "success" as const, text: parts.join(", ") + errorSuffix };
+        saveZeffyMessage(msg);
+      } else {
+        saveZeffyMessage({ type: "error", text: "Sync failed. Check server logs for details." });
+      }
+    } catch {
+      saveZeffyMessage({ type: "error", text: "Sync failed. Check server logs for details." });
+    } finally {
+      setZeffySyncing(false);
+    }
+  }
+
+  function saveZeffyMessage(msg: { type: "success" | "error"; text: string } | null) {
+    setZeffyMessage(msg);
+    if (msg) sessionStorage.setItem("zeffy-sync-message", JSON.stringify(msg));
+    else sessionStorage.removeItem("zeffy-sync-message");
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -427,16 +708,19 @@ export default function SettingsPage() {
     setDeletingId(null);
   }
 
-  async function handleCreateAet(e: React.FormEvent) {
+  async function handleCreateTag(e: React.FormEvent) {
     e.preventDefault();
-    setAetSubmitting(true);
-    setAetError("");
+    setTagSubmitting(true);
+    setTagError("");
 
     try {
-      const res = await fetch("/api/lookup/annual-event-types", {
+      const body: { name: string; officeId?: string } = { name: newTagName };
+      if (isSystemAdmin && newTagOfficeId) body.officeId = newTagOfficeId;
+
+      const res = await fetch("/api/tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newAetName }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -444,25 +728,29 @@ export default function SettingsPage() {
         throw new Error(data.error || "Failed to create");
       }
 
-      setNewAetName("");
-      setShowAetForm(false);
-      fetchAetTypes();
+      setNewTagName("");
+      setNewTagOfficeId("");
+      setShowTagForm(false);
+      fetchTags();
     } catch (err: unknown) {
-      setAetError(err instanceof Error ? err.message : "An error occurred");
+      setTagError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setAetSubmitting(false);
+      setTagSubmitting(false);
     }
   }
 
-  async function handleUpdateAet(id: string) {
-    setAetSubmitting(true);
-    setAetError("");
+  async function handleUpdateTag(id: string) {
+    setTagSubmitting(true);
+    setTagError("");
 
     try {
-      const res = await fetch(`/api/lookup/annual-event-types/${id}`, {
+      const body: { name: string; officeId?: string } = { name: editTagName };
+      if (isSystemAdmin && editTagOfficeId) body.officeId = editTagOfficeId;
+
+      const res = await fetch(`/api/tags/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: editAetName }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -470,20 +758,21 @@ export default function SettingsPage() {
         throw new Error(data.error || "Failed to update");
       }
 
-      setEditingAetId(null);
-      fetchAetTypes();
+      setEditingTagId(null);
+      setEditTagOfficeId("");
+      fetchTags();
     } catch (err: unknown) {
-      setAetError(err instanceof Error ? err.message : "An error occurred");
+      setTagError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setAetSubmitting(false);
+      setTagSubmitting(false);
     }
   }
 
-  async function handleDeleteAet(id: string) {
-    setAetError("");
+  async function handleDeleteTag(id: string) {
+    setTagError("");
 
     try {
-      const res = await fetch(`/api/lookup/annual-event-types/${id}`, {
+      const res = await fetch(`/api/tags/${id}`, {
         method: "DELETE",
       });
 
@@ -492,10 +781,70 @@ export default function SettingsPage() {
         throw new Error(data.error || "Failed to delete");
       }
 
-      setDeletingAetId(null);
-      fetchAetTypes();
+      setDeletingTagId(null);
+      fetchTags();
     } catch (err: unknown) {
-      setAetError(err instanceof Error ? err.message : "An error occurred");
+      setTagError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  async function handleCreateTemplate(e: React.FormEvent) {
+    e.preventDefault();
+    setTemplateSubmitting(true);
+    setTemplateError("");
+    try {
+      const templatePayload: Record<string, string> = { name: newTemplateName, subject: newTemplateSubject, body: newTemplateBody };
+      if (isSystemAdmin && newTemplateOfficeId) templatePayload.officeId = newTemplateOfficeId;
+      const res = await fetch("/api/email-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(templatePayload),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to create template");
+      }
+      setNewTemplateName(""); setNewTemplateSubject(""); setNewTemplateBody(""); setNewTemplateOfficeId("");
+      setShowTemplateForm(false);
+      fetchEmailTemplates();
+    } catch (err: unknown) {
+      setTemplateError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setTemplateSubmitting(false);
+    }
+  }
+
+  async function handleSaveTemplate(id: string) {
+    setTemplateError("");
+    try {
+      const res = await fetch(`/api/email-templates/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editTemplateName, subject: editTemplateSubject, body: editTemplateBody }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update template");
+      }
+      setEditingTemplateId(null);
+      fetchEmailTemplates();
+    } catch (err: unknown) {
+      setTemplateError(err instanceof Error ? err.message : "An error occurred");
+    }
+  }
+
+  async function handleDeleteTemplate(id: string) {
+    setTemplateError("");
+    try {
+      const res = await fetch(`/api/email-templates/${id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete template");
+      }
+      setDeletingTemplateId(null);
+      fetchEmailTemplates();
+    } catch (err: unknown) {
+      setTemplateError(err instanceof Error ? err.message : "An error occurred");
     }
   }
 
@@ -755,459 +1104,241 @@ export default function SettingsPage() {
     <div>
       <h1 className="text-2xl font-bold text-indigo-900 mb-6">Settings</h1>
 
-      {/* Constant Contact Integration */}
-      {(isSystemAdmin || isOfficeAdmin) && (
-        <div className="bg-white rounded-lg shadow p-6 mb-6">
-          <h2 className="text-lg font-semibold text-indigo-900 mb-1">Integrations</h2>
-          <p className="text-sm text-gray-500 mb-4">
-            Connect third-party services to sync your event data.
-          </p>
-
-          {ccMessage && (
-            <div
-              className={`mb-4 p-3 rounded-md text-sm ${
-                ccMessage.type === "success"
-                  ? "bg-green-50 text-green-800 border border-green-200"
-                  : "bg-red-50 text-red-800 border border-red-200"
-              }`}
-            >
-              {ccMessage.text}
-              <button
-                onClick={() => setCcMessage(null)}
-                className="float-right text-xs underline"
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
-
-          <div className="border border-gray-200 rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">Constant Contact</h3>
-                  <p className="text-sm text-gray-500">
-                    Sync event invite lists as email contact lists
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {ccLoading ? (
-                  <span className="text-sm text-gray-400">Checking...</span>
-                ) : ccConnected ? (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                      <span className="w-2 h-2 bg-green-500 rounded-full" />
-                      Connected
-                    </span>
-                    <button
-                      onClick={handleCcDisconnect}
-                      disabled={ccDisconnecting}
-                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
-                    >
-                      {ccDisconnecting ? "Disconnecting..." : "Disconnect"}
-                    </button>
-                  </>
-                ) : (
-                  <a
-                    href="/api/constant-contact/auth"
-                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  >
-                    Connect
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* Stripe Integration */}
-          <div className="border border-gray-200 rounded-lg p-4 mt-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">Stripe</h3>
-                  <p className="text-sm text-gray-500">
-                    Accept online donations via Stripe Checkout
-                  </p>
-                  {stripeConnected && (
-                    <p className="text-xs text-gray-400 mt-1">
-                      Webhook URL: <span className="font-mono">{typeof window !== "undefined" ? window.location.origin : ""}/api/webhooks/stripe</span>
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {stripeLoading ? (
-                  <span className="text-sm text-gray-400">Checking...</span>
-                ) : stripeConnected ? (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                    <span className="w-2 h-2 bg-green-500 rounded-full" />
-                    Active
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-500 text-sm rounded-full">
-                    Not configured
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* QuickBooks Integration */}
-          {qbMessage && (
-            <div
-              className={`mt-4 p-3 rounded-md text-sm ${
-                qbMessage.type === "success"
-                  ? "bg-green-50 text-green-800 border border-green-200"
-                  : "bg-red-50 text-red-800 border border-red-200"
-              }`}
-            >
-              {qbMessage.text}
-              <button
-                onClick={() => setQbMessage(null)}
-                className="float-right text-xs underline"
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
-
-          <div className="border border-gray-200 rounded-lg p-4 mt-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="font-medium text-gray-900">QuickBooks</h3>
-                  <p className="text-sm text-gray-500">
-                    Sync donations as Sales Receipts in QuickBooks
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
-                {qbLoading ? (
-                  <span className="text-sm text-gray-400">Checking...</span>
-                ) : qbConnected ? (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                      <span className="w-2 h-2 bg-green-500 rounded-full" />
-                      Connected
-                    </span>
-                    <button
-                      onClick={handleQbDisconnect}
-                      disabled={qbDisconnecting}
-                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
-                    >
-                      {qbDisconnecting ? "Disconnecting..." : "Disconnect"}
-                    </button>
-                  </>
-                ) : (
-                  <a
-                    href="/api/quickbooks/auth"
-                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  >
-                    Connect
-                  </a>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Relationship Types — SYSTEM_ADMIN only */}
-      {isSystemAdmin && <div className="bg-white rounded-lg shadow p-6">
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-semibold text-indigo-900">Relationship Types</h2>
-          {!showForm && (
-            <button
-              onClick={() => { setShowForm(true); setEditingId(null); }}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
-            >
-              Add Relationship Type
-            </button>
-          )}
-        </div>
-
-        {error && (
-          <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
-            {error}
-          </div>
-        )}
-
-        {/* Add form */}
-        {showForm && (
-          <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
-            <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Relationship Type</h3>
-            <form onSubmit={handleCreate} className="space-y-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Description <span className="text-red-500">*</span>
-                </label>
-                <input
-                  ref={relTypeInputRef}
-                  type="text"
-                  required
-                  value={newDesc}
-                  onChange={(e) => setNewDesc(e.target.value)}
-                  placeholder="e.g. Board Member"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Notes
-                </label>
-                <input
-                  type="text"
-                  value={newNotes}
-                  onChange={(e) => setNewNotes(e.target.value)}
-                  placeholder="Optional description of this relationship type"
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
-                >
-                  {submitting ? "Saving..." : "Create"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setShowForm(false); setError(""); }}
-                  className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
-                >
-                  Cancel
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Table */}
-        {loading ? (
-          <p className="text-gray-400 text-sm">Loading...</p>
-        ) : (
-          <table className="w-full text-sm">
-            <thead className="bg-gray-50 border-b">
-              <tr>
-                <th className="text-left px-4 py-3 font-semibold text-indigo-900">Description</th>
-                <th className="text-left px-4 py-3 font-semibold text-indigo-900">Notes</th>
-                <th className="text-left px-4 py-3 font-semibold text-indigo-900">In Use</th>
-                <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {relTypes.map((rt) => (
-                <tr key={rt.id} className="hover:bg-gray-50">
-                  {editingId === rt.id ? (
-                    <>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          value={editDesc}
-                          onChange={(e) => setEditDesc(e.target.value)}
-                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="px-4 py-2">
-                        <input
-                          type="text"
-                          value={editNotes}
-                          onChange={(e) => setEditNotes(e.target.value)}
-                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </td>
-                      <td className="px-4 py-2 text-gray-600">
-                        {rt._count?.relationships ?? 0}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <div className="flex gap-2 justify-end">
-                          <button
-                            onClick={() => handleUpdate(rt.id)}
-                            disabled={submitting}
-                            className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={() => setEditingId(null)}
-                            className="text-gray-500 hover:text-gray-700 text-xs"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="px-4 py-3 font-medium">{rt.relationshipDesc}</td>
-                      <td className="px-4 py-3 text-gray-600">{rt.notes ?? "—"}</td>
-                      <td className="px-4 py-3">
-                        <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                          {rt._count?.relationships ?? 0}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex gap-3 justify-end">
-                          <button
-                            onClick={() => startEdit(rt)}
-                            className="text-indigo-600 hover:underline text-xs"
-                          >
-                            Edit
-                          </button>
-                          {deletingId === rt.id ? (
-                            reassignNeeded?.id === rt.id ? (
-                              <div className="flex flex-col items-end gap-2">
-                                <span className="text-amber-700 text-xs">
-                                  {reassignNeeded.count} relationship(s) use this type. Move them to:
-                                </span>
-                                <div className="flex items-center gap-2">
-                                  <select
-                                    value={reassignTo}
-                                    onChange={(e) => setReassignTo(e.target.value)}
-                                    className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                                  >
-                                    <option value="">Select type...</option>
-                                    {relTypes
-                                      .filter((t) => t.id !== rt.id)
-                                      .map((t) => (
-                                        <option key={t.id} value={t.id}>
-                                          {t.relationshipDesc}
-                                        </option>
-                                      ))}
-                                  </select>
-                                  <button
-                                    onClick={handleDeleteWithReassign}
-                                    disabled={!reassignTo}
-                                    className="text-red-600 hover:underline text-xs font-medium disabled:opacity-50"
-                                  >
-                                    Move &amp; Delete
-                                  </button>
-                                  <button
-                                    onClick={() => { setDeletingId(null); setReassignNeeded(null); setDeleteError(""); }}
-                                    className="text-gray-500 hover:text-gray-700 text-xs"
-                                  >
-                                    Cancel
-                                  </button>
-                                </div>
-                                {deleteError && (
-                                  <span className="text-red-600 text-xs">{deleteError}</span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="flex items-center gap-2">
-                                {deleteError && (
-                                  <span className="text-red-600 text-xs">{deleteError}</span>
-                                )}
-                                <button
-                                  onClick={() => handleDelete(rt.id)}
-                                  className="text-red-600 hover:underline text-xs font-medium"
-                                >
-                                  Confirm
-                                </button>
-                                <button
-                                  onClick={() => { setDeletingId(null); setDeleteError(""); }}
-                                  className="text-gray-500 hover:text-gray-700 text-xs"
-                                >
-                                  Cancel
-                                </button>
-                              </span>
-                            )
-                          ) : (
-                            <button
-                              onClick={() => { setDeletingId(rt.id); setReassignNeeded(null); setDeleteError(""); }}
-                              className="text-red-600 hover:underline text-xs"
-                            >
-                              Delete
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-              {relTypes.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
-                    No relationship types defined.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-      </div>}
-
-      {/* Annual Event Types — SYSTEM_ADMIN only */}
-      {isSystemAdmin && (
+      {/* Email Templates */}
+      {canEditTemplates && (
         <div className="bg-white rounded-lg shadow p-6 mt-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-indigo-900">Annual Event Types</h2>
-            {!showAetForm && (
+            <h2 className="text-lg font-semibold text-indigo-900">Email Templates</h2>
+            {!showTemplateForm && (
               <button
-                onClick={() => { setShowAetForm(true); setEditingAetId(null); }}
+                onClick={() => setShowTemplateForm(true)}
                 className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
               >
-                Add Event Type
+                Add Template
               </button>
             )}
           </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Templates are used when reaching out to prospects. Use <code className="bg-gray-100 px-1 rounded text-xs">{"{{firstName}}"}</code>, <code className="bg-gray-100 px-1 rounded text-xs">{"{{senderName}}"}</code>, or <code className="bg-gray-100 px-1 rounded text-xs">{"{{senderFirstName}}"}</code> as placeholders.
+          </p>
 
-          {aetError && (
-            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
-              {aetError}
+          {templateError && (
+            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">{templateError}</div>
+          )}
+
+          {showTemplateForm && (
+            <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
+              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Template</h3>
+              <form onSubmit={handleCreateTemplate} className="space-y-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Name <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={newTemplateName}
+                    onChange={(e) => setNewTemplateName(e.target.value)}
+                    required
+                    placeholder="e.g. Initial Outreach"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                {isSystemAdmin && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Office <span className="text-red-500">*</span></label>
+                    <select
+                      value={newTemplateOfficeId}
+                      onChange={(e) => setNewTemplateOfficeId(e.target.value)}
+                      required
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="">— Select office —</option>
+                      {offices.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Subject <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={newTemplateSubject}
+                    onChange={(e) => setNewTemplateSubject(e.target.value)}
+                    required
+                    placeholder="e.g. Connecting with {{firstName}}"
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Body <span className="text-red-500">*</span></label>
+                  <textarea
+                    value={newTemplateBody}
+                    onChange={(e) => setNewTemplateBody(e.target.value)}
+                    required
+                    rows={6}
+                    placeholder={"Dear {{firstName}},\n\nI wanted to reach out..."}
+                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 font-mono"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <button type="submit" disabled={templateSubmitting}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50">
+                    {templateSubmitting ? "Saving…" : "Save Template"}
+                  </button>
+                  <button type="button" onClick={() => { setShowTemplateForm(false); setTemplateError(""); }}
+                    className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                    Cancel
+                  </button>
+                </div>
+              </form>
             </div>
           )}
 
-          {showAetForm && (
+          {templatesLoading ? (
+            <p className="text-sm text-gray-400">Loading templates…</p>
+          ) : (
+            <div className="space-y-3">
+              {emailTemplates.map((t) => (
+                <div key={t.id} className="border border-gray-200 rounded-md p-4">
+                  {editingTemplateId === t.id ? (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Name</label>
+                        <input type="text" value={editTemplateName} onChange={(e) => setEditTemplateName(e.target.value)}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Subject</label>
+                        <input type="text" value={editTemplateSubject} onChange={(e) => setEditTemplateSubject(e.target.value)}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">Body</label>
+                        <textarea value={editTemplateBody} onChange={(e) => setEditTemplateBody(e.target.value)}
+                          rows={6}
+                          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 font-mono" />
+                      </div>
+                      <div className="flex gap-2">
+                        <button onClick={() => handleSaveTemplate(t.id)}
+                          className="px-3 py-1.5 bg-indigo-600 text-white rounded-md text-sm hover:bg-indigo-700">
+                          Save
+                        </button>
+                        <button onClick={() => setEditingTemplateId(null)}
+                          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm text-gray-700 hover:bg-gray-50">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <div className="font-medium text-gray-900 text-sm">{t.name}</div>
+                            {isSystemAdmin && t.office && (
+                              <span className="text-xs bg-indigo-50 text-indigo-600 border border-indigo-200 px-1.5 py-0.5 rounded-full">{t.office.name}</span>
+                            )}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-0.5">Subject: {t.subject}</div>
+                        </div>
+                        <div className="flex gap-3 text-xs">
+                          <button
+                            onClick={() => { setEditingTemplateId(t.id); setEditTemplateName(t.name); setEditTemplateSubject(t.subject); setEditTemplateBody(t.body); }}
+                            className="text-indigo-600 hover:underline"
+                          >Edit</button>
+                          {deletingTemplateId === t.id ? (
+                            <span className="flex items-center gap-2">
+                              <button onClick={() => handleDeleteTemplate(t.id)} className="text-red-600 hover:underline font-medium">Confirm</button>
+                              <button onClick={() => setDeletingTemplateId(null)} className="text-gray-500 hover:text-gray-700">Cancel</button>
+                            </span>
+                          ) : (
+                            <button onClick={() => setDeletingTemplateId(t.id)} className="text-red-600 hover:underline">Delete</button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="mt-2 text-xs text-gray-400 whitespace-pre-wrap line-clamp-3">{t.body}</div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {emailTemplates.length === 0 && (
+                <p className="text-sm text-gray-400">No email templates defined. Add one above.</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tags — Office Admin and System Admin */}
+      {canManageUsers && (
+        <div className="bg-white rounded-lg shadow p-6 mt-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-indigo-900">Tags</h2>
+            {!showTagForm && (
+              <button
+                onClick={() => { setShowTagForm(true); setEditingTagId(null); }}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
+              >
+                Add Tag
+              </button>
+            )}
+          </div>
+          <p className="text-sm text-gray-500 mb-4">
+            Tags can be assigned to people, partner roles, and partners. Use them to auto-invite groups to events or export mailing lists.
+          </p>
+
+          {tagError && (
+            <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
+              {tagError}
+            </div>
+          )}
+
+          {showTagForm && (
             <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
-              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Annual Event Type</h3>
-              <form onSubmit={handleCreateAet} className="space-y-3">
+              <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Tag</h3>
+              <form onSubmit={handleCreateTag} className="space-y-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">
                     Name <span className="text-red-500">*</span>
                   </label>
                   <input
-                    ref={aetInputRef}
+                    ref={tagInputRef}
                     type="text"
                     required
-                    value={newAetName}
-                    onChange={(e) => setNewAetName(e.target.value)}
-                    placeholder="e.g. Gala, Golf Tournament"
+                    value={newTagName}
+                    onChange={(e) => setNewTagName(e.target.value)}
+                    placeholder="e.g. Gala, Annual Appeal, Board Member"
                     className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   />
                 </div>
+                {isSystemAdmin && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Office <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      required
+                      value={newTagOfficeId}
+                      onChange={(e) => setNewTagOfficeId(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    >
+                      <option value="">Select an office…</option>
+                      {offices.map((o) => (
+                        <option key={o.id} value={o.id}>{o.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <button
                     type="submit"
-                    disabled={aetSubmitting}
+                    disabled={tagSubmitting}
                     className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
                   >
-                    {aetSubmitting ? "Saving..." : "Create"}
+                    {tagSubmitting ? "Saving..." : "Create"}
                   </button>
                   <button
                     type="button"
-                    onClick={() => { setShowAetForm(false); setAetError(""); }}
+                    onClick={() => { setShowTagForm(false); setTagError(""); setNewTagOfficeId(""); }}
                     className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
                   >
                     Cancel
@@ -1217,7 +1348,7 @@ export default function SettingsPage() {
             </div>
           )}
 
-          {aetLoading ? (
+          {tagsLoading ? (
             <p className="text-gray-400 text-sm">Loading...</p>
           ) : (
             <table className="w-full text-sm">
@@ -1230,36 +1361,49 @@ export default function SettingsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {aetTypes.map((aet) => {
+                {tagTypes.map((tag) => {
                   const usageCount =
-                    (aet._count?.peopleAnnualEventTypes ?? 0) +
-                    (aet._count?.partnerAnnualEventTypes ?? 0) +
-                    (aet._count?.partnerRoleAnnualEventTypes ?? 0);
+                    (tag._count?.personTags ?? 0) +
+                    (tag._count?.partnerTags ?? 0) +
+                    (tag._count?.partnerRoleTags ?? 0);
                   return (
-                    <tr key={aet.id} className="hover:bg-gray-50">
-                      {editingAetId === aet.id ? (
+                    <tr key={tag.id} className="hover:bg-gray-50">
+                      {editingTagId === tag.id ? (
                         <>
                           <td className="px-4 py-2">
                             <input
                               type="text"
-                              value={editAetName}
-                              onChange={(e) => setEditAetName(e.target.value)}
+                              value={editTagName}
+                              onChange={(e) => setEditTagName(e.target.value)}
                               className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
                             />
                           </td>
-                          {isSystemAdmin && <td className="px-4 py-2 text-gray-600">{aet.office?.name ?? "—"}</td>}
+                          {isSystemAdmin && (
+                            <td className="px-4 py-2">
+                              <select
+                                value={editTagOfficeId}
+                                onChange={(e) => setEditTagOfficeId(e.target.value)}
+                                className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                              >
+                                <option value="">Select office…</option>
+                                {offices.map((o) => (
+                                  <option key={o.id} value={o.id}>{o.name}</option>
+                                ))}
+                              </select>
+                            </td>
+                          )}
                           <td className="px-4 py-2 text-gray-600">{usageCount}</td>
                           <td className="px-4 py-2 text-right">
                             <div className="flex gap-2 justify-end">
                               <button
-                                onClick={() => handleUpdateAet(aet.id)}
-                                disabled={aetSubmitting}
+                                onClick={() => handleUpdateTag(tag.id)}
+                                disabled={tagSubmitting}
                                 className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
                               >
                                 Save
                               </button>
                               <button
-                                onClick={() => setEditingAetId(null)}
+                                onClick={() => setEditingTagId(null)}
                                 className="text-gray-500 hover:text-gray-700 text-xs"
                               >
                                 Cancel
@@ -1269,8 +1413,8 @@ export default function SettingsPage() {
                         </>
                       ) : (
                         <>
-                          <td className="px-4 py-3 font-medium">{aet.name}</td>
-                          {isSystemAdmin && <td className="px-4 py-3 text-gray-600">{aet.office?.name ?? "—"}</td>}
+                          <td className="px-4 py-3 font-medium">{tag.name}</td>
+                          {isSystemAdmin && <td className="px-4 py-3 text-gray-600">{tag.office?.name ?? "—"}</td>}
                           <td className="px-4 py-3">
                             <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
                               {usageCount}
@@ -1279,21 +1423,21 @@ export default function SettingsPage() {
                           <td className="px-4 py-3 text-right">
                             <div className="flex gap-3 justify-end">
                               <button
-                                onClick={() => { setEditingAetId(aet.id); setEditAetName(aet.name); setDeletingAetId(null); }}
+                                onClick={() => { setEditingTagId(tag.id); setEditTagName(tag.name); setEditTagOfficeId(tag.office?.id ?? ""); setDeletingTagId(null); }}
                                 className="text-indigo-600 hover:underline text-xs"
                               >
                                 Edit
                               </button>
-                              {deletingAetId === aet.id ? (
+                              {deletingTagId === tag.id ? (
                                 <span className="flex items-center gap-2">
                                   <button
-                                    onClick={() => handleDeleteAet(aet.id)}
+                                    onClick={() => handleDeleteTag(tag.id)}
                                     className="text-red-600 hover:underline text-xs font-medium"
                                   >
                                     Confirm
                                   </button>
                                   <button
-                                    onClick={() => setDeletingAetId(null)}
+                                    onClick={() => setDeletingTagId(null)}
                                     className="text-gray-500 hover:text-gray-700 text-xs"
                                   >
                                     Cancel
@@ -1301,7 +1445,7 @@ export default function SettingsPage() {
                                 </span>
                               ) : (
                                 <button
-                                  onClick={() => setDeletingAetId(aet.id)}
+                                  onClick={() => setDeletingTagId(tag.id)}
                                   className="text-red-600 hover:underline text-xs"
                                 >
                                   Delete
@@ -1314,10 +1458,10 @@ export default function SettingsPage() {
                     </tr>
                   );
                 })}
-                {aetTypes.length === 0 && (
+                {tagTypes.length === 0 && (
                   <tr>
                     <td colSpan={isSystemAdmin ? 4 : 3} className="px-4 py-8 text-center text-gray-400">
-                      No annual event types defined.
+                      No tags defined. Add one above.
                     </td>
                   </tr>
                 )}
@@ -1641,6 +1785,657 @@ export default function SettingsPage() {
         </div>
       )}
 
+      {/* Relationship Types — SYSTEM_ADMIN only */}
+      {isSystemAdmin && <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-indigo-900">Relationship Types</h2>
+          {!showForm && (
+            <button
+              onClick={() => { setShowForm(true); setEditingId(null); }}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 transition-colors text-sm"
+            >
+              Add Relationship Type
+            </button>
+          )}
+        </div>
+
+        {error && (
+          <div className="bg-red-50 text-red-700 border border-red-200 rounded-md p-3 mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Add form */}
+        {showForm && (
+          <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mb-4">
+            <h3 className="font-semibold text-indigo-900 mb-3 text-sm">New Relationship Type</h3>
+            <form onSubmit={handleCreate} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Description <span className="text-red-500">*</span>
+                </label>
+                <input
+                  ref={relTypeInputRef}
+                  type="text"
+                  required
+                  value={newDesc}
+                  onChange={(e) => setNewDesc(e.target.value)}
+                  placeholder="e.g. Board Member"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <input
+                  type="text"
+                  value={newNotes}
+                  onChange={(e) => setNewNotes(e.target.value)}
+                  placeholder="Optional description of this relationship type"
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                />
+              </div>
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="bg-indigo-600 text-white px-4 py-1.5 rounded-md hover:bg-indigo-700 transition-colors text-sm disabled:opacity-50"
+                >
+                  {submitting ? "Saving..." : "Create"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowForm(false); setError(""); }}
+                  className="text-gray-500 hover:text-gray-700 text-sm px-3 py-1.5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Table */}
+        {loading ? (
+          <p className="text-gray-400 text-sm">Loading...</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-3 font-semibold text-indigo-900">Description</th>
+                <th className="text-left px-4 py-3 font-semibold text-indigo-900">Notes</th>
+                <th className="text-left px-4 py-3 font-semibold text-indigo-900">In Use</th>
+                <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {relTypes.map((rt) => (
+                <tr key={rt.id} className="hover:bg-gray-50">
+                  {editingId === rt.id ? (
+                    <>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          value={editDesc}
+                          onChange={(e) => setEditDesc(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          value={editNotes}
+                          onChange={(e) => setEditNotes(e.target.value)}
+                          className="w-full border border-gray-300 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-gray-600">
+                        {rt._count?.relationshipToTypes ?? 0}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex gap-2 justify-end">
+                          <button
+                            onClick={() => handleUpdate(rt.id)}
+                            disabled={submitting}
+                            className="text-indigo-600 hover:underline text-xs disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingId(null)}
+                            className="text-gray-500 hover:text-gray-700 text-xs"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-3 font-medium">{rt.relationshipDesc}</td>
+                      <td className="px-4 py-3 text-gray-600">{rt.notes ?? "—"}</td>
+                      <td className="px-4 py-3">
+                        <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
+                          {rt._count?.relationshipToTypes ?? 0}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex gap-3 justify-end">
+                          <button
+                            onClick={() => startEdit(rt)}
+                            className="text-indigo-600 hover:underline text-xs"
+                          >
+                            Edit
+                          </button>
+                          {deletingId === rt.id ? (
+                            reassignNeeded?.id === rt.id ? (
+                              <div className="flex flex-col items-end gap-2">
+                                <span className="text-amber-700 text-xs">
+                                  {reassignNeeded.count} relationship(s) use this type. Move them to:
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <select
+                                    value={reassignTo}
+                                    onChange={(e) => setReassignTo(e.target.value)}
+                                    className="border border-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                                  >
+                                    <option value="">Select type...</option>
+                                    {relTypes
+                                      .filter((t) => t.id !== rt.id)
+                                      .map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                          {t.relationshipDesc}
+                                        </option>
+                                      ))}
+                                  </select>
+                                  <button
+                                    onClick={handleDeleteWithReassign}
+                                    disabled={!reassignTo}
+                                    className="text-red-600 hover:underline text-xs font-medium disabled:opacity-50"
+                                  >
+                                    Move &amp; Delete
+                                  </button>
+                                  <button
+                                    onClick={() => { setDeletingId(null); setReassignNeeded(null); setDeleteError(""); }}
+                                    className="text-gray-500 hover:text-gray-700 text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                                {deleteError && (
+                                  <span className="text-red-600 text-xs">{deleteError}</span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="flex items-center gap-2">
+                                {deleteError && (
+                                  <span className="text-red-600 text-xs">{deleteError}</span>
+                                )}
+                                <button
+                                  onClick={() => handleDelete(rt.id)}
+                                  className="text-red-600 hover:underline text-xs font-medium"
+                                >
+                                  Confirm
+                                </button>
+                                <button
+                                  onClick={() => { setDeletingId(null); setDeleteError(""); }}
+                                  className="text-gray-500 hover:text-gray-700 text-xs"
+                                >
+                                  Cancel
+                                </button>
+                              </span>
+                            )
+                          ) : (
+                            <button
+                              onClick={() => { setDeletingId(rt.id); setReassignNeeded(null); setDeleteError(""); }}
+                              className="text-red-600 hover:underline text-xs"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+              {relTypes.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="px-4 py-8 text-center text-gray-400">
+                    No relationship types defined.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>}
+
+      {/* Communication Methods */}
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-indigo-900">Preferred Contact Methods</h2>
+          {!showCommMethodForm && (
+            <button
+              onClick={() => { setShowCommMethodForm(true); setCommMethodError(""); setNewCommMethodName(""); }}
+              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium border border-indigo-200 px-2 py-1 rounded-md hover:bg-indigo-50"
+            >
+              + Add Method
+            </button>
+          )}
+        </div>
+
+        {showCommMethodForm && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!newCommMethodName.trim()) return;
+              setCommMethodSubmitting(true);
+              setCommMethodError("");
+              const res = await fetch("/api/lookup/communication-methods", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: newCommMethodName.trim() }),
+              });
+              if (!res.ok) {
+                const data = await res.json();
+                setCommMethodError(data.error || "Failed to create method");
+              } else {
+                setNewCommMethodName("");
+                setShowCommMethodForm(false);
+                fetchCommMethods();
+              }
+              setCommMethodSubmitting(false);
+            }}
+            className="flex gap-2 items-center mb-4"
+          >
+            <input
+              ref={commMethodInputRef}
+              type="text"
+              value={newCommMethodName}
+              onChange={(e) => setNewCommMethodName(e.target.value)}
+              placeholder="Method name"
+              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48"
+              required
+            />
+            <button
+              type="submit"
+              disabled={commMethodSubmitting}
+              className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {commMethodSubmitting ? "Saving..." : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCommMethodForm(false)}
+              className="text-gray-500 hover:text-gray-700 text-sm px-2 py-1.5"
+            >
+              Cancel
+            </button>
+            {commMethodError && <span className="text-red-600 text-xs">{commMethodError}</span>}
+          </form>
+        )}
+
+        {commMethodsLoading ? (
+          <p className="text-gray-400 text-sm">Loading...</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Name</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">In Use</th>
+                <th className="px-4 py-2"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {commMethods.map((m) => (
+                <tr key={m.id} className="hover:bg-gray-50">
+                  {editingCommMethodId === m.id ? (
+                    <>
+                      <td className="px-4 py-2" colSpan={2}>
+                        <input
+                          type="text"
+                          value={editCommMethodName}
+                          onChange={(e) => setEditCommMethodName(e.target.value)}
+                          className="border border-gray-300 rounded-md px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48"
+                          autoFocus
+                        />
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex items-center gap-3 justify-end">
+                          <button
+                            onClick={async () => {
+                              if (!editCommMethodName.trim()) return;
+                              const res = await fetch(`/api/lookup/communication-methods/${m.id}`, {
+                                method: "PUT",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ name: editCommMethodName.trim() }),
+                              });
+                              if (res.ok) { setEditingCommMethodId(null); fetchCommMethods(); }
+                            }}
+                            className="text-indigo-600 hover:underline text-xs font-medium"
+                          >
+                            Save
+                          </button>
+                          <button
+                            onClick={() => setEditingCommMethodId(null)}
+                            className="text-gray-500 hover:text-gray-700 text-xs"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="px-4 py-2 text-gray-800">{m.name}</td>
+                      <td className="px-4 py-2 text-gray-500">{m._count?.people ?? 0}</td>
+                      <td className="px-4 py-2 text-right">
+                        <div className="flex items-center gap-3 justify-end">
+                          <button
+                            onClick={() => { setEditingCommMethodId(m.id); setEditCommMethodName(m.name); }}
+                            className="text-indigo-600 hover:underline text-xs"
+                          >
+                            Edit
+                          </button>
+                          {deletingCommMethodId === m.id ? (
+                            <span className="flex items-center gap-2">
+                              <span className="text-xs text-gray-600">Delete?</span>
+                              {(m._count?.people ?? 0) > 0 && (
+                                <span className="text-red-600 text-xs">In use by {m._count?.people} {(m._count?.people ?? 0) === 1 ? "person" : "people"} — remove assignments first.</span>
+                              )}
+                              {(m._count?.people ?? 0) === 0 && (
+                                <>
+                                  <button
+                                    onClick={async () => {
+                                      const res = await fetch(`/api/lookup/communication-methods/${m.id}`, { method: "DELETE" });
+                                      if (res.ok) { setDeletingCommMethodId(null); fetchCommMethods(); }
+                                    }}
+                                    className="text-red-600 hover:underline text-xs font-medium"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={() => setDeletingCommMethodId(null)}
+                                    className="text-gray-500 hover:text-gray-700 text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </>
+                              )}
+                              {(m._count?.people ?? 0) > 0 && (
+                                <button
+                                  onClick={() => setDeletingCommMethodId(null)}
+                                  className="text-gray-500 hover:text-gray-700 text-xs"
+                                >
+                                  Cancel
+                                </button>
+                              )}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setDeletingCommMethodId(m.id)}
+                              className="text-red-600 hover:underline text-xs"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+              {commMethods.length === 0 && (
+                <tr>
+                  <td colSpan={3} className="px-4 py-8 text-center text-gray-400">
+                    No communication methods defined.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Organization Types */}
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-indigo-900">Organization Types</h2>
+          {!showOrgTypeForm && (
+            <button
+              onClick={() => { setShowOrgTypeForm(true); setOrgTypeError(""); setNewOrgTypeName(""); setNewOrgTypeColor("#6366F1"); }}
+              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium border border-indigo-200 px-2 py-1 rounded-md hover:bg-indigo-50"
+            >
+              + Add Type
+            </button>
+          )}
+        </div>
+        <p className="text-xs text-gray-500 mb-4">Assign a color to each organization type — seats on the seating chart will use these colors.</p>
+
+        {showOrgTypeForm && (
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (!newOrgTypeName.trim()) return;
+              setOrgTypeSubmitting(true);
+              setOrgTypeError("");
+              const res = await fetch("/api/lookup/organization-types", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ typeName: newOrgTypeName.trim(), color: newOrgTypeColor }),
+              });
+              if (!res.ok) {
+                const data = await res.json();
+                setOrgTypeError(data.error || "Failed to create type");
+              } else {
+                setNewOrgTypeName("");
+                setNewOrgTypeColor("#6366F1");
+                setShowOrgTypeForm(false);
+                fetchOrgTypes();
+              }
+              setOrgTypeSubmitting(false);
+            }}
+            className="flex gap-2 items-center mb-4 flex-wrap"
+          >
+            <input
+              type="text"
+              value={newOrgTypeName}
+              onChange={(e) => setNewOrgTypeName(e.target.value)}
+              placeholder="Type name"
+              className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 w-48"
+              required
+              autoFocus
+            />
+            <div className="flex flex-col gap-1">
+              <input
+                type="color"
+                value={newOrgTypeColor}
+                onInput={(e) => {
+                  const val = (e.target as HTMLInputElement).value;
+                  setNewOrgTypeColor(val);
+                  setOrgTypeError(checkOrgTypeColor(val, orgTypes) ?? "");
+                }}
+                onChange={(e) => {
+                  setNewOrgTypeColor(e.target.value);
+                  setOrgTypeError(checkOrgTypeColor(e.target.value, orgTypes) ?? "");
+                }}
+                className={`w-10 h-8 rounded cursor-pointer border-2 ${checkOrgTypeColor(newOrgTypeColor, orgTypes) ? "border-red-500" : "border-gray-300"}`}
+                title="Pick a color"
+              />
+              {checkOrgTypeColor(newOrgTypeColor, orgTypes) && (
+                <span className="text-red-600 text-xs max-w-[240px] leading-tight">{checkOrgTypeColor(newOrgTypeColor, orgTypes)}</span>
+              )}
+            </div>
+            <button
+              type="submit"
+              disabled={orgTypeSubmitting || !!checkOrgTypeColor(newOrgTypeColor, orgTypes)}
+              className="bg-indigo-600 text-white px-3 py-1.5 rounded-md text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {orgTypeSubmitting ? "Saving..." : "Save"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowOrgTypeForm(false)}
+              className="text-gray-500 hover:text-gray-700 text-sm px-2 py-1.5"
+            >
+              Cancel
+            </button>
+            {orgTypeError && <span className="text-red-600 text-xs">{orgTypeError}</span>}
+          </form>
+        )}
+
+        {orgTypesLoading ? (
+          <p className="text-gray-400 text-sm">Loading...</p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Name</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Seat Color</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {orgTypes.map((ot) => (
+                <tr key={ot.id} className="hover:bg-gray-50">
+                  <td className="px-4 py-2 font-medium text-gray-800">{ot.typeName}</td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex flex-col gap-1">
+                        <input
+                          type="color"
+                          defaultValue={ot.color ?? "#6366F1"}
+                          className={`w-8 h-7 rounded cursor-pointer border-2 ${orgTypeColorError[ot.id] ? "border-red-500" : "border-gray-300"}`}
+                          title="Pick a color"
+                          onInput={(e) => {
+                            const val = (e.target as HTMLInputElement).value;
+                            const err = checkOrgTypeColor(val, orgTypes, ot.id);
+                            setOrgTypeColorError((prev) => ({ ...prev, [ot.id]: err ?? "" }));
+                          }}
+                          onChange={(e) => {
+                            const err = checkOrgTypeColor(e.target.value, orgTypes, ot.id);
+                            setOrgTypeColorError((prev) => ({ ...prev, [ot.id]: err ?? "" }));
+                          }}
+                          onBlur={async (e) => {
+                            const color = e.target.value;
+                            const err = checkOrgTypeColor(color, orgTypes, ot.id);
+                            if (err) return;
+                            if (color === (ot.color ?? "#6366F1")) return;
+                            setSavingOrgTypeColorId(ot.id);
+                            const res = await fetch(`/api/lookup/organization-types/${ot.id}`, {
+                              method: "PUT",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ color }),
+                            });
+                            if (!res.ok) {
+                              const data = await res.json();
+                              setOrgTypeColorError((prev) => ({ ...prev, [ot.id]: data.error ?? "Failed to save" }));
+                            }
+                            setSavingOrgTypeColorId(null);
+                            fetchOrgTypes();
+                          }}
+                        />
+                        {orgTypeColorError[ot.id] && (
+                          <span className="text-red-600 text-xs max-w-[220px] leading-tight">{orgTypeColorError[ot.id]}</span>
+                        )}
+                      </div>
+                      {ot.color ? (
+                        <span className="inline-block w-4 h-4 rounded-full border border-gray-200" style={{ backgroundColor: ot.color }} />
+                      ) : (
+                        <span className="text-gray-400 text-xs">No color set</span>
+                      )}
+                      {savingOrgTypeColorId === ot.id && <span className="text-xs text-gray-400">Saving...</span>}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {orgTypes.length === 0 && (
+                <tr>
+                  <td colSpan={2} className="px-4 py-8 text-center text-gray-400">
+                    No organization types defined.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Dietary Options */}
+      <div className="bg-white rounded-lg shadow p-6 mt-6">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-indigo-900">Dietary Options</h2>
+        </div>
+        <p className="text-xs text-gray-500 mb-4">
+          Built-in options are always available. Custom options are added on-the-fly from any event&apos;s Invites tab and can be deleted here.
+        </p>
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-gray-200">
+              <th className="text-left px-4 py-2 font-medium text-gray-600">Option</th>
+              <th className="text-left px-4 py-2 font-medium text-gray-600">Type</th>
+              <th className="px-4 py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {DIETARY_OPTIONS.map((name) => (
+              <tr key={name} className="border-b border-gray-100 bg-gray-50">
+                <td className="px-4 py-3 text-gray-800">{name}</td>
+                <td className="px-4 py-3 text-xs text-gray-400">Built-in</td>
+                <td className="px-4 py-3"></td>
+              </tr>
+            ))}
+            {dietaryOptionsLoading ? (
+              <tr>
+                <td colSpan={3} className="px-4 py-3 text-sm text-gray-400">Loading custom options...</td>
+              </tr>
+            ) : dietaryOptions.length === 0 ? (
+              <tr>
+                <td colSpan={3} className="px-4 py-3 text-sm text-gray-400 italic">No custom options yet — add them from any event&apos;s Invites tab.</td>
+              </tr>
+            ) : (
+              dietaryOptions.map((opt) => (
+                <tr key={opt.id} className="border-b border-gray-100 hover:bg-gray-50">
+                  <td className="px-4 py-3 text-gray-800">{opt.name}</td>
+                  <td className="px-4 py-3 text-xs text-indigo-600 font-medium">Custom</td>
+                  <td className="px-4 py-3 text-right">
+                    {deletingDietaryId === opt.id ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className="text-xs text-gray-600">Delete &ldquo;{opt.name}&rdquo;?</span>
+                        <button
+                          onClick={async () => {
+                            await fetch(`/api/lookup/dietary-options/${opt.id}`, { method: "DELETE" });
+                            setDeletingDietaryId(null);
+                            fetchDietaryOptions();
+                          }}
+                          className="text-red-600 hover:underline text-xs font-medium"
+                        >
+                          Yes, delete
+                        </button>
+                        <button
+                          onClick={() => setDeletingDietaryId(null)}
+                          className="text-gray-500 hover:text-gray-700 text-xs"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setDeletingDietaryId(opt.id)}
+                        className="text-red-600 hover:underline text-xs"
+                      >
+                        Delete
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
       {/* Data Management — SYSTEM_ADMIN and OFFICE_ADMIN */}
       {canManageUsers && (
         <div className="bg-white rounded-lg shadow p-6 mt-6">
@@ -1950,6 +2745,251 @@ export default function SettingsPage() {
               </tbody>
             </table>
           )}
+        </div>
+      )}
+
+      {/* Constant Contact Integration */}
+      {(isSystemAdmin || isOfficeAdmin) && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6 mt-6">
+          <h2 className="text-lg font-semibold text-indigo-900 mb-1">Integrations</h2>
+          <p className="text-sm text-gray-500 mb-4">
+            Connect third-party services to sync your event data.
+          </p>
+
+          {/* Email Platform — Constant Contact or Zeffy toggle */}
+          <div className="border border-gray-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-medium text-gray-900">Email Platform</h3>
+                <p className="text-sm text-gray-500">Choose one platform for email campaigns and fundraising</p>
+              </div>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                <button
+                  onClick={() => handleSwitchEmailPlatform("constant_contact")}
+                  className={`px-4 py-1.5 transition-colors ${emailPlatform === "constant_contact" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  Constant Contact
+                </button>
+                <button
+                  onClick={() => handleSwitchEmailPlatform("zeffy")}
+                  className={`px-4 py-1.5 border-l border-gray-200 transition-colors ${emailPlatform === "zeffy" ? "bg-indigo-600 text-white" : "bg-white text-gray-600 hover:bg-gray-50"}`}
+                >
+                  Zeffy
+                </button>
+              </div>
+            </div>
+
+            {emailPlatform === "constant_contact" && ccMessage && (
+              <div className={`mb-3 p-3 rounded-md text-sm ${ccMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                {ccMessage.text}
+                <button onClick={() => setCcMessage(null)} className="float-right text-xs underline">Dismiss</button>
+              </div>
+            )}
+            {emailPlatform === "zeffy" && zeffyMessage && (
+              <div className={`mb-3 p-3 rounded-md text-sm ${zeffyMessage.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"}`}>
+                {zeffyMessage.text}
+                <button onClick={() => saveZeffyMessage(null)} className="float-right text-xs underline">Dismiss</button>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-1">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  {emailPlatform === "constant_contact" ? (
+                    <>
+                      <p className="font-medium text-gray-900 text-sm">Constant Contact</p>
+                      <p className="text-xs text-gray-500">Sync event invite lists as email contact lists</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="font-medium text-gray-900 text-sm">Zeffy</p>
+                      <p className="text-xs text-gray-500">Free fundraising platform — import donations and sync contacts</p>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {emailPlatform === "constant_contact" ? (
+                  ccLoading ? (
+                    <span className="text-sm text-gray-400">Checking...</span>
+                  ) : ccConnected ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                        <span className="w-2 h-2 bg-green-500 rounded-full" />
+                        Connected
+                      </span>
+                      <button
+                        onClick={handleCcDisconnect}
+                        disabled={ccDisconnecting}
+                        className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {ccDisconnecting ? "Disconnecting..." : "Disconnect"}
+                      </button>
+                    </>
+                  ) : (
+                    <a
+                      href="/api/constant-contact/auth"
+                      className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                    >
+                      Connect
+                    </a>
+                  )
+                ) : (
+                  zeffyLoading ? (
+                    <span className="text-sm text-gray-400">Checking...</span>
+                  ) : zeffyConnected ? (
+                    <>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                        <span className="w-2 h-2 bg-green-500 rounded-full" />
+                        Connected
+                      </span>
+                      <button
+                        onClick={handleZeffySync}
+                        disabled={zeffySyncing}
+                        className="px-3 py-1.5 text-sm text-indigo-600 border border-indigo-300 rounded-md hover:bg-indigo-50 disabled:opacity-50"
+                      >
+                        {zeffySyncing ? "Syncing..." : "Sync Now"}
+                      </button>
+                      <button
+                        onClick={handleZeffyDisconnect}
+                        disabled={zeffyDisconnecting}
+                        className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                      >
+                        {zeffyDisconnecting ? "Disconnecting..." : "Disconnect"}
+                      </button>
+                    </>
+                  ) : (
+                    <form onSubmit={handleZeffyConnect} className="flex items-center gap-2">
+                      <input
+                        type="password"
+                        value={zeffyApiKey}
+                        onChange={(e) => setZeffyApiKey(e.target.value)}
+                        placeholder="Zeffy API Key"
+                        className="border border-gray-300 rounded-md px-3 py-1.5 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                      />
+                      <button
+                        type="submit"
+                        disabled={zeffyConnecting || !zeffyApiKey.trim()}
+                        className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        {zeffyConnecting ? "Connecting..." : "Connect"}
+                      </button>
+                    </form>
+                  )
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Stripe Integration */}
+          <div className="border border-gray-200 rounded-lg p-4 mt-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">Stripe</h3>
+                  <p className="text-sm text-gray-500">
+                    Accept online donations via Stripe Checkout
+                  </p>
+                  {stripeConnected && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Webhook URL: <span className="font-mono">{typeof window !== "undefined" ? window.location.origin : ""}/api/webhooks/stripe</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {stripeLoading ? (
+                  <span className="text-sm text-gray-400">Checking...</span>
+                ) : stripeConnected ? (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                    <span className="w-2 h-2 bg-green-500 rounded-full" />
+                    Active
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-500 text-sm rounded-full">
+                    Not configured
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* QuickBooks Integration */}
+          {qbMessage && (
+            <div
+              className={`mt-4 p-3 rounded-md text-sm ${
+                qbMessage.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {qbMessage.text}
+              <button
+                onClick={() => setQbMessage(null)}
+                className="float-right text-xs underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <div className="border border-gray-200 rounded-lg p-4 mt-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">QuickBooks</h3>
+                  <p className="text-sm text-gray-500">
+                    Sync donations as Sales Receipts in QuickBooks
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {qbLoading ? (
+                  <span className="text-sm text-gray-400">Checking...</span>
+                ) : qbConnected ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                      <span className="w-2 h-2 bg-green-500 rounded-full" />
+                      Connected
+                    </span>
+                    <button
+                      onClick={handleQbDisconnect}
+                      disabled={qbDisconnecting}
+                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {qbDisconnecting ? "Disconnecting..." : "Disconnect"}
+                    </button>
+                  </>
+                ) : (
+                  <a
+                    href="/api/quickbooks/auth"
+                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
+                  >
+                    Connect
+                  </a>
+                )}
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
     </div>

@@ -5,10 +5,11 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import InviteManager from "@/components/events/InviteManager";
 import SeatingChartWrapper from "@/components/events/SeatingChartWrapper";
+import EventFundraiserSection from "@/components/events/EventFundraiserSection";
 
 interface EventInvite {
   id: string;
-  peopleId: string;
+  peopleId: string | null;
   rsvpStatus: string;
   rsvpDate: string | null;
   meal: string;
@@ -17,16 +18,35 @@ interface EventInvite {
   group: string;
   tableId: string | null;
   seatIndex: number | null;
+  attended: boolean;
+  isGuest: boolean;
+  isPlaceholder: boolean;
+  guestName: string | null;
+  guestEmail: string | null;
+  ticketType: string;
+  seatingRequest: string | null;
+  tableRequest: string | null;
   person: {
     id: string;
     firstName: string;
     lastName: string;
-  };
+    email1: string | null;
+    email2: string | null;
+    partnerRoles: {
+      partner: {
+        organizationType: {
+          typeName: string;
+          officeColors: { officeId: string; color: string }[];
+        } | null;
+      };
+    }[];
+  } | null;
 }
 
 interface EventData {
   id: string;
   title: string;
+  officeId: string;
   description: string | null;
   eventDate: string | null;
   eventTime: string | null;
@@ -37,6 +57,13 @@ interface EventData {
   mealCost: number | null;
   seatingLayout: unknown;
   invites: EventInvite[];
+  fundraisers: {
+    id: string;
+    title: string;
+    goalAmount: number;
+    currentAmount: number;
+    donations: { id: string; peopleId: string | null; approvalStatus: string }[];
+  }[];
 }
 
 export default function EventDetailPage() {
@@ -45,14 +72,18 @@ export default function EventDetailPage() {
   const searchParams = useSearchParams();
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
-  const initialTab = searchParams.get("tab") as "details" | "invites" | "seating" | null;
-  const [activeTab, setActiveTab] = useState<"details" | "invites" | "seating">(initialTab || "details");
+  const initialTab = searchParams.get("tab") as "details" | "invites" | "notices" | "seating" | null;
+  const [activeTab, setActiveTab] = useState<"details" | "invites" | "notices" | "seating">(initialTab || "details");
+  // Track whether the seating chart has been opened at least once so we can keep it mounted
+  const [seatingEverOpened, setSeatingEverOpened] = useState(initialTab === "seating");
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", eventDate: "", eventTime: "", location: "", trackSeating: true, trackMeals: true, ticketPriceDollars: "", mealCostDollars: "" });
   const [saving, setSaving] = useState(false);
   const [ccConnected, setCcConnected] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [exportStatuses, setExportStatuses] = useState({ YES: true, NO: false, MAYBE: false, PENDING: false });
 
   const fetchEvent = useCallback(async () => {
     const res = await fetch(`/api/events/${id}`);
@@ -137,6 +168,29 @@ export default function EventDetailPage() {
     if (res.ok) router.push("/events");
   }
 
+  function exportEmailsCSV() {
+    if (!event) return;
+    const selected = Object.entries(exportStatuses).filter(([, v]) => v).map(([k]) => k);
+    const rows = [["First Name", "Last Name", "Email"]];
+    for (const invite of event.invites) {
+      if (!selected.includes(invite.rsvpStatus)) continue;
+      if (!invite.person) continue;
+      const email = invite.person.email1 || invite.person.email2;
+      if (!email) continue;
+      rows.push([invite.person.firstName, invite.person.lastName, email]);
+    }
+    const csv = rows.map((r) => r.map((v) => `"${v}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const statusSuffix = selected.join("-");
+    a.download = `${event.title.replace(/[^a-z0-9]/gi, "-")}-emails-${statusSuffix}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowExportModal(false);
+  }
+
   if (loading) return <div className="text-gray-500 py-8 text-center">Loading...</div>;
   if (!event) return <div className="text-red-500 py-8 text-center">Event not found.</div>;
 
@@ -147,9 +201,28 @@ export default function EventDetailPage() {
     PENDING: event.invites.filter((i) => i.rsvpStatus === "PENDING").length,
   };
 
-  const tabs: { id: "details" | "invites" | "seating"; label: string; count?: number }[] = [
+  const placeholderCount = event.invites.filter((i) => i.isPlaceholder).length;
+  const unfulfilledSeatingRequests = event.invites.filter(
+    (i) => i.seatingRequest && i.seatingRequest.trim() !== "" && !i.tableId
+  );
+  const paidPeopleIds = new Set(
+    event.fundraisers.flatMap((f) => f.donations.map((d) => d.peopleId)).filter(Boolean)
+  );
+  const unpaidRegular = event.invites.filter(
+    (i) => i.rsvpStatus === "YES" && i.ticketType === "Regular" && !i.isPlaceholder && i.peopleId && !paidPeopleIds.has(i.peopleId)
+  );
+  const unfulfilledTableRequests = event.invites.filter((i) => {
+    if (!i.tableRequest || !i.tableId) return false;
+    return !event.invites.some(
+      (other) => other.id !== i.id && other.tableId === i.tableId && other.group === i.tableRequest
+    );
+  });
+  const totalNoticeCount = placeholderCount + unfulfilledSeatingRequests.length + unpaidRegular.length + unfulfilledTableRequests.length;
+
+  const tabs: { id: "details" | "invites" | "notices" | "seating"; label: string; count?: number }[] = [
     { id: "details", label: "Details" },
     { id: "invites", label: "Invites", count: event.invites.length },
+    { id: "notices", label: "Notices", count: totalNoticeCount },
   ];
   if (event.trackSeating) {
     tabs.push({ id: "seating", label: "Seating Chart", count: rsvpCounts.YES });
@@ -166,6 +239,12 @@ export default function EventDetailPage() {
         </div>
         <div className="flex gap-2 items-center">
           <button
+            onClick={() => setShowExportModal(true)}
+            className="px-3 py-1.5 text-sm border border-indigo-300 text-indigo-600 rounded-md hover:bg-indigo-50"
+          >
+            Export Emails (CSV)
+          </button>
+          <button
             onClick={handleDelete}
             className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50"
           >
@@ -174,32 +253,12 @@ export default function EventDetailPage() {
         </div>
       </div>
 
-      {/* RSVP Summary */}
-      <div className="grid grid-cols-4 gap-3 mb-6 print-hide">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-green-700">{rsvpCounts.YES}</div>
-          <div className="text-xs text-green-600">Yes</div>
-        </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-red-700">{rsvpCounts.NO}</div>
-          <div className="text-xs text-red-600">No</div>
-        </div>
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-yellow-700">{rsvpCounts.MAYBE}</div>
-          <div className="text-xs text-yellow-600">Maybe</div>
-        </div>
-        <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-gray-700">{rsvpCounts.PENDING}</div>
-          <div className="text-xs text-gray-600">Pending</div>
-        </div>
-      </div>
-
       {/* Tabs */}
       <div className="flex border-b border-gray-200 mb-6 print-hide">
         {tabs.map((tab) => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => { setActiveTab(tab.id); if (tab.id === "seating") setSeatingEverOpened(true); }}
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               activeTab === tab.id
                 ? "border-indigo-500 text-indigo-600"
@@ -224,7 +283,8 @@ export default function EventDetailPage() {
 
       {/* Tab content */}
       {activeTab === "details" && (
-        <div className="bg-white rounded-lg shadow p-6 max-w-2xl">
+        <div className="max-w-2xl">
+        <div className="bg-white rounded-lg shadow p-6">
           {editing ? (
             <div className="space-y-4">
               <div>
@@ -384,6 +444,21 @@ export default function EventDetailPage() {
             </div>
           )}
         </div>
+        <EventFundraiserSection
+          eventId={event.id}
+          eventTitle={event.title}
+          ticketPrice={event.ticketPrice}
+          rsvpYesCount={event.invites.filter((i) => i.rsvpStatus === "YES").length}
+          fundraiser={event.fundraisers[0] ? {
+            id: event.fundraisers[0].id,
+            title: event.fundraisers[0].title,
+            goalAmount: event.fundraisers[0].goalAmount,
+            currentAmount: event.fundraisers[0].currentAmount,
+            pendingCount: event.fundraisers[0].donations.filter((d) => d.approvalStatus === "PENDING").length,
+          } : null}
+          onCreated={fetchEvent}
+        />
+        </div>
       )}
 
       {activeTab === "invites" && (
@@ -405,11 +480,132 @@ export default function EventDetailPage() {
         />
       )}
 
-      {activeTab === "seating" && (
-        <SeatingChartWrapper
-          event={event}
-          onRefresh={fetchEvent}
-        />
+      {activeTab === "notices" && (
+        <div className="max-w-2xl space-y-3">
+          {totalNoticeCount === 0 ? (
+            <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 flex items-center gap-2">
+              <span>✓</span>
+              <span>No notices — everything looks good!</span>
+            </div>
+          ) : (
+            <>
+              {placeholderCount > 0 && (
+                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <div className="flex items-start gap-2">
+                    <span>⚠</span>
+                    <span className="font-medium">{placeholderCount} seat{placeholderCount !== 1 ? "s" : ""} still need names — follow up with sponsors to confirm attendees</span>
+                  </div>
+                </div>
+              )}
+              {unfulfilledSeatingRequests.length > 0 && (
+                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <div className="flex items-start gap-2">
+                    <span>⚠</span>
+                    <div>
+                      <p className="font-medium">{unfulfilledSeatingRequests.length} special seating request{unfulfilledSeatingRequests.length !== 1 ? "s" : ""} not yet placed:</p>
+                      <ul className="mt-1.5 space-y-0.5 text-xs">
+                        {unfulfilledSeatingRequests.map((i) => (
+                          <li key={i.id}>
+                            <span className="font-medium">{i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown"}</span>
+                            {" — "}&ldquo;{i.seatingRequest}&rdquo;
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {unpaidRegular.length > 0 && (
+                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <div className="flex items-start gap-2">
+                    <span>⚠</span>
+                    <div>
+                      <p className="font-medium">{unpaidRegular.length} {unpaidRegular.length !== 1 ? "people have" : "person has"} RSVP&apos;d Yes with a regular ticket but {unpaidRegular.length !== 1 ? "have" : "has"} not paid:</p>
+                      <ul className="mt-1.5 space-y-0.5 text-xs">
+                        {unpaidRegular.map((i) => (
+                          <li key={i.id} className="font-medium">
+                            {i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown"}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {unfulfilledTableRequests.length > 0 && (
+                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                  <div className="flex items-start gap-2">
+                    <span>⚠</span>
+                    <div>
+                      <p className="font-medium">{unfulfilledTableRequests.length} guest{unfulfilledTableRequests.length !== 1 ? "s are" : " is"} not seated with their requested group:</p>
+                      <ul className="mt-1.5 space-y-0.5 text-xs">
+                        {unfulfilledTableRequests.map((i) => (
+                          <li key={i.id}>
+                            <span className="font-medium">{i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown"}</span>
+                            {" — requested: "}{i.tableRequest}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {seatingEverOpened && (
+        <div style={{ display: activeTab === "seating" ? "block" : "none" }}>
+          <SeatingChartWrapper
+            event={event}
+            onRefresh={fetchEvent}
+          />
+        </div>
+      )}
+
+      {showExportModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl p-6 w-80">
+            <h2 className="text-base font-semibold text-gray-900 mb-1">Export Emails</h2>
+            <p className="text-sm text-gray-500 mb-4">Select which RSVP statuses to include:</p>
+            <div className="space-y-2 mb-6">
+              {(["YES", "NO", "MAYBE", "PENDING"] as const).map((status) => {
+                const labels = { YES: "Yes", NO: "No", MAYBE: "Maybe", PENDING: "Pending" };
+                const count = event.invites.filter(
+                  (i) => i.rsvpStatus === status && i.person && (i.person.email1 || i.person.email2)
+                ).length;
+                return (
+                  <label key={status} className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={exportStatuses[status]}
+                      onChange={(e) => setExportStatuses((s) => ({ ...s, [status]: e.target.checked }))}
+                      className="rounded text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700">{labels[status]}</span>
+                    <span className="text-xs text-gray-400 ml-auto">{count} with email</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                onClick={() => setShowExportModal(false)}
+                className="px-4 py-2 text-sm border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={exportEmailsCSV}
+                disabled={!Object.values(exportStatuses).some(Boolean)}
+                className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Download CSV
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

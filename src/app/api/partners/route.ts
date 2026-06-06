@@ -12,7 +12,7 @@ export async function GET(request: Request) {
   try {
     const officeFilter = await getOfficeFilterFromRequest(request);
     const partners = await prisma.partner.findMany({
-      where: officeFilter,
+      where: { ...officeFilter, status: "ACTIVE" },
       include: {
         organizationType: true,
         partnerRoles: {

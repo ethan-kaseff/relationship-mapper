@@ -17,8 +17,38 @@ export async function GET(
       where: { id },
       include: {
         invites: {
-          include: { person: true },
+          include: {
+            person: {
+              include: {
+                partnerRoles: {
+                  include: {
+                    partner: {
+                      include: {
+                        organizationType: {
+                          select: {
+                            typeName: true,
+                            officeColors: { select: { officeId: true, color: true } },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
           orderBy: { createdAt: "asc" },
+        },
+        fundraisers: {
+          select: {
+            id: true,
+            title: true,
+            goalAmount: true,
+            currentAmount: true,
+            _count: { select: { donations: true } },
+            donations: { select: { id: true, peopleId: true, approvalStatus: true } },
+          },
+          take: 1,
         },
       },
     });

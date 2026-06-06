@@ -6,13 +6,23 @@ export const createDonationSchema = z.object({
   donorEmail: z.string().email().max(300).optional().nullable(),
   peopleId: z.string().uuid().optional().nullable(),
   isAnonymous: z.boolean().optional(),
-  paymentMethod: z.enum(["stripe", "cash", "check", "other"]).optional(),
+  paymentMethod: z.enum(["stripe", "cash", "check", "ach", "online", "pledge", "other"]).optional(),
   tributeType: z.enum(["in_honor_of", "in_memory_of"]).optional().nullable(),
   tributeName: z.string().max(200).optional().nullable(),
   isTaxDeductible: z.boolean().optional(),
   taxDeductibleAmount: z.number().int().min(0).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
+  group: z.string().max(200).optional().nullable(),
   donatedAt: z.string().optional().nullable(),
+  sponsorshipLevelId: z.string().uuid().optional().nullable(),
+  partnerId: z.string().uuid().optional().nullable(),
+  sponsoredSeats: z.number().int().min(0).optional().nullable(),
+  seatsUsed: z.number().int().min(0).optional().nullable(),
+});
+
+export const updateDonationSeatsSchema = z.object({
+  seatsUsed: z.number().int().min(0).nullable(),
+  sponsoredSeats: z.number().int().min(0).optional().nullable(),
 });
 
 export const updateDonationApprovalSchema = z.object({

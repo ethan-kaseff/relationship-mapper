@@ -24,7 +24,9 @@ export async function GET(request: Request) {
             partner: true,
           },
         },
-        relationshipType: true,
+        relationshipTypes: {
+          include: { relationshipType: true },
+        },
       },
     });
     return NextResponse.json(relationships);
@@ -43,7 +45,6 @@ export async function POST(request: Request) {
   try {
     const data = validation.data;
 
-    // If targetPersonId not provided, look it up from the partner role
     let targetPersonId = data.targetPersonId;
     if (!targetPersonId && data.partnerRoleId) {
       const role = await prisma.partnerRole.findUnique({
@@ -64,10 +65,13 @@ export async function POST(request: Request) {
         peopleId: data.peopleId,
         targetPersonId,
         partnerRoleId: data.partnerRoleId || null,
-        relationshipTypeId: data.relationshipTypeId,
-        lastReviewedDate: data.lastReviewedDate
-          ? new Date(data.lastReviewedDate)
-          : null,
+        lastReviewedDate: data.lastReviewedDate ? new Date(data.lastReviewedDate) : null,
+        relationshipTypes: {
+          create: data.relationshipTypeIds.map((id) => ({ relationshipTypeId: id })),
+        },
+      },
+      include: {
+        relationshipTypes: { include: { relationshipType: true } },
       },
     });
     return NextResponse.json(relationship, { status: 201 });

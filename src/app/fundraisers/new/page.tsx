@@ -15,6 +15,7 @@ export default function NewFundraiserPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [events, setEvents] = useState<EventOption[]>([]);
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -126,7 +127,7 @@ export default function NewFundraiserPage() {
               value={form.title}
               onChange={(e) => {
                 handleChange(e);
-                if (!form.slug) {
+                if (!slugManuallyEdited) {
                   setForm((prev) => ({ ...prev, slug: autoSlug(e.target.value) }));
                 }
               }}
@@ -145,7 +146,7 @@ export default function NewFundraiserPage() {
                 name="slug"
                 required
                 value={form.slug}
-                onChange={handleChange}
+                onChange={(e) => { setSlugManuallyEdited(true); handleChange(e); }}
                 placeholder="my-fundraiser"
                 className="flex-1 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />

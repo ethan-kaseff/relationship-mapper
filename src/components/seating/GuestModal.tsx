@@ -4,11 +4,13 @@ import { useState, useEffect } from 'react';
 import { SeatingGuest, Table } from '@/types/seating';
 import { MEAL_OPTIONS, DIETARY_OPTIONS } from '@/lib/seating-constants';
 
+interface DietaryOptionRecord { id: string; name: string; }
+
 interface GuestModalProps {
   guest: SeatingGuest | null;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updates: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null }) => void;
+  onSave: (updates: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null; ticketType: string; seatingRequest: string; tableRequest: string }) => void;
   existingGroups?: string[];
   tables?: Table[];
 }
@@ -19,6 +21,19 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
   const [dietary, setDietary] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [tableId, setTableId] = useState<string | null>(null);
+  const [ticketType, setTicketType] = useState('Regular');
+  const [seatingRequest, setSeatingRequest] = useState('');
+  const [tableRequest, setTableRequest] = useState('');
+  const [customDietaryOptions, setCustomDietaryOptions] = useState<DietaryOptionRecord[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetch('/api/lookup/dietary-options')
+        .then((r) => r.json())
+        .then((data) => setCustomDietaryOptions(Array.isArray(data) ? data : []))
+        .catch(() => {});
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (guest) {
@@ -27,13 +42,16 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
       setDietary(guest.dietary);
       setNotes(guest.notes || '');
       setTableId(guest.tableId);
+      setTicketType(guest.ticketType || 'Regular');
+      setSeatingRequest('');
+      setTableRequest('');
     }
   }, [guest, isOpen]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!guest) return;
-    onSave({ id: guest.id, group: group.trim(), meal, dietary, notes: notes.trim(), tableId });
+    onSave({ id: guest.id, group: group.trim(), meal, dietary, notes: notes.trim(), tableId, ticketType, seatingRequest: seatingRequest.trim(), tableRequest: tableRequest.trim() });
     onClose();
   };
 
@@ -46,8 +64,8 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
   if (!isOpen || !guest) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 overflow-auto">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto flex-shrink-0">
         <div className="p-6">
           <h2 className="text-xl font-semibold text-gray-900 mb-1">Edit Guest Details</h2>
           <p className="text-sm text-gray-500 mb-4">{guest.name}</p>
@@ -100,6 +118,46 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
             </div>
 
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ticket Type</label>
+              <select
+                value={ticketType}
+                onChange={(e) => setTicketType(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="Regular">Regular</option>
+                <option value="Comp">Comp</option>
+                <option value="Press">Press</option>
+                <option value="Staff">Staff</option>
+                <option value="VIP">VIP</option>
+              </select>
+            </div>
+
+            {existingGroups.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Table Request</label>
+                <select
+                  value={tableRequest}
+                  onChange={(e) => setTableRequest(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                >
+                  <option value="">No preference</option>
+                  {existingGroups.map((g) => <option key={g} value={g}>{g}</option>)}
+                </select>
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Special Request</label>
+              <input
+                type="text"
+                value={seatingRequest}
+                onChange={(e) => setSeatingRequest(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent text-sm"
+                placeholder="e.g., accessibility needs, near the stage..."
+              />
+            </div>
+
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
               <textarea
                 value={notes}
@@ -113,7 +171,7 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Dietary Restrictions</label>
               <div className="flex flex-wrap gap-2">
-                {DIETARY_OPTIONS.map((option) => (
+                {[...DIETARY_OPTIONS, ...customDietaryOptions.map((o) => o.name).filter((n) => !DIETARY_OPTIONS.includes(n))].map((option) => (
                   <button
                     key={option}
                     type="button"

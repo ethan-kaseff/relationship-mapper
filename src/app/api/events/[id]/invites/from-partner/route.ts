@@ -16,7 +16,9 @@ export async function POST(
 
   try {
     const { id: eventId } = await params;
-    const { partnerId, roleIds } = validation.data;
+    const { partnerId, roleIds, rsvpStatus = "PENDING", meal = "Standard", dietary = [], ticketType = "Regular", seatingRequest, tableRequest, sponsoredSeats, seatsUsing } = validation.data;
+    const rsvpDate = rsvpStatus !== "PENDING" ? new Date() : null;
+    const sharedFields = { rsvpStatus, meal, dietary, ticketType, ...(seatingRequest ? { seatingRequest } : {}), ...(tableRequest ? { tableRequest } : {}), ...(rsvpDate ? { rsvpDate } : {}), ...(sponsoredSeats ? { sponsoredSeats } : {}) };
 
     // Get partner name for group field
     const partner = await prisma.partner.findUnique({
@@ -26,7 +28,7 @@ export async function POST(
     const group = partner?.organizationName || "";
 
     // Get partner roles, optionally filtered
-    const where: Record<string, unknown> = { partnerId, peopleId: { not: null } };
+    const where: Record<string, unknown> = { partnerId, peopleId: { not: null }, person: { status: "ACTIVE" } };
     if (roleIds && roleIds.length > 0) {
       where.id = { in: roleIds };
     }
@@ -42,33 +44,54 @@ export async function POST(
         .filter((id): id is string => id !== null)
     )];
 
-    if (peopleIds.length === 0) {
+    let created = 0;
+    let skipped = 0;
+
+    if (peopleIds.length === 0 && !seatsUsing) {
       return badRequest("No people found for the selected partner/roles");
     }
 
-    // Check for existing invites
-    const existing = await prisma.eventInvite.findMany({
-      where: { eventId, peopleId: { in: peopleIds } },
-      select: { peopleId: true },
-    });
-    const existingIds = new Set(existing.map((e) => e.peopleId));
-    const newIds = peopleIds.filter((pid) => !existingIds.has(pid));
+    if (peopleIds.length > 0) {
+      // Check for existing invites
+      const existing = await prisma.eventInvite.findMany({
+        where: { eventId, peopleId: { in: peopleIds } },
+        select: { peopleId: true },
+      });
+      const existingIds = new Set(existing.map((e) => e.peopleId));
+      const newIds = peopleIds.filter((pid) => !existingIds.has(pid));
+      skipped = existingIds.size;
 
-    if (newIds.length === 0) {
-      return NextResponse.json({ created: 0, skipped: existingIds.size });
+      if (newIds.length > 0) {
+        const result = await prisma.eventInvite.createMany({
+          data: newIds.map((peopleId) => ({ eventId, peopleId, group, ...sharedFields })),
+          skipDuplicates: true,
+        });
+        created = result.count;
+      }
     }
 
-    const invites = await prisma.eventInvite.createMany({
-      data: newIds.map((peopleId) => ({
-        eventId,
-        peopleId,
-        group,
-      })),
-      skipDuplicates: true,
-    });
+    // Add placeholder invites for remaining seats being used
+    let placeholders = 0;
+    if (seatsUsing && seatsUsing > peopleIds.length) {
+      placeholders = seatsUsing - peopleIds.length;
+      await prisma.eventInvite.createMany({
+        data: Array.from({ length: placeholders }, () => ({
+          eventId,
+          peopleId: null,
+          isPlaceholder: true,
+          group,
+          ticketType,
+          ...(sponsoredSeats ? { sponsoredSeats } : {}),
+        })),
+      });
+    }
+
+    if (created === 0 && placeholders === 0 && skipped > 0) {
+      return NextResponse.json({ created: 0, skipped, placeholders: 0 });
+    }
 
     return NextResponse.json(
-      { created: invites.count, skipped: existingIds.size },
+      { created, skipped, placeholders },
       { status: 201 }
     );
   } catch (error) {

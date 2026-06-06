@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>JCRB Platform — Integration Overview</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: #0f172a;
+    color: #1e293b;
+    height: 100vh;
+    overflow: hidden;
+  }
+
+  .deck {
+    width: 100vw;
+    height: 100vh;
+    position: relative;
+  }
+
+  .slide {
+    display: none;
+    width: 100%;
+    height: 100%;
+    padding: 48px 64px;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    background: #f8fafc;
+    position: absolute;
+    top: 0; left: 0;
+  }
+  .slide.active { display: flex; }
+
+  /* Slide variants */
+  .slide.dark {
+    background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+    color: white;
+  }
+  .slide.light { background: #f8fafc; }
+
+  h1 { font-size: 2.6rem; font-weight: 800; line-height: 1.15; margin-bottom: 12px; }
+  h2 { font-size: 1.9rem; font-weight: 700; margin-bottom: 8px; }
+  .subtitle { font-size: 1.1rem; opacity: .75; margin-bottom: 32px; }
+  p { font-size: 1rem; line-height: 1.6; max-width: 700px; }
+
+  /* Navigation */
+  .nav {
+    position: fixed;
+    bottom: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    z-index: 100;
+  }
+  .nav button {
+    background: white;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
+    padding: 8px 22px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #1e40af;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,.12);
+    transition: background .15s;
+  }
+  .nav button:hover { background: #e0e7ff; }
+  .nav button:disabled { opacity: .3; cursor: default; }
+  .nav .counter { font-size: 0.85rem; color: #94a3b8; min-width: 60px; text-align: center; }
+
+  /* Slide number badge */
+  .slide-num {
+    position: fixed;
+    top: 18px;
+    right: 28px;
+    font-size: 0.8rem;
+    color: #94a3b8;
+    z-index: 100;
+  }
+
+  /* ── Diagram styles ── */
+  svg text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+  .box-app    { fill: #1e40af; }
+  .box-zeffy  { fill: #7c3aed; }
+  .box-stripe { fill: #059669; }
+  .box-qb     { fill: #d97706; }
+  .box-donor  { fill: #0e7490; }
+  .box-label  { fill: white; font-weight: 700; font-size: 15px; }
+  .box-sub    { fill: rgba(255,255,255,.8); font-size: 11px; }
+  .arrow      { stroke: #64748b; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+  .arrow-blue { stroke: #2563eb; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead-blue); }
+  .arrow-purple { stroke: #7c3aed; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead-purple); }
+  .arrow-green  { stroke: #059669; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead-green); }
+  .arrow-amber  { stroke: #d97706; stroke-width: 2.5; fill: none; marker-end: url(#arrowhead-amber); }
+  .label-tag { font-size: 11px; fill: #475569; font-weight: 600; }
+  .label-tag-blue   { fill: #1d4ed8; }
+  .label-tag-purple { fill: #6d28d9; }
+  .label-tag-green  { fill: #047857; }
+  .label-tag-amber  { fill: #b45309; }
+
+  /* Bullet list slide */
+  .bullets {
+    text-align: left;
+    max-width: 680px;
+    width: 100%;
+  }
+  .bullets li {
+    font-size: 1.05rem;
+    padding: 10px 0;
+    border-bottom: 1px solid #e2e8f0;
+    list-style: none;
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .bullets li:last-child { border-bottom: none; }
+  .dot {
+    display: inline-block;
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    margin-top: 6px;
+    flex-shrink: 0;
+  }
+
+  /* Pill badges */
+  .badge {
+    display: inline-block;
+    padding: 3px 12px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: .03em;
+    margin-bottom: 20px;
+  }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+  .badge-green  { background: #d1fae5; color: #065f46; }
+  .badge-amber  { background: #fef3c7; color: #92400e; }
+
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    width: 100%;
+    max-width: 820px;
+    text-align: left;
+  }
+  .card {
+    background: white;
+    border-radius: 12px;
+    padding: 20px 24px;
+    box-shadow: 0 2px 8px rgba(0,0,0,.07);
+    border-top: 4px solid;
+  }
+  .card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 6px; }
+  .card p  { font-size: 0.88rem; color: #475569; line-height: 1.5; }
+  .card.blue   { border-color: #2563eb; }
+  .card.purple { border-color: #7c3aed; }
+  .card.green  { border-color: #059669; }
+  .card.amber  { border-color: #d97706; }
+</style>
+</head>
+<body>
+
+<div class="deck" id="deck">
+
+  <!-- ── Slide 1: Title ── -->
+  <div class="slide dark active">
+    <div style="font-size:3.5rem; margin-bottom:16px;">🏛️</div>
+    <h1>Your Relationship &amp;<br>Fundraising Platform</h1>
+    <p class="subtitle" style="font-size:1.2rem; margin-top:12px;">How the app connects to Zeffy, Stripe &amp; QuickBooks</p>
+    <p style="color:rgba(255,255,255,.55); font-size:.85rem; margin-top:48px;">Press → or click Next to begin</p>
+  </div>
+
+  <!-- ── Slide 2: What the app does ── -->
+  <div class="slide light">
+    <h2 style="color:#1e3a5f; margin-bottom:4px;">What does the platform do?</h2>
+    <p class="subtitle" style="color:#64748b;">One place for all your people, relationships &amp; fundraising</p>
+    <ul class="bullets">
+      <li><span class="dot" style="background:#1e40af;"></span><div><strong>People &amp; Partners</strong> — track everyone your organization works with and the relationships between them</div></li>
+      <li><span class="dot" style="background:#7c3aed;"></span><div><strong>Events</strong> — manage invites, RSVPs, seating charts, and meal selections</div></li>
+      <li><span class="dot" style="background:#059669;"></span><div><strong>Fundraisers</strong> — run donation campaigns, accept online payments, track progress toward goals</div></li>
+      <li><span class="dot" style="background:#d97706;"></span><div><strong>Integrations</strong> — automatically sync data between Zeffy, Stripe, and QuickBooks so nothing falls through the cracks</div></li>
+    </ul>
+  </div>
+
+  <!-- ── Slide 3: Ecosystem overview diagram ── -->
+  <div class="slide light">
+    <h2 style="color:#1e3a5f; margin-bottom:4px;">The Ecosystem at a Glance</h2>
+    <p class="subtitle" style="color:#64748b;">How the five systems work together</p>
+
+    <svg viewBox="0 0 780 420" width="780" height="420" style="max-width:100%;">
+      <defs>
+        <marker id="arrowhead-bank" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#0e7490"/>
+        </marker>
+        <marker id="arrowhead-purple" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#7c3aed"/>
+        </marker>
+        <marker id="arrowhead-green" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#059669"/>
+        </marker>
+        <marker id="arrowhead-amber" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0, 8 3, 0 6" fill="#d97706"/>
+        </marker>
+      </defs>
+
+      <!-- Zeffy (top left) -->
+      <rect x="20" y="130" width="150" height="90" rx="14" class="box-zeffy"/>
+      <text x="95" y="167" text-anchor="middle" class="box-label">Zeffy</text>
+      <text x="95" y="185" text-anchor="middle" class="box-sub">Free fundraising</text>
+      <text x="95" y="201" text-anchor="middle" class="box-sub">platform</text>
+
+      <!-- App (center) -->
+      <rect x="250" y="130" width="210" height="90" rx="14" class="box-app"/>
+      <text x="355" y="162" text-anchor="middle" class="box-label">JCRB Platform</text>
+      <text x="355" y="180" text-anchor="middle" class="box-sub">People · Events · Fundraisers</text>
+      <text x="355" y="196" text-anchor="middle" class="box-sub">Public donation page</text>
+
+      <!-- Arrow Zeffy ↔ App -->
+      <path d="M172 158 L248 158" stroke="#7c3aed" stroke-width="2" fill="none" marker-end="url(#arrowhead-purple)"/>
+      <text x="208" y="151" text-anchor="middle" class="label-tag label-tag-purple">Import donations</text>
+      <path d="M250 182 L174 182" stroke="#7c3aed" stroke-width="2" fill="none" marker-end="url(#arrowhead-purple)"/>
+      <text x="210" y="197" text-anchor="middle" class="label-tag label-tag-purple">Export email lists</text>
+
+      <!-- QuickBooks (top right) -->
+      <rect x="545" y="130" width="195" height="90" rx="14" class="box-qb"/>
+      <text x="642" y="167" text-anchor="middle" class="box-label">QuickBooks</text>
+      <text x="642" y="185" text-anchor="middle" class="box-sub">Accounting</text>
+      <text x="642" y="201" text-anchor="middle" class="box-sub">(cash/check only)</text>
+
+      <!-- Arrow App → QB (manual donations) -->
+      <path d="M461 162 L543 162" stroke="#d97706" stroke-width="2" fill="none" marker-end="url(#arrowhead-amber)"/>
+      <text x="501" y="153" text-anchor="middle" class="label-tag label-tag-amber">Sync manual</text>
+      <text x="501" y="167" text-anchor="middle" class="label-tag label-tag-amber">donations</text>
+
+      <!-- Stripe (bottom center) -->
+      <rect x="180" y="295" width="200" height="65" rx="14" class="box-stripe"/>
+      <text x="280" y="323" text-anchor="middle" class="box-label">Stripe</text>
+      <text x="280" y="341" text-anchor="middle" class="box-sub">Online credit card payments</text>
+
+      <!-- Arrow Stripe ↔ App -->
+      <path d="M300 293 L340 222" stroke="#059669" stroke-width="2" fill="none" marker-end="url(#arrowhead-green)"/>
+      <text x="352" y="262" text-anchor="middle" class="label-tag label-tag-green">Payment confirmed</text>
+      <path d="M328 222 L295 293" stroke="#059669" stroke-width="2" fill="none" marker-end="url(#arrowhead-green)"/>
+      <text x="278" y="262" text-anchor="middle" class="label-tag label-tag-green">Donor donates</text>
+
+      <!-- Bank (bottom right) -->
+      <rect x="440" y="295" width="160" height="65" rx="14" fill="#0e7490"/>
+      <text x="520" y="323" text-anchor="middle" fill="white" font-weight="700" font-size="14">Your Bank</text>
+      <text x="520" y="341" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">Receives payouts</text>
+
+      <!-- Arrow Zeffy → QB (arcs above the App box) -->
+      <path d="M170 142 Q357 68 543 158" stroke="#0e7490" stroke-width="2" stroke-dasharray="6,3" fill="none" marker-end="url(#arrowhead-bank)"/>
+      <text x="357" y="80" text-anchor="middle" fill="#0e7490" font-size="11" font-weight="600">Creates QB transaction</text>
+
+      <!-- Arrow Zeffy → Bank (curves below the Stripe box) -->
+      <path d="M95 222 C 95 405 400 405 438 335" stroke="#0e7490" stroke-width="2" stroke-dasharray="6,3" fill="none" marker-end="url(#arrowhead-bank)"/>
+      <text x="220" y="413" text-anchor="middle" fill="#0e7490" font-size="11" font-weight="600">Zeffy pays out to bank</text>
+
+      <!-- Arrow Stripe → Bank -->
+      <path d="M382 328 L438 328" stroke="#0e7490" stroke-width="2" stroke-dasharray="6,3" fill="none" marker-end="url(#arrowhead-bank)"/>
+      <text x="410" y="320" text-anchor="middle" fill="#0e7490" font-size="11" font-weight="600">payout</text>
+
+      <!-- Arrow Bank → QB -->
+      <path d="M560 293 L620 222" stroke="#0e7490" stroke-width="2" stroke-dasharray="6,3" fill="none" marker-end="url(#arrowhead-bank)"/>
+      <text x="618" y="262" text-anchor="start" fill="#0e7490" font-size="11" font-weight="600">QB sees</text>
+      <text x="618" y="276" text-anchor="start" fill="#0e7490" font-size="11" font-weight="600">deposit</text>
+    </svg>
+  </div>
+
+  <!-- ── Slide 4: Stripe deep dive ── -->
+  <div class="slide light">
+    <span class="badge badge-green">STRIPE</span>
+    <h2 style="color:#065f46;">Online Donation Payments</h2>
+    <p class="subtitle" style="color:#64748b;">How a donor's credit card payment reaches your fundraiser</p>
+
+    <svg viewBox="0 0 720 220" width="720" height="220" style="max-width:100%; margin-bottom:8px;">
+      <defs>
+        <marker id="ah-g" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#059669"/>
+        </marker>
+      </defs>
+      <!-- Step boxes -->
+      <rect x="10"  y="70" width="130" height="70" rx="10" fill="#0e7490"/>
+      <text x="75"  y="101" text-anchor="middle" fill="white" font-weight="700" font-size="13">Donor visits</text>
+      <text x="75"  y="119" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">donation page</text>
+
+      <rect x="165" y="70" width="130" height="70" rx="10" fill="#059669"/>
+      <text x="230" y="101" text-anchor="middle" fill="white" font-weight="700" font-size="13">Stripe checkout</text>
+      <text x="230" y="119" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">secure card entry</text>
+
+      <rect x="320" y="70" width="130" height="70" rx="10" fill="#059669"/>
+      <text x="385" y="101" text-anchor="middle" fill="white" font-weight="700" font-size="13">Payment</text>
+      <text x="385" y="119" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">confirmed</text>
+
+      <rect x="475" y="70" width="130" height="70" rx="10" fill="#1e40af"/>
+      <text x="540" y="101" text-anchor="middle" fill="white" font-weight="700" font-size="13">Donation record</text>
+      <text x="540" y="119" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">saved in app</text>
+
+      <rect x="630" y="70" width="80" height="70" rx="10" fill="#1e40af"/>
+      <text x="670" y="101" text-anchor="middle" fill="white" font-weight="700" font-size="13">Total</text>
+      <text x="670" y="119" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">updated</text>
+
+      <!-- Arrows -->
+      <line x1="141" y1="105" x2="163" y2="105" stroke="#059669" stroke-width="2.5" marker-end="url(#ah-g)"/>
+      <line x1="296" y1="105" x2="318" y2="105" stroke="#059669" stroke-width="2.5" marker-end="url(#ah-g)"/>
+      <line x1="451" y1="105" x2="473" y2="105" stroke="#059669" stroke-width="2.5" marker-end="url(#ah-g)"/>
+      <line x1="606" y1="105" x2="628" y2="105" stroke="#059669" stroke-width="2.5" marker-end="url(#ah-g)"/>
+
+      <!-- Step labels -->
+      <text x="75"  y="160" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">① Choose amount</text>
+      <text x="230" y="160" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">② Stripe handles card</text>
+      <text x="385" y="160" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">③ Webhook fires</text>
+      <text x="540" y="160" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">④ Donor matched</text>
+      <text x="670" y="160" text-anchor="middle" fill="#475569" font-size="11" font-weight="600">⑤ Done</text>
+    </svg>
+
+    <div class="two-col" style="max-width:680px;">
+      <div class="card green">
+        <h3 style="color:#065f46;">What Stripe handles</h3>
+        <p>All credit card processing — we never touch card numbers. Stripe also manages recurring (monthly/yearly) donations automatically.</p>
+      </div>
+      <div class="card blue">
+        <h3 style="color:#1e40af;">What the app handles</h3>
+        <p>Records the donation, matches the donor to a Person by email, and updates the fundraiser total in real time.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 5: Zeffy deep dive ── -->
+  <div class="slide light">
+    <span class="badge badge-purple">ZEFFY</span>
+    <h2 style="color:#5b21b6;">Importing Zeffy Donations</h2>
+    <p class="subtitle" style="color:#64748b;">Two ways Zeffy data gets into the app</p>
+
+    <svg viewBox="0 0 720 200" width="720" height="200" style="max-width:100%; margin-bottom:12px;">
+      <defs>
+        <marker id="ah-p" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#7c3aed"/>
+        </marker>
+      </defs>
+
+      <!-- Manual Sync row -->
+      <text x="20" y="45" fill="#7c3aed" font-size="13" font-weight="700">Manual Sync</text>
+      <rect x="20"  y="55" width="140" height="55" rx="10" fill="#7c3aed"/>
+      <text x="90"  y="79" text-anchor="middle" fill="white" font-weight="700" font-size="13">Click "Sync Now"</text>
+      <text x="90"  y="96" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">in Settings</text>
+      <line x1="161" y1="82" x2="195" y2="82" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#ah-p)"/>
+
+      <rect x="197" y="55" width="140" height="55" rx="10" fill="#7c3aed"/>
+      <text x="267" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="13">Zeffy API</text>
+      <text x="267" y="96" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">fetches all payments</text>
+      <line x1="338" y1="82" x2="372" y2="82" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#ah-p)"/>
+
+      <rect x="374" y="55" width="155" height="55" rx="10" fill="#1e40af"/>
+      <text x="451" y="79" text-anchor="middle" fill="white" font-weight="700" font-size="13">New donations</text>
+      <text x="451" y="96" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">saved in app</text>
+
+      <!-- Webhook row -->
+      <text x="20" y="145" fill="#7c3aed" font-size="13" font-weight="700">Automatic (Webhook)</text>
+      <rect x="20"  y="155" width="140" height="55" rx="10" fill="#4c1d95"/>
+      <text x="90"  y="179" text-anchor="middle" fill="white" font-weight="700" font-size="13">Donor pays</text>
+      <text x="90"  y="196" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">on Zeffy</text>
+      <line x1="161" y1="182" x2="195" y2="182" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#ah-p)"/>
+
+      <rect x="197" y="155" width="140" height="55" rx="10" fill="#4c1d95"/>
+      <text x="267" y="179" text-anchor="middle" fill="white" font-weight="700" font-size="13">Zeffy notifies</text>
+      <text x="267" y="196" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">app instantly</text>
+      <line x1="338" y1="182" x2="372" y2="182" stroke="#7c3aed" stroke-width="2.5" marker-end="url(#ah-p)"/>
+
+      <rect x="374" y="155" width="155" height="55" rx="10" fill="#1e40af"/>
+      <text x="451" y="179" text-anchor="middle" fill="white" font-weight="700" font-size="13">Donation recorded</text>
+      <text x="451" y="196" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">in real time</text>
+
+      <!-- Note about idempotency -->
+      <rect x="560" y="55" width="150" height="155" rx="10" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.5"/>
+      <text x="635" y="80"  text-anchor="middle" fill="#5b21b6" font-size="12" font-weight="700">Smart Matching</text>
+      <text x="635" y="100" text-anchor="middle" fill="#4c1d95" font-size="11">✓ Donor matched</text>
+      <text x="635" y="118" text-anchor="middle" fill="#4c1d95" font-size="11">  by email</text>
+      <text x="635" y="140" text-anchor="middle" fill="#4c1d95" font-size="11">✓ Duplicates</text>
+      <text x="635" y="158" text-anchor="middle" fill="#4c1d95" font-size="11">  skipped</text>
+      <text x="635" y="178" text-anchor="middle" fill="#4c1d95" font-size="11">✓ New campaigns</text>
+      <text x="635" y="196" text-anchor="middle" fill="#4c1d95" font-size="11">  auto-created</text>
+    </svg>
+  </div>
+
+  <!-- ── Slide 6: QuickBooks deep dive ── -->
+  <div class="slide light">
+    <span class="badge badge-amber">QUICKBOOKS</span>
+    <h2 style="color:#92400e;">Syncing Donations to QuickBooks</h2>
+    <p class="subtitle" style="color:#64748b;">Only manual donations sync — Stripe &amp; Zeffy go to QB via bank deposit</p>
+
+    <svg viewBox="0 0 740 220" width="740" height="220" style="max-width:100%; margin-bottom:8px;">
+      <defs>
+        <marker id="ah-a" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#d97706"/>
+        </marker>
+        <marker id="ah-g2" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#6b7280"/>
+        </marker>
+      </defs>
+
+      <!-- Zeffy row -->
+      <rect x="20"  y="20" width="120" height="50" rx="8" fill="#7c3aed"/>
+      <text x="80"  y="42" text-anchor="middle" fill="white" font-weight="700" font-size="12">Zeffy</text>
+      <text x="80"  y="58" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="10">donations</text>
+      <line x1="141" y1="45" x2="178" y2="45" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ah-g2)"/>
+      <rect x="180" y="20" width="140" height="50" rx="8" fill="#6b7280"/>
+      <text x="250" y="42" text-anchor="middle" fill="white" font-weight="700" font-size="12">Bank deposit</text>
+      <text x="250" y="58" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="10">Zeffy pays out</text>
+      <line x1="321" y1="45" x2="358" y2="45" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ah-g2)"/>
+      <rect x="360" y="20" width="130" height="50" rx="8" fill="#d97706"/>
+      <text x="425" y="42" text-anchor="middle" fill="white" font-weight="700" font-size="12">QuickBooks</text>
+      <text x="425" y="58" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="10">sees total deposit</text>
+      <text x="600" y="50" text-anchor="middle" fill="#92400e" font-size="11" font-weight="600">QB gets the total</text>
+
+      <!-- Stripe row -->
+      <rect x="20"  y="90" width="120" height="50" rx="8" fill="#059669"/>
+      <text x="80"  y="112" text-anchor="middle" fill="white" font-weight="700" font-size="12">Stripe</text>
+      <text x="80"  y="128" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="10">donations</text>
+      <line x1="141" y1="115" x2="178" y2="115" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ah-g2)"/>
+      <rect x="180" y="90" width="140" height="50" rx="8" fill="#6b7280"/>
+      <text x="250" y="112" text-anchor="middle" fill="white" font-weight="700" font-size="12">Bank deposit</text>
+      <text x="250" y="128" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="10">Stripe pays out</text>
+      <line x1="321" y1="115" x2="358" y2="115" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#ah-g2)"/>
+      <rect x="360" y="90" width="130" height="50" rx="8" fill="#d97706"/>
+      <text x="425" y="112" text-anchor="middle" fill="white" font-weight="700" font-size="12">QuickBooks</text>
+      <text x="425" y="128" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="10">sees total deposit</text>
+
+      <!-- Manual row -->
+      <rect x="20"  y="160" width="120" height="50" rx="8" fill="#1e40af"/>
+      <text x="80"  y="182" text-anchor="middle" fill="white" font-weight="700" font-size="12">Cash / Check</text>
+      <text x="80"  y="198" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="10">manual donations</text>
+      <line x1="141" y1="185" x2="178" y2="185" stroke="#d97706" stroke-width="2.5" marker-end="url(#ah-a)"/>
+      <rect x="180" y="160" width="140" height="50" rx="8" fill="#1e40af"/>
+      <text x="250" y="182" text-anchor="middle" fill="white" font-weight="700" font-size="12">App syncs to QB</text>
+      <text x="250" y="198" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="10">Sales Receipt</text>
+      <line x1="321" y1="185" x2="358" y2="185" stroke="#d97706" stroke-width="2.5" marker-end="url(#ah-a)"/>
+      <rect x="360" y="160" width="130" height="50" rx="8" fill="#d97706"/>
+      <text x="425" y="182" text-anchor="middle" fill="white" font-weight="700" font-size="12">QuickBooks</text>
+      <text x="425" y="198" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="10">Sales Receipt created</text>
+      <text x="600" y="185" text-anchor="middle" fill="#1e40af" font-size="11" font-weight="600">App syncs these</text>
+
+      <!-- Legend -->
+      <line x1="510" y1="100" x2="540" y2="100" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <text x="545" y="104" fill="#6b7280" font-size="10">via bank</text>
+      <line x1="510" y1="118" x2="540" y2="118" stroke="#d97706" stroke-width="2.5"/>
+      <text x="545" y="122" fill="#d97706" font-size="10">app syncs</text>
+    </svg>
+
+    <div class="two-col" style="max-width:680px;">
+      <div class="card amber">
+        <h3 style="color:#92400e;">Why this split?</h3>
+        <p>Zeffy and Stripe pay out to your bank account — QB sees those as bank deposits automatically. Syncing them again from the app would double-count the money.</p>
+      </div>
+      <div class="card blue">
+        <h3 style="color:#1e40af;">Manual donations</h3>
+        <p>Cash and check donations don't go through a payment processor, so the app syncs those to QB as Sales Receipts. One at a time or all at once with "Sync All to QB."</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 7: Approval workflow ── -->
+  <div class="slide light">
+    <h2 style="color:#1e3a5f;">Donor Matching &amp; Approvals</h2>
+    <p class="subtitle" style="color:#64748b;">How the app links donations to people in your database</p>
+
+    <svg viewBox="0 0 720 210" width="720" height="210" style="max-width:100%; margin-bottom:12px;">
+      <defs>
+        <marker id="ah-n" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+          <polygon points="0 0,8 3,0 6" fill="#64748b"/>
+        </marker>
+      </defs>
+
+      <!-- Donation arrives -->
+      <rect x="20" y="80" width="130" height="55" rx="10" fill="#475569"/>
+      <text x="85" y="104" text-anchor="middle" fill="white" font-weight="700" font-size="13">Donation</text>
+      <text x="85" y="121" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">arrives</text>
+      <line x1="151" y1="107" x2="188" y2="107" stroke="#64748b" stroke-width="2" marker-end="url(#ah-n)"/>
+
+      <!-- Check email -->
+      <rect x="190" y="80" width="150" height="55" rx="10" fill="#0e7490"/>
+      <text x="265" y="104" text-anchor="middle" fill="white" font-weight="700" font-size="13">Check donor email</text>
+      <text x="265" y="121" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">against People records</text>
+
+      <!-- Match found path -->
+      <line x1="341" y1="95" x2="398" y2="75" stroke="#059669" stroke-width="2" marker-end="url(#ah-n)"/>
+      <text x="370" y="74" text-anchor="middle" fill="#059669" font-size="11" font-weight="700">Match found</text>
+
+      <rect x="400" y="45" width="145" height="55" rx="10" fill="#059669"/>
+      <text x="472" y="69" text-anchor="middle" fill="white" font-weight="700" font-size="13">Auto-Approved</text>
+      <text x="472" y="87" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">linked to person</text>
+
+      <!-- No match path -->
+      <line x1="341" y1="120" x2="398" y2="140" stroke="#d97706" stroke-width="2" marker-end="url(#ah-n)"/>
+      <text x="370" y="152" text-anchor="middle" fill="#d97706" font-size="11" font-weight="700">No match</text>
+
+      <rect x="400" y="120" width="145" height="55" rx="10" fill="#d97706"/>
+      <text x="472" y="144" text-anchor="middle" fill="white" font-weight="700" font-size="13">Pending Review</text>
+      <text x="472" y="162" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">goes to Approvals tab</text>
+
+      <!-- Approve/reject -->
+      <line x1="546" y1="147" x2="586" y2="147" stroke="#64748b" stroke-width="2" marker-end="url(#ah-n)"/>
+      <rect x="588" y="120" width="120" height="55" rx="10" fill="#1e40af"/>
+      <text x="648" y="144" text-anchor="middle" fill="white" font-weight="700" font-size="13">Admin reviews</text>
+      <text x="648" y="162" text-anchor="middle" fill="rgba(255,255,255,.8)" font-size="11">Approve or Reject</text>
+    </svg>
+
+    <p style="color:#475569; font-size:.95rem; max-width:640px;">
+      The Dashboard shows a yellow alert whenever there are donations awaiting approval — so nothing gets missed.
+    </p>
+  </div>
+
+  <!-- ── Slide 8: Summary cheat sheet ── -->
+  <div class="slide light">
+    <h2 style="color:#1e3a5f;">Quick Reference</h2>
+    <p class="subtitle" style="color:#64748b; margin-bottom:24px;">Which system does what</p>
+    <div class="two-col" style="max-width:820px;">
+      <div class="card blue">
+        <h3 style="color:#1e40af;">JCRB Platform</h3>
+        <p>People, partners, relationships, events, fundraisers, seating charts, donor history. The central hub — everything else connects here.</p>
+      </div>
+      <div class="card purple">
+        <h3 style="color:#5b21b6;">Zeffy</h3>
+        <p>Free fundraising platform. Donations collected there are imported here automatically via sync or real-time webhook. Email lists can be exported back to Zeffy.</p>
+      </div>
+      <div class="card green">
+        <h3 style="color:#065f46;">Stripe</h3>
+        <p>Processes online credit card donations on your public donation pages. Handles one-time and recurring gifts. We never see card numbers — Stripe does.</p>
+      </div>
+      <div class="card amber">
+        <h3 style="color:#92400e;">QuickBooks</h3>
+        <p>Your accounting system. Zeffy and Stripe reach QB automatically via bank deposit. The app only syncs <strong>manual donations</strong> (cash/check) to QB as Sales Receipts.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Slide 9: Questions ── -->
+  <div class="slide dark">
+    <div style="font-size:3rem; margin-bottom:20px;">🙋</div>
+    <h1>Questions?</h1>
+    <p style="color:rgba(255,255,255,.7); margin-top:16px; max-width:500px; font-size:1.05rem;">
+      The Help page inside the app covers each feature in detail.<br>
+      Go to <strong style="color:white;">Help</strong> in the navigation bar at any time.
+    </p>
+    <p style="color:rgba(255,255,255,.4); font-size:.8rem; margin-top:60px;">
+      jcrb-relationship-mapper.vercel.app
+    </p>
+  </div>
+
+</div><!-- /deck -->
+
+<!-- Navigation -->
+<div class="nav">
+  <button id="prev" onclick="go(-1)" disabled>← Prev</button>
+  <span class="counter" id="counter"></span>
+  <button id="next" onclick="go(1)">Next →</button>
+</div>
+<div class="slide-num" id="slide-num"></div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let cur = 0;
+
+  function update() {
+    slides.forEach((s, i) => s.classList.toggle('active', i === cur));
+    document.getElementById('prev').disabled = cur === 0;
+    document.getElementById('next').disabled = cur === slides.length - 1;
+    document.getElementById('counter').textContent = `${cur + 1} / ${slides.length}`;
+    document.getElementById('slide-num').textContent = `${cur + 1} / ${slides.length}`;
+  }
+
+  function go(dir) {
+    cur = Math.max(0, Math.min(slides.length - 1, cur + dir));
+    update();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') go(1);
+    if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')   go(-1);
+  });
+
+  update();
+</script>
+</body>
+</html>

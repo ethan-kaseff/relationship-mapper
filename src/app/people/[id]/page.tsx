@@ -10,6 +10,10 @@ import ConnectorLinkSection from "@/components/ConnectorLinkSection";
 import AddHappeningResponseForm from "@/components/AddHappeningResponseForm";
 import HappeningResponseRow from "@/components/HappeningResponseRow";
 import { formatCurrency } from "@/lib/currency";
+import PersonNotesSection from "@/components/PersonNotesSection";
+import PeopleStatusSection from "@/components/PeopleStatusSection";
+import TagToggle from "@/components/TagToggle";
+import { isCrossOfficeView } from "@/lib/office-filter";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -36,7 +40,7 @@ export default async function PersonDetailPage({
           relationships: {
             include: {
               person: true,
-              relationshipType: true,
+              relationshipTypes: { include: { relationshipType: true } },
             },
           },
           connections: {
@@ -49,14 +53,14 @@ export default async function PersonDetailPage({
         include: {
           targetPerson: true,
           partnerRole: { include: { partner: true } },
-          relationshipType: true,
+          relationshipTypes: { include: { relationshipType: true } },
         },
       },
       targetOfRelationships: {
         include: {
           person: true,
           partnerRole: { include: { partner: true } },
-          relationshipType: true,
+          relationshipTypes: { include: { relationshipType: true } },
         },
       },
       connections: {
@@ -73,27 +77,34 @@ export default async function PersonDetailPage({
         include: { event: { select: { id: true, title: true, eventDate: true, ticketPrice: true, mealCost: true } } },
         orderBy: { createdAt: "desc" },
       },
-      annualEventTypes: {
-        include: { annualEventType: true },
+      tags: {
+        include: { tag: true },
       },
       donations: {
-        include: { fundraiser: { select: { id: true, title: true } } },
+        include: { fundraiser: { select: { id: true, title: true, eventId: true } } },
         orderBy: { donatedAt: "desc" },
       },
+      personNotes: {
+        include: { author: { select: { firstName: true, lastName: true } } },
+        orderBy: { createdAt: "desc" },
+      },
+      assignedTo: { select: { firstName: true, lastName: true } },
+      emailTemplate: { select: { subject: true, body: true } },
+      communicationMethod: { select: { id: true, name: true } },
     },
   });
 
   if (!person) return notFound();
 
-  const allAnnualEventTypes = await prisma.annualEventType.findMany({
+  const allTags = await prisma.tag.findMany({
     where: { officeId: person.officeId },
     orderBy: { name: "asc" },
   });
 
-  const session = await auth();
+  const [session, crossOffice] = await Promise.all([auth(), isCrossOfficeView()]);
   const userRole = session?.user?.role;
-  const canEdit = userRole !== "CONNECTOR" && userRole !== "VIEWER";
-  const canSeeDonations = userRole !== "VIEWER";
+  const canEdit = userRole !== "CONNECTOR" && userRole !== "VIEWER" && !crossOffice;
+  const canSeeDonations = userRole !== "VIEWER" && !crossOffice;
 
   // Relationships where this person is the target (others connecting to them)
   const targetRelationships = person.targetOfRelationships.map((rel) => ({
@@ -103,7 +114,7 @@ export default async function PersonDetailPage({
     partner: rel.partnerRole?.partner?.organizationName ?? "—",
     partnerId: rel.partnerRole?.partner?.id,
     role: rel.partnerRole?.roleDescription ?? "—",
-    type: rel.relationshipType.relationshipDesc,
+    type: rel.relationshipTypes.map((rt) => rt.relationshipType.relationshipDesc).join(", "),
     lastReviewed: rel.lastReviewedDate,
     hasPartnerRole: !!rel.partnerRole,
   }));
@@ -124,15 +135,34 @@ export default async function PersonDetailPage({
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-start justify-between mb-0">
         <h1 className="text-2xl font-bold text-indigo-900">{person.firstName} {person.lastName}</h1>
         <Link
           href="/people"
-          className="text-indigo-600 hover:underline text-sm"
+          className="text-indigo-600 hover:underline text-sm mt-1"
         >
           Back to People
         </Link>
       </div>
+
+      <PeopleStatusSection
+        personId={person.id}
+        personName={`${person.firstName} ${person.lastName}`}
+        greeting={person.greeting ?? null}
+        email={person.email1 ?? person.email2}
+        status={person.status}
+        deceasedDate={person.deceasedDate ? person.deceasedDate.toISOString() : null}
+        forwardingEmail={person.forwardingEmail ?? null}
+        assignedToId={person.assignedToId ?? null}
+        assignedTo={person.assignedTo ?? null}
+        assignedDate={person.assignedDate ? person.assignedDate.toISOString() : null}
+        emailTemplateId={person.emailTemplateId ?? null}
+        emailTemplate={person.emailTemplate ?? null}
+        assignedToName={person.assignedTo ? `${person.assignedTo.firstName} ${person.assignedTo.lastName}` : null}
+        createdAt={person.createdAt.toISOString()}
+        canEdit={canEdit}
+        personOfficeId={person.officeId}
+      />
 
       {/* Contact Info — editable for non-Connector roles */}
       {canEdit ? (
@@ -152,9 +182,10 @@ export default async function PersonDetailPage({
             email1: person.email1,
             email2: person.email2,
             isConnector: person.isConnector,
-            annualEventTypeIds: person.annualEventTypes.map((a) => a.annualEventType.id),
+            tagIds: person.tags.map((t) => t.tag.id),
+            communicationMethodId: person.communicationMethod?.id ?? null,
+            communicationMethodName: person.communicationMethod?.name ?? null,
           }}
-          allAnnualEventTypes={allAnnualEventTypes}
         />
       ) : (
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -205,16 +236,39 @@ export default async function PersonDetailPage({
                 </span>
               </div>
             )}
-            {person.annualEventTypes.length > 0 && (
-              <div className="md:col-span-2">
-                <span className="font-medium text-gray-500">Annual Events:</span>{" "}
-                <span className="text-gray-800">
-                  {person.annualEventTypes.map((a) => a.annualEventType.name).join(", ")}
-                </span>
-              </div>
-            )}
           </div>
         </div>
+      )}
+
+      {/* Tags — inline for all roles, editable for canEdit */}
+      {allTags.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <h2 className="text-lg font-semibold text-indigo-900 mb-3">Tags</h2>
+          <TagToggle
+            entityId={person.id}
+            entityType="person"
+            initialTagIds={person.tags.map((t) => t.tag.id)}
+            allTags={allTags}
+            readOnly={!canEdit}
+          />
+          {!canEdit && person.tags.length === 0 && (
+            <p className="text-sm text-gray-400">No tags assigned.</p>
+          )}
+        </div>
+      )}
+
+      {/* Notes */}
+      {(canEdit || person.personNotes.length > 0) && (
+        <PersonNotesSection
+          personId={person.id}
+          notes={person.personNotes.map((n) => ({
+            id: n.id,
+            content: n.content,
+            createdAt: n.createdAt.toISOString(),
+            author: n.author,
+          }))}
+          canEdit={canEdit}
+        />
       )}
 
       {/* Partner Roles */}
@@ -339,7 +393,7 @@ export default async function PersonDetailPage({
                       <span className="text-gray-400">—</span>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-gray-600">{rel.relationshipType.relationshipDesc}</td>
+                  <td className="px-4 py-2 text-gray-600">{rel.relationshipTypes.map((rt) => rt.relationshipType.relationshipDesc).join(", ")}</td>
                   <td className="px-4 py-2 text-gray-600">
                     {rel.lastReviewedDate
                       ? new Date(rel.lastReviewedDate).toLocaleDateString(undefined, { timeZone: "UTC" })
@@ -509,10 +563,14 @@ export default async function PersonDetailPage({
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Event</th>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">Date</th>
                 <th className="text-left px-4 py-2 font-semibold text-indigo-900">RSVP</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Attended</th>
+                <th className="text-left px-4 py-2 font-semibold text-indigo-900">Donated</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {person.eventInvites.map((invite) => (
+              {person.eventInvites.map((invite) => {
+                const donated = person.donations.some((d) => d.fundraiser?.eventId === invite.event.id);
+                return (
                 <tr key={invite.id} className="hover:bg-gray-50">
                   <td className="px-4 py-2">
                     <Link
@@ -542,8 +600,23 @@ export default async function PersonDetailPage({
                       {invite.rsvpStatus}
                     </span>
                   </td>
+                  <td className="px-4 py-2">
+                    {invite.attended ? (
+                      <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-green-100 text-green-800">Yes</span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    {donated ? (
+                      <span className="inline-block text-xs font-medium px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">Yes</span>
+                    ) : (
+                      <span className="text-gray-400 text-xs">—</span>
+                    )}
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -753,7 +826,7 @@ export default async function PersonDetailPage({
 
       {/* Delete */}
       {canEdit && (
-        <div className="border-t border-gray-200 pt-6 mt-6">
+        <div className="border-t border-gray-200 pt-6 mt-6 flex justify-end">
           <DeletePersonButton personId={person.id} />
         </div>
       )}

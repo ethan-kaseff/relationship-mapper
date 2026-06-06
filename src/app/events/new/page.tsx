@@ -10,7 +10,7 @@ interface PastEvent {
   eventDate: string | null;
 }
 
-interface AnnualEventType {
+interface Tag {
   id: string;
   name: string;
 }
@@ -21,8 +21,8 @@ export default function NewEventPage() {
   const [error, setError] = useState("");
   const [pastEvents, setPastEvents] = useState<PastEvent[]>([]);
   const [templateEventId, setTemplateEventId] = useState("");
-  const [annualEventTypeId, setAnnualEventTypeId] = useState("");
-  const [annualEventTypes, setAnnualEventTypes] = useState<AnnualEventType[]>([]);
+  const [tagId, setTagId] = useState("");
+  const [tags, setTags] = useState<Tag[]>([]);
 
   const [trackSeating, setTrackSeating] = useState(true);
   const [trackMeals, setTrackMeals] = useState(true);
@@ -51,9 +51,9 @@ export default function NewEventPage() {
       .then((events) => setPastEvents(events))
       .catch(() => {});
 
-    fetch("/api/lookup/annual-event-types")
+    fetch("/api/tags")
       .then((res) => res.json())
-      .then((types) => setAnnualEventTypes(types))
+      .then((data) => setTags(data))
       .catch(() => {});
   }, []);
 
@@ -83,7 +83,7 @@ export default function NewEventPage() {
           ticketPrice: ticketPriceDollars ? Math.round(parseFloat(ticketPriceDollars) * 100) : null,
           mealCost: mealCostDollars ? Math.round(parseFloat(mealCostDollars) * 100) : null,
           templateEventId: templateEventId || null,
-          annualEventTypeId: annualEventTypeId || null,
+          tagId: tagId || null,
         }),
       });
 
@@ -262,26 +262,26 @@ export default function NewEventPage() {
             </div>
           </div>
 
-          {annualEventTypes.length > 0 && (
+          {tags.length > 0 && (
             <div className="border border-gray-200 rounded-md p-4 bg-gray-50">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Auto-Invite from Annual Event Type
+                Auto-Invite by Tag
               </label>
               <select
-                value={annualEventTypeId}
-                onChange={(e) => setAnnualEventTypeId(e.target.value)}
+                value={tagId}
+                onChange={(e) => setTagId(e.target.value)}
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
                 <option value="">— None (no auto-invites) —</option>
-                {annualEventTypes.map((type) => (
-                  <option key={type.id} value={type.id}>
-                    {type.name}
+                {tags.map((tag) => (
+                  <option key={tag.id} value={tag.id}>
+                    {tag.name}
                   </option>
                 ))}
               </select>
-              {annualEventTypeId && (
+              {tagId && (
                 <p className="text-xs text-gray-500 mt-2">
-                  All roles, partners, and people flagged for this event type will be automatically invited.
+                  All people, partner roles, and partners with this tag will be automatically invited.
                 </p>
               )}
             </div>

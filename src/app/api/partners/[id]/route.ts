@@ -17,16 +17,16 @@ export async function GET(
       where: { id },
       include: {
         organizationType: true,
-        annualEventTypes: {
-          include: { annualEventType: true },
+        tags: {
+          include: { tag: true },
         },
         partnerRoles: {
           include: {
             person: true,
             relationships: true,
             connections: true,
-            annualEventTypes: {
-              include: { annualEventType: true },
+            tags: {
+              include: { tag: true },
             },
           },
         },
@@ -70,18 +70,17 @@ export async function PUT(
         email: data.email || null,
         website: data.website || null,
         ...(data.priority !== undefined ? { priority: data.priority ?? 5 } : {}),
+        ...(data.status !== undefined ? { status: data.status } : {}),
       },
     });
 
-    // Handle annual event type associations
-    if (data.annualEventTypeIds !== undefined) {
-      await prisma.partnerAnnualEventType.deleteMany({ where: { partnerId: id } });
-      if (data.annualEventTypeIds.length > 0) {
-        await prisma.partnerAnnualEventType.createMany({
-          data: data.annualEventTypeIds.map((typeId) => ({
-            partnerId: id,
-            annualEventTypeId: typeId,
-          })),
+    // Handle tag associations
+    if (data.tagIds !== undefined) {
+      await prisma.partnerTag.deleteMany({ where: { partnerId: id } });
+      if (data.tagIds.length > 0) {
+        await prisma.partnerTag.createMany({
+          data: data.tagIds.map((tagId) => ({ partnerId: id, tagId })),
+          skipDuplicates: true,
         });
       }
     }

@@ -1,49 +1,160 @@
-# Push to Live Site
+# Deploy to Live Site
 
-Checks everything, saves any unsaved work, and pushes to GitHub which updates the live site.
+Pushes the current feature branch, opens a pull request, waits for the
+automated checks to pass, and merges it into `main`. Vercel then
+auto-deploys `main` to the live site.
 
-1. Check git email is `barry@kaseff.com`. Fix if not.
+**Never push directly to `main`.** GitHub branch protection will block it
+anyway. If the user asks to "push to main directly", refuse and follow
+this workflow.
 
-2. **Verify prisma/schema.prisma is correct (ALL of these must be true):**
-   - Has `provider = "postgresql"` (NOT sqlite)
-   - Has `url = env("DATABASE_URL")` in the datasource block
-   - Has `directUrl = env("DIRECT_URL")` in the datasource block
-   - Generator has `provider = "prisma-client-js"` with NO custom output path
-   Fix any of these if missing. These are critical — without them the build breaks.
+Branch protection does NOT require the feature branch to be up-to-date
+with main (that was intentionally relaxed — semantic conflicts are rare
+at two-person scale and CI-on-main catches anything that slips through).
+So a PR merges as soon as its checks pass, whether it's one commit
+behind main or fifty. Only actual textual conflicts need manual
+intervention — see step 9.
 
-3. **Verify `src/lib/prisma.ts` imports from `@prisma/client`** (NOT `@/generated/prisma/client`). Fix if wrong.
+## 1. Confirm the current branch
 
-4. Pull latest from GitHub:
-   ```
-   git pull origin main
-   ```
-   Resolve any merge conflicts. Tell Barry what you resolved.
+```
+git branch --show-current
+```
 
-5. If there are uncommitted changes, stage and commit them:
-   ```
-   git add -A
-   git commit -m "your message here"
-   ```
+- If the branch is `main`, STOP and tell Barry: "You're on main — I need a
+  feature branch to deploy from. Say 'start work' first."
+- Otherwise continue. Remember the branch name.
 
-6. Run checks — stop and tell Barry if any fail:
-   ```
-   npm run lint
-   npm run typecheck
-   npm test
-   npm run build
-   ```
-   If lint fails, try `npm run lint:fix` first. If others fail, tell Barry what's wrong and stop.
+## 2. Verify critical config
 
-7. If the checks required fixes, commit them:
-   ```
-   git add -A
-   git commit -m "Fix lint/type errors before push"
-   ```
+- `prisma/schema.prisma` has `provider = "postgresql"`, `url = env("DATABASE_URL")`,
+  `directUrl = env("DIRECT_URL")`, and generator `provider = "prisma-client-js"`
+  with no custom output path.
+- `src/lib/prisma.ts` imports from `@prisma/client`.
 
-8. Push:
-   ```
-   git push origin main
-   ```
-   Never use `--force`. If push is rejected, run `git pull origin main` and try again.
+Fix any violations before continuing.
 
-Tell Barry: "Pushed! The live site will update in a couple minutes."
+## 3. Review ALL local changes before proceeding — REQUIRED
+
+```
+git status
+```
+
+**Show Barry the full output** — every modified file and every untracked file.
+Then ask explicitly:
+
+> "These files have local changes that are NOT yet in the PR. Should any of
+> them be included before we deploy?"
+
+**Do not skip this step even if Barry says "just deploy it" or "looks good."**
+Barry is not a developer and uncommitted local changes are invisible to him on
+the live site. The incident that added this rule: `settings/page.tsx` had the
+email-platform toggle built but never committed, so production was missing a
+whole feature after a PR merged.
+
+Once Barry confirms which files to include:
+- Add only the files Barry approved (prefer explicit paths over `git add -A`
+  to avoid accidentally staging `.env`, `.DS_Store`, or other junk).
+- Commit with a descriptive message.
+- If Barry says none of the remaining changes are ready, that's fine — proceed
+  with what's already committed.
+
+## 4. Run local checks
+
+```
+npm run lint
+npm run typecheck
+npm test
+npm run check:env
+npm run build
+```
+
+If anything fails:
+- Try `npm run lint:fix` first for lint issues.
+- Otherwise stop and tell Barry what broke.
+- If you fix problems, commit the fixes:
+  ```
+  git add -A
+  git commit -m "Fix checks before deploy"
+  ```
+
+## 5. Push the feature branch
+
+```
+git push -u origin HEAD
+```
+
+Never use `--force` or `--force-with-lease`.
+
+## 6. Open a pull request
+
+Use `gh` to open a PR targeting `main`. Use the latest commit message (or
+a short summary of all commits on this branch) as the title.
+
+```
+gh pr create --base main --head <branch-name> \
+  --title "<short description>" \
+  --body "$(git log main..HEAD --pretty=format:'- %s' --reverse)"
+```
+
+Capture the PR URL from the output.
+
+## 7. Enable auto-merge (squash)
+
+```
+gh pr merge <branch-name> --auto --squash --delete-branch
+```
+
+This tells GitHub: "as soon as all required checks pass, squash-merge
+this PR and delete the branch."
+
+## 8. Wait for CI
+
+Poll PR status until all checks are either `SUCCESS` or `FAILURE`:
+
+```
+gh pr checks <branch-name> --watch
+```
+
+- If checks pass → auto-merge runs → main updates → Vercel deploys.
+- If any check fails → stop, tell Barry what failed, and work with him to
+  fix it. After pushing fixes to the same branch, re-run this helper from
+  step 4.
+
+## 9. Confirm the merge
+
+```
+gh pr view <branch-name> --json state,mergedAt,mergeStateStatus
+```
+
+- `state: MERGED` → great, continue to step 10.
+- `state: OPEN` → something's preventing the merge. Check `mergeStateStatus`:
+  - `DIRTY` — textual merge conflict with main. Rebase the feature branch
+    onto latest main, resolve conflicts, and force-with-lease push:
+    ```
+    git fetch origin main
+    git rebase origin/main
+    # resolve conflicts, then `git add <files> && git rebase --continue`
+    git push --force-with-lease
+    ```
+    Auto-merge is still armed and will fire once CI re-passes.
+  - `BLOCKED` or `UNSTABLE` — a required check failed or is still running.
+    Re-run step 8 to see what.
+  - Anything else — tell Barry what `gh pr view` shows and stop.
+
+## 10. Sync local main and clean up
+
+```
+git checkout main
+git pull origin main
+git branch -d <branch-name>
+```
+
+(The remote branch was deleted by auto-merge; this removes the local copy.)
+
+---
+
+Tell Barry: **"Deployed! Pull request <PR number> is merged and the live
+site will update in a couple minutes. See it at <Vercel URL>."**
+
+If something failed mid-way, see `If Something Goes Wrong.md`.

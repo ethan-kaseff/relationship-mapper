@@ -4,6 +4,7 @@ import { requireNonConnector } from "@/lib/api-auth";
 import { validateBody, createPeopleSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/api-error";
 import { getOfficeFilterFromRequest } from "@/lib/office-filter";
+import { auth } from "@/lib/auth";
 
 export async function GET(request: Request) {
   const authResult = await requireNonConnector();
@@ -21,6 +22,7 @@ export async function GET(request: Request) {
         },
         relationships: true,
         connections: true,
+        tags: { select: { tagId: true } },
       },
     });
     return NextResponse.json(people);
@@ -62,11 +64,16 @@ export async function POST(request: Request) {
       );
     }
 
+    const session = await auth();
+    const userId = (session?.user as { id?: string } | undefined)?.id;
+
     const person = await prisma.people.create({
       data: {
         firstName: data.firstName,
         middleInitial: data.middleInitial || null,
         lastName: data.lastName,
+        prefix: data.prefix || null,
+        greeting: data.greeting || null,
         address: data.address,
         city: data.city,
         state: data.state,
@@ -75,9 +82,28 @@ export async function POST(request: Request) {
         email1: data.email1 || null,
         email2: data.email2 || null,
         isConnector: data.isConnector ?? false,
+        status: data.status ?? "ACTIVE",
+        assignedToId: data.status === "PROSPECT" ? (data.assignedToId || null) : null,
+        assignedDate: data.status === "PROSPECT" && data.assignedToId ? new Date() : null,
+        emailTemplateId: data.status === "PROSPECT" ? (data.emailTemplateId || null) : null,
         officeId,
       },
+      include: { assignedTo: { select: { firstName: true, lastName: true } } },
     });
+
+    if (data.status === "PROSPECT" && userId) {
+      const assigneeName = person.assignedTo
+        ? `${person.assignedTo.firstName} ${person.assignedTo.lastName}`
+        : null;
+      await prisma.personNote.create({
+        data: {
+          content: `Added as prospect${assigneeName ? ` and assigned to ${assigneeName}` : ""}.`,
+          peopleId: person.id,
+          authorId: userId,
+        },
+      });
+    }
+
     return NextResponse.json(person, { status: 201 });
   } catch (error) {
     return handleApiError(error);

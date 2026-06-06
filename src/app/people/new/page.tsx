@@ -5,10 +5,9 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import Link from "next/link";
 
-interface Office {
-  id: string;
-  name: string;
-}
+interface Office { id: string; name: string; }
+interface User { id: string; firstName: string; lastName: string; }
+interface EmailTemplate { id: string; name: string; subject: string; body: string; }
 
 export default function NewPersonPage() {
   const router = useRouter();
@@ -18,13 +17,14 @@ export default function NewPersonPage() {
   const [error, setError] = useState("");
   const [offices, setOffices] = useState<Office[]>([]);
   const [selectedOfficeId, setSelectedOfficeId] = useState("");
+  const [users, setUsers] = useState<User[]>([]);
+  const [templates, setTemplates] = useState<EmailTemplate[]>([]);
+  const [assignedToId, setAssignedToId] = useState("");
+  const [emailTemplateId, setEmailTemplateId] = useState("");
 
   useEffect(() => {
     if (isSystemAdmin) {
-      fetch("/api/offices")
-        .then((res) => res.json())
-        .then((data) => setOffices(data))
-        .catch(() => {});
+      fetch("/api/offices").then((r) => r.json()).then(setOffices).catch(() => {});
     }
   }, [isSystemAdmin]);
 
@@ -42,10 +42,28 @@ export default function NewPersonPage() {
     email1: "",
     email2: "",
     isConnector: false,
+    status: "ACTIVE",
   });
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const { name, value, type, checked } = e.target;
+  useEffect(() => {
+    if (form.status === "PROSPECT") {
+      if (users.length === 0) {
+        fetch("/api/users/assignable").then((r) => r.json()).then(setUsers).catch(() => {});
+      }
+      const url = isSystemAdmin && selectedOfficeId
+        ? `/api/email-templates?officeId=${selectedOfficeId}`
+        : "/api/email-templates";
+      fetch(url).then((r) => r.json()).then((data) => {
+        setTemplates(data);
+        setEmailTemplateId(""); // reset selection when office changes
+      }).catch(() => {});
+    }
+  }, [form.status, users.length, isSystemAdmin, selectedOfficeId]);
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) {
+    const { name, value } = e.target;
+    const checked = (e.target as HTMLInputElement).checked;
+    const type = (e.target as HTMLInputElement).type;
     setForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
@@ -58,10 +76,20 @@ export default function NewPersonPage() {
     setError("");
 
     try {
+      const body: Record<string, unknown> = {
+        ...form,
+        ...(isSystemAdmin && selectedOfficeId ? { officeId: selectedOfficeId } : {}),
+      };
+      if (form.status === "PROSPECT") {
+        body.assignedToId = assignedToId || null;
+        body.assignedDate = assignedToId ? new Date().toISOString() : null;
+        body.emailTemplateId = emailTemplateId || null;
+      }
+
       const res = await fetch("/api/people", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, ...(isSystemAdmin && selectedOfficeId ? { officeId: selectedOfficeId } : {}) }),
+        body: JSON.stringify(body),
       });
 
       if (!res.ok) {
@@ -69,13 +97,16 @@ export default function NewPersonPage() {
         throw new Error(data.error || "Failed to create person");
       }
 
-      router.push("/people");
+      const person = await res.json();
+      router.push(`/people/${person.id}`);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setSubmitting(false);
     }
   }
+
+  const selectedTemplate = templates.find((t) => t.id === emailTemplateId) ?? null;
 
   return (
     <div>
@@ -110,9 +141,7 @@ export default function NewPersonPage() {
               />
             </div>
             <div className="w-16">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                MI
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">MI</label>
               <input
                 type="text"
                 name="middleInitial"
@@ -238,6 +267,61 @@ export default function NewPersonPage() {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+            <select
+              name="status"
+              value={form.status}
+              onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            >
+              <option value="ACTIVE">Active</option>
+              <option value="PROSPECT">Prospect</option>
+              <option value="INACTIVE">Inactive</option>
+              <option value="DECEASED">Deceased</option>
+            </select>
+          </div>
+
+          {form.status === "PROSPECT" && (
+            <div className="border border-blue-100 bg-blue-50 rounded-md p-4 space-y-3">
+              <p className="text-xs font-medium text-blue-700">Prospect Details</p>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Assign To</label>
+                <select
+                  value={assignedToId}
+                  onChange={(e) => setAssignedToId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">— Unassigned —</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Email Template <span className="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <select
+                  value={emailTemplateId}
+                  onChange={(e) => setEmailTemplateId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500"
+                >
+                  <option value="">— None —</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+              {selectedTemplate && (
+                <div className="bg-white rounded-md p-3 text-xs text-gray-600 space-y-1 border border-gray-200">
+                  <div className="font-medium text-gray-700">Subject: {selectedTemplate.subject}</div>
+                  <div className="whitespace-pre-wrap line-clamp-3">{selectedTemplate.body}</div>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -254,9 +338,7 @@ export default function NewPersonPage() {
 
           {isSystemAdmin && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Office
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Office</label>
               <select
                 value={selectedOfficeId}
                 onChange={(e) => setSelectedOfficeId(e.target.value)}

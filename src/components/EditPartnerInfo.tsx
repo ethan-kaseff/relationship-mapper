@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import PartnerAnnualInviteToggle from "@/components/PartnerAnnualInviteToggle";
+import TagToggle from "@/components/TagToggle";
 
 interface OrgType {
   id: string;
   typeName: string;
 }
 
-interface AnnualEventType {
+interface Tag {
   id: string;
   name: string;
 }
@@ -27,19 +27,20 @@ interface PartnerData {
   email: string | null;
   website: string | null;
   priority: number | null;
+  status: string;
 }
 
 interface Props {
   partnerId: string;
   partner: PartnerData;
-  annualEventTypeIds?: string[];
-  allAnnualEventTypes?: AnnualEventType[];
+  tagIds?: string[];
+  allTags?: Tag[];
   readOnly?: boolean;
 }
 
 const PRIORITY_LABELS = ["Highest", "High", "Medium", "Low", "Lowest"];
 
-export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds, allAnnualEventTypes, readOnly }: Props) {
+export default function EditPartnerInfo({ partnerId, partner, tagIds, allTags, readOnly }: Props) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -53,6 +54,7 @@ export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds
     email: partner.email ?? "",
     website: partner.website ?? "",
     priority: partner.priority?.toString() ?? "",
+    status: partner.status ?? "ACTIVE",
   });
   const [orgTypes, setOrgTypes] = useState<OrgType[]>([]);
   const [saving, setSaving] = useState(false);
@@ -84,6 +86,7 @@ export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds
       email: partner.email ?? "",
       website: partner.website ?? "",
       priority: partner.priority?.toString() ?? "",
+      status: partner.status ?? "ACTIVE",
     });
     setEditing(false);
     setError("");
@@ -109,6 +112,7 @@ export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds
           email: form.email || null,
           website: form.website || null,
           priority: form.priority ? parseInt(form.priority) : null,
+          status: form.status,
         }),
       });
 
@@ -199,10 +203,18 @@ export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds
               {partner.priority ? `${partner.priority} — ${PRIORITY_LABELS[partner.priority - 1]}` : "—"}
             </span>
           </div>
-          {annualEventTypeIds !== undefined && allAnnualEventTypes && allAnnualEventTypes.length > 0 && (
-            <div>
-              <span className="font-medium text-gray-500">Annual Events:</span>{" "}
-              <PartnerAnnualInviteToggle partnerId={partnerId} initialTypeIds={annualEventTypeIds} allTypes={allAnnualEventTypes} />
+          <div>
+            <span className="font-medium text-gray-500">Status:</span>{" "}
+            <span className={`inline-block text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+              partner.status === "INACTIVE" ? "bg-gray-100 text-gray-500" : "bg-green-100 text-green-700"
+            }`}>
+              {partner.status === "INACTIVE" ? "Inactive" : "Active"}
+            </span>
+          </div>
+          {tagIds !== undefined && allTags && allTags.length > 0 && (
+            <div className="md:col-span-2">
+              <span className="font-medium text-gray-500 block mb-1">Tags:</span>
+              <TagToggle entityId={partnerId} entityType="partner" initialTagIds={tagIds} allTags={allTags} />
             </div>
           )}
         </div>
@@ -315,6 +327,19 @@ export default function EditPartnerInfo({ partnerId, partner, annualEventTypeIds
             <option value="3">3 — Medium</option>
             <option value="4">4 — Low</option>
             <option value="5">5 — Lowest</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <select
+            name="status"
+            value={form.status}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          >
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
           </select>
         </div>
 

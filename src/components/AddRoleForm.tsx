@@ -11,12 +11,7 @@ interface Person {
   lastName: string;
 }
 
-interface AnnualEventType {
-  id: string;
-  name: string;
-}
-
-export default function AddRoleForm({ partnerId, allAnnualEventTypes }: { partnerId: string; allAnnualEventTypes: AnnualEventType[] }) {
+export default function AddRoleForm({ partnerId }: { partnerId: string }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -26,7 +21,6 @@ export default function AddRoleForm({ partnerId, allAnnualEventTypes }: { partne
   const [roleDescription, setRoleDescription] = useState("");
   const [peopleId, setPeopleId] = useState("");
   const [startDate, setStartDate] = useState("");
-  const [annualEventTypeIds, setAnnualEventTypeIds] = useState<string[]>([]);
   const [quickAdd, setQuickAdd] = useState(false);
   const [newFirstName, setNewFirstName] = useState("");
   const [newLastName, setNewLastName] = useState("");
@@ -49,12 +43,6 @@ export default function AddRoleForm({ partnerId, allAnnualEventTypes }: { partne
   useEffect(() => {
     if (open) fetchPeople();
   }, [open, fetchPeople]);
-
-  function handleAetToggle(typeId: string) {
-    setAnnualEventTypeIds((prev) =>
-      prev.includes(typeId) ? prev.filter((id) => id !== typeId) : [...prev, typeId]
-    );
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -92,7 +80,6 @@ export default function AddRoleForm({ partnerId, allAnnualEventTypes }: { partne
           roleDescription,
           peopleId: assignPeopleId,
           startDate: assignPeopleId && startDate ? startDate : null,
-          annualEventTypeIds,
         }),
       });
 
@@ -105,7 +92,6 @@ export default function AddRoleForm({ partnerId, allAnnualEventTypes }: { partne
       setRoleFilled(false);
       setPeopleId("");
       setStartDate("");
-      setAnnualEventTypeIds([]);
       setQuickAdd(false);
       setNewFirstName("");
       setNewLastName("");
@@ -238,21 +224,6 @@ export default function AddRoleForm({ partnerId, allAnnualEventTypes }: { partne
               onChange={(e) => setStartDate(e.target.value)}
               className="border border-gray-300 rounded-md px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
-          </div>
-        )}
-        {allAnnualEventTypes.length > 0 && (
-          <div className="flex items-center gap-2 self-center">
-            {allAnnualEventTypes.map((type) => (
-              <label key={type.id} className="inline-flex items-center gap-1 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={annualEventTypeIds.includes(type.id)}
-                  onChange={() => handleAetToggle(type.id)}
-                  className="accent-indigo-600 w-3.5 h-3.5"
-                />
-                <span className="text-xs font-medium text-gray-700">{type.name}</span>
-              </label>
-            ))}
           </div>
         )}
         <div className="flex gap-2">

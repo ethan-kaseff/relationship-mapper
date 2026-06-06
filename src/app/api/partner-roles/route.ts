@@ -43,13 +43,14 @@ export async function POST(request: Request) {
       },
     });
 
-    // Create annual event type associations
-    if (data.annualEventTypeIds && data.annualEventTypeIds.length > 0) {
-      await prisma.partnerRoleAnnualEventType.createMany({
-        data: data.annualEventTypeIds.map((typeId) => ({
+    // Create tag associations
+    if (data.tagIds && data.tagIds.length > 0) {
+      await prisma.partnerRoleTag.createMany({
+        data: data.tagIds.map((tagId) => ({
           partnerRoleId: partnerRole.id,
-          annualEventTypeId: typeId,
+          tagId,
         })),
+        skipDuplicates: true,
       });
     }
 

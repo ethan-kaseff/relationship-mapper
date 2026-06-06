@@ -42,6 +42,16 @@ export default [
       "no-console": "off",
     },
   },
+  // Plain Node scripts (no TS): give them Node globals and allow console.
+  {
+    files: ["scripts/**/*.{js,mjs,cjs}"],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+    rules: {
+      "no-console": "off",
+    },
+  },
   {
     ignores: ["node_modules/**", ".next/**", "prisma/migrations/**", "src/generated/**", "*.config.*", "tmp-*"],
   },

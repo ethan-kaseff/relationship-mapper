@@ -83,19 +83,19 @@ export async function POST(request: Request) {
       },
     });
 
-    // Auto-invite people flagged for this specific annual event type
-    if (data.annualEventTypeId) {
-      const typeId = data.annualEventTypeId;
-      // Track peopleId -> group (partner name), first entry wins
+    // Auto-invite people tagged with the selected tag
+    if (data.tagId) {
+      const tagId = data.tagId;
       const peopleGroupMap = new Map<string, string>();
 
-      // From partner roles flagged for this annual event type
-      const roles = await prisma.partnerRoleAnnualEventType.findMany({
+      // From partner roles tagged with this tag
+      const roleTags = await prisma.partnerRoleTag.findMany({
         where: {
-          annualEventTypeId: typeId,
+          tagId,
           partnerRole: {
             peopleId: { not: null },
             partner: { officeId },
+            person: { status: "ACTIVE" },
           },
         },
         select: {
@@ -107,24 +107,21 @@ export async function POST(request: Request) {
           },
         },
       });
-      for (const r of roles) {
+      for (const r of roleTags) {
         const pid = r.partnerRole.peopleId!;
         if (!peopleGroupMap.has(pid)) {
           peopleGroupMap.set(pid, r.partnerRole.partner.organizationName || "");
         }
       }
 
-      // From Person partners flagged for this annual event type
-      const partnerJoins = await prisma.partnerAnnualEventType.findMany({
-        where: {
-          annualEventTypeId: typeId,
-          partner: { officeId, orgPeopleFlag: "P" },
-        },
+      // From partners tagged with this tag
+      const partnerTags = await prisma.partnerTag.findMany({
+        where: { tagId, partner: { officeId } },
         include: {
           partner: {
             include: {
               partnerRoles: {
-                where: { peopleId: { not: null } },
+                where: { peopleId: { not: null }, person: { status: "ACTIVE" } },
                 select: { peopleId: true },
                 take: 1,
               },
@@ -132,21 +129,18 @@ export async function POST(request: Request) {
           },
         },
       });
-
-      for (const pj of partnerJoins) {
-        const group = pj.partner.organizationName || "";
-        if (pj.partner.partnerRoles.length > 0) {
-          const pid = pj.partner.partnerRoles[0].peopleId!;
-          if (!peopleGroupMap.has(pid)) {
-            peopleGroupMap.set(pid, group);
-          }
-        } else if (pj.partner.organizationName) {
-          const nameParts = pj.partner.organizationName.trim().split(/\s+/);
+      for (const pt of partnerTags) {
+        const group = pt.partner.organizationName || "";
+        if (pt.partner.partnerRoles.length > 0) {
+          const pid = pt.partner.partnerRoles[0].peopleId!;
+          if (!peopleGroupMap.has(pid)) peopleGroupMap.set(pid, group);
+        } else if (pt.partner.organizationName) {
+          const nameParts = pt.partner.organizationName.trim().split(/\s+/);
           const firstName = nameParts[0] || "";
           const lastName = nameParts.slice(1).join(" ") || "";
           if (firstName && lastName) {
             const person = await prisma.people.findFirst({
-              where: { firstName, lastName, officeId },
+              where: { firstName, lastName, officeId, status: "ACTIVE" },
               select: { id: true },
             });
             if (person && !peopleGroupMap.has(person.id)) {
@@ -156,18 +150,13 @@ export async function POST(request: Request) {
         }
       }
 
-      // From People directly flagged for this annual event type
-      const peopleJoins = await prisma.peopleAnnualEventType.findMany({
-        where: {
-          annualEventTypeId: typeId,
-          person: { officeId },
-        },
-        select: { peopleId: true },
+      // From people directly tagged
+      const personTags = await prisma.personTag.findMany({
+        where: { tagId, person: { officeId, status: "ACTIVE" } },
+        select: { personId: true },
       });
-      for (const p of peopleJoins) {
-        if (!peopleGroupMap.has(p.peopleId)) {
-          peopleGroupMap.set(p.peopleId, "");
-        }
+      for (const p of personTags) {
+        if (!peopleGroupMap.has(p.personId)) peopleGroupMap.set(p.personId, "");
       }
 
       if (peopleGroupMap.size > 0) {
