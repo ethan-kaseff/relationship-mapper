@@ -16,6 +16,7 @@ interface Person {
   isConnector: boolean;
   status: string;
   tagIds: string[];
+  createdAt: string;
 }
 
 interface Props {

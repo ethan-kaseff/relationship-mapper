@@ -48,6 +48,7 @@ export default async function PeoplePage() {
       email2: true,
       isConnector: true,
       status: true,
+      createdAt: true,
       tags: { select: { tag: { select: { id: true } } } },
     },
     orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
@@ -56,6 +57,7 @@ export default async function PeoplePage() {
   const peopleWithTags = people.map((p) => ({
     ...p,
     tagIds: p.tags.map((t) => t.tag.id),
+    createdAt: p.createdAt.toISOString(),
   }));
 
   return (
