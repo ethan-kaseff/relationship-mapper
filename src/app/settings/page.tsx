@@ -124,8 +124,6 @@ export default function SettingsPage() {
   // Stripe integration state
   const [stripeConnected, setStripeConnected] = useState(false);
   const [stripeLoading, setStripeLoading] = useState(true);
-  const [stripeDisconnecting, setStripeDisconnecting] = useState(false);
-  const [stripeMessage, setStripeMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
   // QuickBooks integration state
   const [qbConnected, setQbConnected] = useState(false);
@@ -241,21 +239,6 @@ export default function SettingsPage() {
       setCcMessage({ type: "error", text: errorMessages[ccError] || "An error occurred." });
     }
 
-    // Stripe OAuth callback params
-    const stripeConnectedParam = params.get("stripe_connected");
-    const stripeError = params.get("stripe_error");
-
-    if (stripeConnectedParam === "true") {
-      setStripeMessage({ type: "success", text: "Stripe connected successfully!" });
-    } else if (stripeError) {
-      const errorMessages: Record<string, string> = {
-        auth_denied: "Authorization was denied.",
-        no_code: "No authorization code received.",
-        token_exchange: "Failed to complete authentication. Please try again.",
-      };
-      setStripeMessage({ type: "error", text: errorMessages[stripeError] || "An error occurred." });
-    }
-
     fetch("/api/constant-contact/status")
       .then((res) => res.json())
       .then((data) => {
@@ -311,24 +294,6 @@ export default function SettingsPage() {
       setQbMessage({ type: "error", text: "Failed to disconnect." });
     } finally {
       setQbDisconnecting(false);
-    }
-  }
-
-  async function handleStripeDisconnect() {
-    if (!confirm("Disconnect Stripe? Donations will no longer go to your connected account.")) return;
-    setStripeDisconnecting(true);
-    try {
-      const res = await fetch("/api/stripe/disconnect", { method: "POST" });
-      if (res.ok) {
-        setStripeConnected(false);
-        setStripeMessage({ type: "success", text: "Stripe disconnected." });
-      } else {
-        setStripeMessage({ type: "error", text: "Failed to disconnect." });
-      }
-    } catch {
-      setStripeMessage({ type: "error", text: "Failed to disconnect." });
-    } finally {
-      setStripeDisconnecting(false);
     }
   }
 
@@ -862,24 +827,6 @@ export default function SettingsPage() {
           </div>
 
           {/* Stripe Integration */}
-          {stripeMessage && (
-            <div
-              className={`mt-4 p-3 rounded-md text-sm ${
-                stripeMessage.type === "success"
-                  ? "bg-green-50 text-green-800 border border-green-200"
-                  : "bg-red-50 text-red-800 border border-red-200"
-              }`}
-            >
-              {stripeMessage.text}
-              <button
-                onClick={() => setStripeMessage(null)}
-                className="float-right text-xs underline"
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
-
           <div className="border border-gray-200 rounded-lg p-4 mt-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -893,6 +840,11 @@ export default function SettingsPage() {
                   <p className="text-sm text-gray-500">
                     Accept online donations via Stripe Checkout
                   </p>
+                  {stripeConnected && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Webhook URL: <span className="font-mono">{typeof window !== "undefined" ? window.location.origin : ""}/api/webhooks/stripe</span>
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -900,26 +852,14 @@ export default function SettingsPage() {
                 {stripeLoading ? (
                   <span className="text-sm text-gray-400">Checking...</span>
                 ) : stripeConnected ? (
-                  <>
-                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
-                      <span className="w-2 h-2 bg-green-500 rounded-full" />
-                      Connected
-                    </span>
-                    <button
-                      onClick={handleStripeDisconnect}
-                      disabled={stripeDisconnecting}
-                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
-                    >
-                      {stripeDisconnecting ? "Disconnecting..." : "Disconnect"}
-                    </button>
-                  </>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                    <span className="w-2 h-2 bg-green-500 rounded-full" />
+                    Active
+                  </span>
                 ) : (
-                  <a
-                    href="/api/stripe/auth"
-                    className="px-4 py-2 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700"
-                  >
-                    Connect
-                  </a>
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gray-100 text-gray-500 text-sm rounded-full">
+                    Not configured
+                  </span>
                 )}
               </div>
             </div>

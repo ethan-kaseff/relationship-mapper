@@ -15,12 +15,14 @@
  * Install it first: npm install better-sqlite3 @types/better-sqlite3 --save-dev
  */
 
-import { PrismaClient as PostgresClient } from "@prisma/client";
+import { PrismaClient as PostgresClient } from "../src/generated/prisma/client";
+import { PrismaNeon } from "@prisma/adapter-neon";
 import Database from "better-sqlite3";
 import path from "path";
 
 // Initialize PostgreSQL client
-const postgres = new PostgresClient();
+const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
+const postgres = new PostgresClient({ adapter });
 
 // Path to SQLite database
 const sqliteDbPath = process.env.SQLITE_PATH || path.join(process.cwd(), "prisma", "dev.db");
