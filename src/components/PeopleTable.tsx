@@ -17,6 +17,7 @@ interface Person {
   isConnector: boolean;
   status: string;
   tagIds: string[];
+  createdAt: string;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,9 +34,12 @@ const STATUS_COLORS: Record<string, string> = {
   DECEASED: "bg-slate-100 text-slate-500",
 };
 
+type SortOption = "name" | "newest";
+
 export default function PeopleTable({ people, onAdvancedSearch }: { people: Person[]; onAdvancedSearch: () => void }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortOption>("name");
 
   useEffect(() => {
     setSearch(sessionStorage.getItem("people-search") ?? "");
@@ -45,7 +49,11 @@ export default function PeopleTable({ people, onAdvancedSearch }: { people: Pers
     sessionStorage.setItem("people-search", search);
   }, [search]);
 
-  const filtered = people.filter((p) => {
+  const sorted = sort === "newest"
+    ? [...people].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    : people;
+
+  const filtered = sorted.filter((p) => {
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -114,6 +122,14 @@ export default function PeopleTable({ people, onAdvancedSearch }: { people: Pers
           </svg>
           Advanced Search
         </button>
+        <select
+          value={sort}
+          onChange={(e) => setSort(e.target.value as SortOption)}
+          className="border border-gray-300 rounded-md px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+        >
+          <option value="name">Sort: Name (A–Z)</option>
+          <option value="newest">Sort: Newest First</option>
+        </select>
         <button
           onClick={handleExport}
           className="ml-auto border border-gray-300 text-gray-700 px-3 py-1.5 rounded-md text-sm hover:bg-gray-50 transition-colors"
