@@ -19,6 +19,7 @@ const CATEGORY_LABELS: Record<FilterCategory, string> = {
   events: "Events",
   fundraisers: "Fundraisers",
   giving: "Giving History",
+  date_added: "Date Added",
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -73,6 +74,11 @@ const OPERATORS: Record<FilterCategory, { value: string; label: string }[]> = {
     { value: "has_donated", label: "has donated" },
     { value: "never_donated", label: "has never donated" },
   ],
+  date_added: [
+    { value: "between", label: "is between" },
+    { value: "before", label: "is before" },
+    { value: "after", label: "is after" },
+  ],
 };
 
 const NO_VALUE_OPERATORS = new Set([
@@ -97,6 +103,8 @@ function defaultValue(cat: FilterCategory, op: string): Record<string, unknown> 
   if (cat === "giving" && op === "donated_to") return { fundraiserId: "" };
   if (cat === "giving" && op === "donated_between") return { dateFrom: "", dateTo: "" };
   if (cat === "giving" && (op.includes("gift") || op.includes("giving"))) return { amount: "" };
+  if (cat === "date_added" && op === "between") return { dateFrom: "", dateTo: "" };
+  if (cat === "date_added" && (op === "before" || op === "after")) return { date: "" };
   return {};
 }
 
@@ -167,6 +175,48 @@ export default function AdvancedSearchPanel(props: Props) {
   // Modal mode — selection + adding
   const [modalSelected, setModalSelected] = useState<Set<string>>(new Set());
   const [modalAdding, setModalAdding] = useState(false);
+
+  // Saved searches
+  const [savedSearches, setSavedSearches] = useState<{ id: string; name: string; filters: unknown }[]>([]);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [saveName, setSaveName] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/saved-searches").then((r) => r.json()).then((data) => {
+      if (Array.isArray(data)) setSavedSearches(data);
+    }).catch(() => {});
+  }, []);
+
+  async function handleSaveSearch() {
+    if (!saveName.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch("/api/saved-searches", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: saveName.trim(), filters }),
+      });
+      if (res.ok) {
+        const saved = await res.json();
+        setSavedSearches((prev) => [saved, ...prev]);
+        setSaveDialogOpen(false);
+        setSaveName("");
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteSavedSearch(id: string) {
+    await fetch(`/api/saved-searches/${id}`, { method: "DELETE" });
+    setSavedSearches((prev) => prev.filter((s) => s.id !== id));
+  }
+
+  function handleLoadSavedSearch(search: { filters: unknown }) {
+    setFilters(search.filters as FilterRow[]);
+    setResults(null);
+  }
 
   // Restore last search from sessionStorage on mount (page mode only)
   useEffect(() => {
@@ -457,11 +507,24 @@ export default function AdvancedSearchPanel(props: Props) {
       );
     }
 
-    // Date range inputs (notes/events/giving)
+    // Date added — single date
+    if (category === "date_added" && (operator === "before" || operator === "after")) {
+      return (
+        <input
+          type="date"
+          value={(value.date as string) ?? ""}
+          onChange={(e) => upd({ date: e.target.value })}
+          className="px-3 py-1.5 border border-gray-300 rounded-md text-sm"
+        />
+      );
+    }
+
+    // Date range inputs (notes/events/giving/date_added)
     if (
       (category === "notes" && operator === "written_between") ||
       (category === "events" && operator === "invited_in_date_range") ||
-      (category === "giving" && operator === "donated_between")
+      (category === "giving" && operator === "donated_between") ||
+      (category === "date_added" && operator === "between")
     ) {
       return (
         <div className="flex items-center gap-2 flex-wrap">
@@ -682,8 +745,8 @@ export default function AdvancedSearchPanel(props: Props) {
         </div>
       )}
 
-      {/* Search / Clear buttons */}
-      <div className="mt-4 flex items-center gap-3">
+      {/* Search / Clear / Save buttons */}
+      <div className="mt-4 flex items-center gap-3 flex-wrap">
         <button
           onClick={handleSearch}
           disabled={searching}
@@ -697,7 +760,67 @@ export default function AdvancedSearchPanel(props: Props) {
         >
           Clear All
         </button>
+        <button
+          onClick={() => { setSaveName(""); setSaveDialogOpen(true); }}
+          className="px-4 py-2 border border-indigo-300 rounded-md text-sm text-indigo-700 hover:bg-indigo-50"
+        >
+          Save Search
+        </button>
+        {savedSearches.length > 0 && (
+          <div className="relative ml-auto group">
+            <button className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500">
+              Saved searches ▾
+            </button>
+            <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-md shadow-lg min-w-[200px] hidden group-focus-within:block group-hover:block">
+              {savedSearches.map((s) => (
+                <div key={s.id} className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 gap-2">
+                  <button
+                    onClick={() => handleLoadSavedSearch(s)}
+                    className="flex-1 text-left text-sm text-gray-700 truncate"
+                  >
+                    {s.name}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteSavedSearch(s.id)}
+                    className="text-gray-400 hover:text-red-500 text-xs shrink-0"
+                    title="Delete"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* Save search dialog */}
+      {saveDialogOpen && (
+        <div className="mt-3 flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-md p-3">
+          <input
+            type="text"
+            value={saveName}
+            onChange={(e) => setSaveName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") handleSaveSearch(); if (e.key === "Escape") setSaveDialogOpen(false); }}
+            placeholder="Search name…"
+            autoFocus
+            className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500"
+          />
+          <button
+            onClick={handleSaveSearch}
+            disabled={saving || !saveName.trim()}
+            className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+          <button
+            onClick={() => setSaveDialogOpen(false)}
+            className="px-3 py-1.5 border border-gray-300 text-sm text-gray-600 rounded-md hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
 
       {searchError && (
         <p className="mt-3 text-sm text-red-600">{searchError}</p>

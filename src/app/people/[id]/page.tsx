@@ -13,6 +13,7 @@ import { formatCurrency } from "@/lib/currency";
 import PersonNotesSection from "@/components/PersonNotesSection";
 import PeopleStatusSection from "@/components/PeopleStatusSection";
 import TagToggle from "@/components/TagToggle";
+import MergePersonButton from "@/components/MergePersonButton";
 import { isCrossOfficeView } from "@/lib/office-filter";
 
 export const dynamic = "force-dynamic";
@@ -824,9 +825,26 @@ export default async function PersonDetailPage({
         />
       )}
 
-      {/* Delete */}
+      {/* Merge / Delete */}
       {canEdit && (
-        <div className="border-t border-gray-200 pt-6 mt-6 flex justify-end">
+        <div className="border-t border-gray-200 pt-6 mt-6 flex justify-end gap-3">
+          <MergePersonButton person={{
+            id: person.id,
+            firstName: person.firstName,
+            middleInitial: person.middleInitial ?? null,
+            lastName: person.lastName,
+            prefix: person.prefix ?? null,
+            greeting: person.greeting ?? null,
+            address: person.address ?? null,
+            city: person.city ?? null,
+            state: person.state ?? null,
+            zip: person.zip ?? null,
+            phoneNumber: person.phoneNumber ?? null,
+            email1: person.email1 ?? null,
+            email2: person.email2 ?? null,
+            status: person.status,
+            isConnector: person.isConnector,
+          }} />
           <DeletePersonButton personId={person.id} />
         </div>
       )}

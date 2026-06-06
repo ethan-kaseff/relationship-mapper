@@ -6,7 +6,8 @@ export type FilterCategory =
   | "notes"
   | "events"
   | "fundraisers"
-  | "giving";
+  | "giving"
+  | "date_added";
 
 export interface FilterRow {
   id: string;

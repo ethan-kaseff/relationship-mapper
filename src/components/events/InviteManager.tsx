@@ -563,6 +563,12 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
     onRefresh();
   }
 
+  async function promoteGuestToPeople(inviteId: string) {
+    if (!confirm("Create a People record from this guest and link them to this event?")) return;
+    await fetch(`/api/events/${eventId}/invites/${inviteId}/promote`, { method: "POST" });
+    onRefresh();
+  }
+
   // Column count for empty state colspan
   const hasTableGroups = distinctGroups.length > 0;
   const colCount = 8 + (trackMeals ? 1 : 0) + (trackSeating ? 1 : 0) + (hasTableGroups ? 1 : 0);
@@ -839,12 +845,22 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                   {inv.group ? (
                     <span className="text-xs text-gray-400" title="Managed through sponsorship — adjust seats used on the donation">Sponsored</span>
                   ) : (
-                    <button
-                      onClick={() => removeInvite(inv.id)}
-                      className="text-red-600 hover:text-red-800 text-xs"
-                    >
-                      Remove
-                    </button>
+                    <div className="flex items-center justify-end gap-3">
+                      {inv.isGuest && (
+                        <button
+                          onClick={() => promoteGuestToPeople(inv.id)}
+                          className="text-indigo-600 hover:text-indigo-800 text-xs"
+                        >
+                          Add to People
+                        </button>
+                      )}
+                      <button
+                        onClick={() => removeInvite(inv.id)}
+                        className="text-red-600 hover:text-red-800 text-xs"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   )}
                 </td>
               </tr>

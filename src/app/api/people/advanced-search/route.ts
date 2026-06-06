@@ -195,6 +195,23 @@ async function buildCondition(
       return null;
     }
 
+    case "date_added": {
+      const date = value.date as string | undefined;
+      const dateFrom = value.dateFrom as string | undefined;
+      const dateTo = value.dateTo as string | undefined;
+      if (operator === "after" && date) return { createdAt: { gte: new Date(date) } };
+      if (operator === "before" && date) return { createdAt: { lte: new Date(date + "T23:59:59.999Z") } };
+      if (operator === "between" && (dateFrom || dateTo)) {
+        return {
+          createdAt: {
+            ...(dateFrom ? { gte: new Date(dateFrom) } : {}),
+            ...(dateTo ? { lte: new Date(dateTo + "T23:59:59.999Z") } : {}),
+          },
+        };
+      }
+      return null;
+    }
+
     default:
       return null;
   }

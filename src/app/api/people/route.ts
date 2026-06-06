@@ -11,15 +11,37 @@ export async function GET(request: Request) {
   if (!authResult.success) return authResult.response;
 
   try {
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get("search")?.trim();
     const officeFilter = await getOfficeFilterFromRequest(request);
+
+    if (search) {
+      const people = await prisma.people.findMany({
+        where: {
+          ...officeFilter,
+          OR: [
+            { firstName: { contains: search, mode: "insensitive" } },
+            { lastName: { contains: search, mode: "insensitive" } },
+            { email1: { contains: search, mode: "insensitive" } },
+            { email2: { contains: search, mode: "insensitive" } },
+          ],
+        },
+        select: {
+          id: true, firstName: true, middleInitial: true, lastName: true,
+          prefix: true, greeting: true, address: true, city: true, state: true,
+          zip: true, phoneNumber: true, email1: true, email2: true,
+          status: true, isConnector: true,
+        },
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+        take: 20,
+      });
+      return NextResponse.json({ people });
+    }
+
     const people = await prisma.people.findMany({
       where: officeFilter,
       include: {
-        partnerRoles: {
-          include: {
-            partner: true,
-          },
-        },
+        partnerRoles: { include: { partner: true } },
         relationships: true,
         connections: true,
         tags: { select: { tagId: true } },

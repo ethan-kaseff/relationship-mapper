@@ -52,6 +52,7 @@ model User {
   events             Event[] @relation("EventCreator")
   personNotes        PersonNote[]
   assignedProspects  People[] @relation("ProspectAssignments")
+  savedSearches      SavedSearch[]
 
   @@index([officeId])
   @@map("user")
@@ -586,4 +587,16 @@ model EmailTemplate {
 
   @@index([officeId])
   @@map("email_template")
+}
+
+model SavedSearch {
+  id        String   @id @default(uuid())
+  name      String
+  filters   Json
+  userId    String   @map("user_id")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([userId])
+  @@map("saved_search")
 }

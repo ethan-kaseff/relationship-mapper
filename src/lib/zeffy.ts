@@ -154,13 +154,13 @@ export async function fetchZeffyCampaigns(
 async function findOrCreateFundraiserForCampaign(
   officeId: string,
   campaign: { id: string; title: string; goal_amount?: number }
-): Promise<string> {
+): Promise<{ id: string; eventId: string | null }> {
   // Check if fundraiser already exists for this campaign
   const existing = await prisma.fundraiser.findUnique({
     where: { zeffyCampaignId: campaign.id },
-    select: { id: true },
+    select: { id: true, eventId: true },
   });
-  if (existing) return existing.id;
+  if (existing) return existing;
 
   // Create a slug from the campaign name
   const baseSlug = campaign.title
@@ -178,9 +178,38 @@ async function findOrCreateFundraiserForCampaign(
       officeId,
       isActive: true,
     },
+    select: { id: true, eventId: true },
   });
 
-  return fundraiser.id;
+  return fundraiser;
+}
+
+async function addEventInviteForZeffyDonor(
+  tx: Parameters<Parameters<typeof prisma.$transaction>[0]>[0],
+  eventId: string,
+  peopleId: string | null,
+  donorName: string | null,
+  donorEmail: string | null
+): Promise<void> {
+  if (peopleId) {
+    const alreadyInvited = await tx.eventInvite.findUnique({
+      where: { eventId_peopleId: { eventId, peopleId } },
+    });
+    if (!alreadyInvited) {
+      await tx.eventInvite.create({
+        data: { eventId, peopleId, rsvpStatus: "YES" },
+      });
+    }
+  } else if (donorName || donorEmail) {
+    const alreadyGuest = donorEmail
+      ? await tx.eventInvite.findFirst({ where: { eventId, guestEmail: donorEmail, isGuest: true } })
+      : null;
+    if (!alreadyGuest) {
+      await tx.eventInvite.create({
+        data: { eventId, isGuest: true, guestName: donorName, guestEmail: donorEmail, rsvpStatus: "YES" },
+      });
+    }
+  }
 }
 
 /**
@@ -203,6 +232,26 @@ async function matchPersonByEmail(
   return person?.id ?? null;
 }
 
+export interface PendingDuplicate {
+  zeffyContact: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phoneNumber: string | null;
+    address: string | null;
+    city: string | null;
+    state: string | null;
+    zip: string | null;
+  };
+  existingPerson: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email1: string | null;
+    email2: string | null;
+  };
+}
+
 /**
  * Sync donations from Zeffy into the database.
  * Returns a summary of the sync results.
@@ -217,17 +266,17 @@ export async function syncZeffyDonations(
   let errors = 0;
 
   // First, fetch all campaigns to map campaign IDs to fundraisers
-  const campaignMap = new Map<string, string>();
+  const campaignMap = new Map<string, { id: string; eventId: string | null }>();
   let campaignCursor: string | undefined;
   do {
     const campaignsPage = await fetchZeffyCampaigns(apiKey, campaignCursor);
     for (const campaign of campaignsPage.data) {
-      const fundraiserId = await findOrCreateFundraiserForCampaign(officeId, {
+      const fundraiser = await findOrCreateFundraiserForCampaign(officeId, {
         id: campaign.id,
         title: campaign.title,
         goal_amount: campaign.goal_amount,
       });
-      campaignMap.set(campaign.id, fundraiserId);
+      campaignMap.set(campaign.id, fundraiser);
     }
     campaignCursor = campaignsPage.has_more ? campaignsPage.next_cursor : undefined;
   } while (campaignCursor);
@@ -250,17 +299,20 @@ export async function syncZeffyDonations(
         }
 
         // Determine fundraiser
-        let fundraiserId = payment.campaign_id
+        let fundraiser = payment.campaign_id
           ? campaignMap.get(payment.campaign_id)
           : undefined;
 
         // If no campaign mapped, create a default "Zeffy Donations" fundraiser
-        if (!fundraiserId) {
-          fundraiserId = await findOrCreateFundraiserForCampaign(officeId, {
+        if (!fundraiser) {
+          fundraiser = await findOrCreateFundraiserForCampaign(officeId, {
             id: "zeffy-general",
             title: "Zeffy Donations",
           });
         }
+
+        const fundraiserId = fundraiser.id;
+        const eventId = fundraiser.eventId;
 
         const donorEmail = payment.buyer?.email as string | undefined;
         const donorName = [payment.buyer?.first_name, payment.buyer?.last_name]
@@ -277,7 +329,7 @@ export async function syncZeffyDonations(
         await prisma.$transaction(async (tx) => {
           await tx.donation.create({
             data: {
-              fundraiserId: fundraiserId!,
+              fundraiserId,
               amount,
               donorName,
               donorEmail: donorEmail ?? null,
@@ -292,9 +344,13 @@ export async function syncZeffyDonations(
           });
 
           await tx.fundraiser.update({
-            where: { id: fundraiserId! },
+            where: { id: fundraiserId },
             data: { currentAmount: { increment: amount } },
           });
+
+          if (eventId) {
+            await addEventInviteForZeffyDonor(tx, eventId, peopleId, donorName, donorEmail ?? null);
+          }
         });
 
         synced++;
@@ -316,12 +372,13 @@ export async function syncZeffyDonations(
  */
 export async function syncZeffyContacts(
   officeId: string
-): Promise<{ created: number; skipped: number; errors: number }> {
+): Promise<{ created: number; skipped: number; errors: number; pendingDuplicates: PendingDuplicate[] }> {
   const apiKey = await getZeffyApiKey(officeId);
   let cursor: string | undefined;
   let created = 0;
   let skipped = 0;
   let errors = 0;
+  const pendingDuplicates: PendingDuplicate[] = [];
 
   do {
     const page = await fetchZeffyContacts(apiKey, cursor);
@@ -329,31 +386,61 @@ export async function syncZeffyContacts(
     for (const contact of page.data) {
       try {
         const email = contact.email as string | undefined;
+        const firstName = (contact.first_name as string) || "Unknown";
+        const lastName = (contact.last_name as string) || "Unknown";
+
+        if (email) {
+          // Skip if person with this email already exists
+          const existingById = await matchPersonByEmail(officeId, email);
+          if (existingById) {
+            skipped++;
+            continue;
+          }
+        }
+
+        // Check for a name match (potential duplicate)
+        const nameMatch = await prisma.people.findFirst({
+          where: {
+            officeId,
+            firstName: { equals: firstName, mode: "insensitive" },
+            lastName: { equals: lastName, mode: "insensitive" },
+          },
+          select: { id: true, firstName: true, lastName: true, email1: true, email2: true },
+        });
+
+        if (nameMatch && email) {
+          // Has email + name match → flag for user review instead of auto-creating
+          pendingDuplicates.push({
+            zeffyContact: {
+              firstName,
+              lastName,
+              email,
+              phoneNumber: (contact.phone_number as string) ?? null,
+              address: (contact.address?.line1 as string) ?? null,
+              city: (contact.address?.city as string) ?? null,
+              state: (contact.address?.state as string) ?? null,
+              zip: (contact.address?.postal_code as string) ?? null,
+            },
+            existingPerson: nameMatch,
+          });
+          continue;
+        }
+
         if (!email) {
           skipped++;
           continue;
         }
-
-        // Skip if person with this email already exists in office
-        const existingPerson = await matchPersonByEmail(officeId, email);
-        if (existingPerson) {
-          skipped++;
-          continue;
-        }
-
-        const firstName = (contact.first_name as string) || "Unknown";
-        const lastName = (contact.last_name as string) || "Unknown";
 
         await prisma.people.create({
           data: {
             firstName,
             lastName,
             email1: email,
-            address: contact.address?.line1 ?? null,
-            city: contact.address?.city ?? null,
-            state: contact.address?.state ?? null,
-            zip: contact.address?.postal_code ?? null,
-            phoneNumber: contact.phone_number ?? null,
+            address: (contact.address?.line1 as string) ?? null,
+            city: (contact.address?.city as string) ?? null,
+            state: (contact.address?.state as string) ?? null,
+            zip: (contact.address?.postal_code as string) ?? null,
+            phoneNumber: (contact.phone_number as string) ?? null,
             officeId,
           },
         });
@@ -368,7 +455,7 @@ export async function syncZeffyContacts(
     cursor = page.has_more ? page.next_cursor : undefined;
   } while (cursor);
 
-  return { created, skipped, errors };
+  return { created, skipped, errors, pendingDuplicates };
 }
 
 /**
@@ -388,18 +475,20 @@ export async function processZeffyWebhookPayment(
   if (existing) return;
 
   // Find or create fundraiser for the campaign
-  let fundraiserId: string;
+  let fundraiser: { id: string; eventId: string | null };
   if (payment.campaign_id && payment.campaign) {
-    fundraiserId = await findOrCreateFundraiserForCampaign(officeId, {
+    fundraiser = await findOrCreateFundraiserForCampaign(officeId, {
       id: payment.campaign_id,
       title: payment.campaign.title || payment.campaign.name || "Zeffy Campaign",
     });
   } else {
-    fundraiserId = await findOrCreateFundraiserForCampaign(officeId, {
+    fundraiser = await findOrCreateFundraiserForCampaign(officeId, {
       id: "zeffy-general",
       title: "Zeffy Donations",
     });
   }
+
+  const { id: fundraiserId, eventId } = fundraiser;
 
   const donorEmail = payment.buyer?.email as string | undefined;
   const donorName = [payment.buyer?.first_name, payment.buyer?.last_name]
@@ -431,5 +520,9 @@ export async function processZeffyWebhookPayment(
       where: { id: fundraiserId },
       data: { currentAmount: { increment: amount } },
     });
+
+    if (eventId) {
+      await addEventInviteForZeffyDonor(tx, eventId, peopleId, donorName, donorEmail ?? null);
+    }
   });
 }
