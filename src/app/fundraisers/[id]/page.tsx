@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { formatCurrency, dollarsToCents, centsToDollars } from "@/lib/currency";
 import AddSolicitationsModal from "@/components/fundraisers/AddSolicitationsModal";
+import FundraiserEventSection from "@/components/fundraisers/FundraiserEventSection";
 
 interface Person {
   id: string;
@@ -59,7 +60,17 @@ interface Fundraiser {
   startDate: string | null;
   endDate: string | null;
   isActive: boolean;
-  event: { id: string; title: string; trackSeating: boolean; ticketPrice: number | null; mealCost: number | null } | null;
+  event: {
+    id: string;
+    title: string;
+    eventDate: string | null;
+    location: string | null;
+    trackSeating: boolean;
+    ticketPrice: number | null;
+    mealCost: number | null;
+    inviteCount: number;
+    yesCount: number;
+  } | null;
   donations: Donation[];
   sponsorshipLevels: SponsorshipLevel[];
 }
@@ -127,7 +138,7 @@ export default function FundraiserDetailPage() {
           <h1 className="text-2xl font-bold text-indigo-900">{fundraiser.title}</h1>
           {fundraiser.event && (
             <Link href={`/events/${fundraiser.event.id}`} className="text-sm text-indigo-600 hover:underline">
-              {fundraiser.event.title}
+              ↗ {fundraiser.event.title}
             </Link>
           )}
         </div>
@@ -158,7 +169,7 @@ export default function FundraiserDetailPage() {
         ))}
       </div>
 
-      {tab === "overview" && <OverviewTab fundraiser={fundraiser} pct={pct} />}
+      {tab === "overview" && <OverviewTab fundraiser={fundraiser} pct={pct} onRefresh={load} />}
       {tab === "levels" && <LevelsTab fundraiser={fundraiser} onRefresh={load} />}
       {tab === "donations" && <DonationsTab fundraiser={fundraiser} onRefresh={load} />}
       {tab === "solicitations" && !fundraiser.event && (
@@ -174,7 +185,7 @@ export default function FundraiserDetailPage() {
   );
 }
 
-function OverviewTab({ fundraiser, pct }: { fundraiser: Fundraiser; pct: number }) {
+function OverviewTab({ fundraiser, pct, onRefresh }: { fundraiser: Fundraiser; pct: number; onRefresh: () => void }) {
   const publicUrl = `/donate/${fundraiser.slug}`;
   return (
     <div className="space-y-4">
@@ -251,6 +262,12 @@ function OverviewTab({ fundraiser, pct }: { fundraiser: Fundraiser; pct: number 
           </div>
         )}
       </div>
+
+      <FundraiserEventSection
+        fundraiserId={fundraiser.id}
+        event={fundraiser.event}
+        onCreated={onRefresh}
+      />
     </div>
   );
 }

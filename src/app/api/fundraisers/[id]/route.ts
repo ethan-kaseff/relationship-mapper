@@ -24,12 +24,41 @@ export async function GET(
             partner: { select: { id: true, organizationName: true } },
           },
         },
-        event: { select: { id: true, title: true, trackSeating: true, ticketPrice: true, mealCost: true } },
+        event: {
+          select: {
+            id: true,
+            title: true,
+            eventDate: true,
+            location: true,
+            trackSeating: true,
+            ticketPrice: true,
+            mealCost: true,
+            _count: { select: { invites: true } },
+            invites: { select: { rsvpStatus: true } },
+          },
+        },
         sponsorshipLevels: { orderBy: [{ displayOrder: "asc" }, { amount: "desc" }] },
       },
     });
     if (!fundraiser) return notFound("Fundraiser not found");
-    return NextResponse.json(fundraiser);
+
+    const { event, ...rest } = fundraiser;
+    return NextResponse.json({
+      ...rest,
+      event: event
+        ? {
+            id: event.id,
+            title: event.title,
+            eventDate: event.eventDate,
+            location: event.location,
+            trackSeating: event.trackSeating,
+            ticketPrice: event.ticketPrice,
+            mealCost: event.mealCost,
+            inviteCount: event._count.invites,
+            yesCount: event.invites.filter((i) => i.rsvpStatus === "YES").length,
+          }
+        : null,
+    });
   } catch (error) {
     return handleApiError(error);
   }
