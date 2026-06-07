@@ -65,27 +65,39 @@ async function handleCheckoutCompleted(session: any) {
   const recurringInterval = metadata.recurringInterval;
   const tributeType = metadata.tributeType || null;
   const tributeName = metadata.tributeName || null;
+  const sponsorshipLevelId = metadata.sponsorshipLevelId || null;
+
+  // Look up fundraiser (officeId for person match, eventId for invite creation)
+  const fundraiser = await prisma.fundraiser.findUnique({
+    where: { id: fundraiserId },
+    select: { officeId: true, eventId: true },
+  });
+  if (!fundraiser) return;
+
+  // Look up sponsorship level seat count if applicable
+  let sponsoredSeats: number | null = null;
+  if (sponsorshipLevelId) {
+    const level = await prisma.sponsorshipLevel.findUnique({
+      where: { id: sponsorshipLevelId },
+      select: { seats: true },
+    });
+    sponsoredSeats = level?.seats ?? null;
+  }
 
   // Try to match donor to existing person by email
   let peopleId: string | null = null;
   if (donorEmail) {
-    const fundraiser = await prisma.fundraiser.findUnique({
-      where: { id: fundraiserId },
-      select: { officeId: true },
+    const person = await prisma.people.findFirst({
+      where: {
+        officeId: fundraiser.officeId,
+        OR: [
+          { email1: { equals: donorEmail, mode: "insensitive" } },
+          { email2: { equals: donorEmail, mode: "insensitive" } },
+        ],
+      },
+      select: { id: true },
     });
-    if (fundraiser) {
-      const person = await prisma.people.findFirst({
-        where: {
-          officeId: fundraiser.officeId,
-          OR: [
-            { email1: { equals: donorEmail, mode: "insensitive" } },
-            { email2: { equals: donorEmail, mode: "insensitive" } },
-          ],
-        },
-        select: { id: true },
-      });
-      if (person) peopleId = person.id;
-    }
+    if (person) peopleId = person.id;
   }
 
   await prisma.$transaction(async (tx) => {
@@ -104,6 +116,8 @@ async function handleCheckoutCompleted(session: any) {
         recurringInterval,
         tributeType,
         tributeName,
+        sponsorshipLevelId,
+        sponsoredSeats,
         approvalStatus: peopleId ? "AUTO_APPROVED" : "PENDING",
         donatedAt: new Date(),
       },
@@ -113,6 +127,41 @@ async function handleCheckoutCompleted(session: any) {
       where: { id: fundraiserId },
       data: { currentAmount: { increment: amount } },
     });
+
+    // If fundraiser is linked to an event, add the donor to the event invite list
+    if (fundraiser.eventId) {
+      if (peopleId) {
+        // Matched an existing person — upsert their invite
+        await tx.eventInvite.upsert({
+          where: { eventId_peopleId: { eventId: fundraiser.eventId, peopleId } },
+          create: {
+            eventId: fundraiser.eventId,
+            peopleId,
+            rsvpStatus: "YES",
+            ticketType: "Sponsor",
+            sponsoredSeats: sponsoredSeats ?? undefined,
+          },
+          update: {
+            rsvpStatus: "YES",
+            ticketType: "Sponsor",
+            ...(sponsoredSeats !== null ? { sponsoredSeats } : {}),
+          },
+        });
+      } else if (donorName) {
+        // No match — create a guest invite so the admin can convert them later
+        await tx.eventInvite.create({
+          data: {
+            eventId: fundraiser.eventId,
+            isGuest: true,
+            guestName: isAnonymous ? "Anonymous" : donorName,
+            guestEmail: donorEmail || undefined,
+            rsvpStatus: "YES",
+            ticketType: "Sponsor",
+            sponsoredSeats: sponsoredSeats ?? undefined,
+          },
+        });
+      }
+    }
   });
 }
 

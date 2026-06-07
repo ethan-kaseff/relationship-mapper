@@ -28,6 +28,10 @@ export async function GET(
         endDate: true,
         stripeProductId: true,
         officeId: true,
+        sponsorshipLevels: {
+          select: { id: true, name: true, amount: true, seats: true, description: true, displayOrder: true },
+          orderBy: [{ displayOrder: "asc" }, { amount: "desc" }],
+        },
       },
     });
 
@@ -58,6 +62,8 @@ export async function POST(
       tributeType,
       tributeName,
       isAnonymous,
+      sponsorshipLevelId,
+      levelName,
     } = body;
 
     if (!amount || typeof amount !== "number" || amount < 100) {
@@ -105,6 +111,8 @@ export async function POST(
         tributeType,
         tributeName,
         isAnonymous,
+        sponsorshipLevelId,
+        levelName,
         stripeProductId: fundraiser.stripeProductId || undefined,
         connectedAccountId,
       });
@@ -130,6 +138,8 @@ export async function POST(
         tributeType,
         tributeName,
         isAnonymous,
+        sponsorshipLevelId,
+        levelName,
         connectedAccountId,
       });
     }
