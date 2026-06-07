@@ -224,7 +224,7 @@ function OverviewTab({ fundraiser, pct, onRefresh }: { fundraiser: Fundraiser; p
             </span>
           </div>
           <div>
-            <span className="text-gray-500">Public URL:</span>{" "}
+            <span className="text-gray-500">Stripe payment Public URL:</span>{" "}
             <Link href={publicUrl} className="text-indigo-600 hover:underline" target="_blank">
               /donate/{fundraiser.slug}
             </Link>
@@ -1115,11 +1115,29 @@ function SettingsTab({
   }
 
   async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this fundraiser and all its donations?")) return;
+    const syncedDonations = fundraiser.donations.some((d) => d.qbSyncStatus !== "NOT_SYNCED");
+    if (syncedDonations) {
+      alert("This fundraiser has donations that have been synced to QuickBooks and cannot be deleted.");
+      return;
+    }
+
+    if (!confirm("Delete this fundraiser and all its donations? This cannot be undone.")) return;
+
+    let alsoDeleteEvent = false;
+    if (fundraiser.event) {
+      alsoDeleteEvent = confirm(
+        `This fundraiser is linked to event "${fundraiser.event.title}". Delete the event and all its invites too?`
+      );
+    }
+
     setDeleting(true);
     try {
       const res = await fetch(`/api/fundraisers/${fundraiser.id}`, { method: "DELETE" });
-      if (res.ok) onDelete();
+      if (!res.ok) return;
+      if (alsoDeleteEvent && fundraiser.event) {
+        await fetch(`/api/events/${fundraiser.event.id}`, { method: "DELETE" });
+      }
+      onDelete();
     } finally {
       setDeleting(false);
     }
