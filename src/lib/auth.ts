@@ -46,6 +46,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const isLoggedIn = !!auth?.user;
       const pathname = request.nextUrl.pathname;
       if (pathname === "/" || pathname === "/login") return true;
+      if (pathname.startsWith("/donate") || pathname.startsWith("/api/donate")) return true;
       if (!isLoggedIn) return false;
 
       const role = (auth?.user as { role?: string })?.role;

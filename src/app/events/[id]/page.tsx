@@ -62,7 +62,7 @@ interface EventData {
     title: string;
     goalAmount: number;
     currentAmount: number;
-    donations: { id: string; peopleId: string | null; approvalStatus: string }[];
+    donations: { id: string; peopleId: string | null; approvalStatus: string; qbSyncStatus: string }[];
   }[];
 }
 
@@ -163,7 +163,31 @@ export default function EventDetailPage() {
   }
 
   async function handleDelete() {
+    if (!event) return;
+    const syncedDonations = event.fundraisers.some((f) =>
+      f.donations.some((d) => d.qbSyncStatus !== "NOT_SYNCED")
+    );
+    if (syncedDonations) {
+      alert("This event has donations that have been synced to QuickBooks and cannot be deleted.");
+      return;
+    }
+
     if (!confirm("Delete this event and all its invites? This cannot be undone.")) return;
+
+    let alsoDeleteFundraiser = false;
+    if (event.fundraisers.length > 0) {
+      const names = event.fundraisers.map((f) => `"${f.title}"`).join(", ");
+      alsoDeleteFundraiser = confirm(
+        `This event is linked to fundraiser ${names}. Delete the fundraiser and all its donations too?`
+      );
+    }
+
+    if (alsoDeleteFundraiser) {
+      for (const f of event.fundraisers) {
+        await fetch(`/api/fundraisers/${f.id}`, { method: "DELETE" });
+      }
+    }
+
     const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
     if (res.ok) router.push("/events");
   }
