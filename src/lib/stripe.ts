@@ -21,6 +21,8 @@ export async function createCheckoutSession({
   tributeType,
   tributeName,
   isAnonymous,
+  sponsorshipLevelId,
+  levelName,
   connectedAccountId,
 }: {
   fundraiserId: string;
@@ -32,6 +34,8 @@ export async function createCheckoutSession({
   tributeType?: string;
   tributeName?: string;
   isAnonymous?: boolean;
+  sponsorshipLevelId?: string;
+  levelName?: string;
   connectedAccountId?: string;
 }): Promise<Stripe.Checkout.Session> {
   const stripe = getStripeClient();
@@ -44,6 +48,7 @@ export async function createCheckoutSession({
   };
   if (tributeType) metadata.tributeType = tributeType;
   if (tributeName) metadata.tributeName = tributeName;
+  if (sponsorshipLevelId) metadata.sponsorshipLevelId = sponsorshipLevelId;
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: "payment",
@@ -51,7 +56,7 @@ export async function createCheckoutSession({
       {
         price_data: {
           currency: "usd",
-          product_data: { name: `Donation: ${fundraiserTitle}` },
+          product_data: { name: levelName ? `${levelName} — ${fundraiserTitle}` : `Donation: ${fundraiserTitle}` },
           unit_amount: amount,
         },
         quantity: 1,
@@ -83,6 +88,8 @@ export async function createSubscriptionCheckoutSession({
   tributeType,
   tributeName,
   isAnonymous,
+  sponsorshipLevelId,
+  levelName,
   stripeProductId,
   connectedAccountId,
 }: {
@@ -96,6 +103,8 @@ export async function createSubscriptionCheckoutSession({
   tributeType?: string;
   tributeName?: string;
   isAnonymous?: boolean;
+  sponsorshipLevelId?: string;
+  levelName?: string;
   stripeProductId?: string;
   connectedAccountId?: string;
 }): Promise<Stripe.Checkout.Session> {
@@ -111,12 +120,13 @@ export async function createSubscriptionCheckoutSession({
   };
   if (tributeType) metadata.tributeType = tributeType;
   if (tributeName) metadata.tributeName = tributeName;
+  if (sponsorshipLevelId) metadata.sponsorshipLevelId = sponsorshipLevelId;
 
   // Create or use existing product
   let productId = stripeProductId;
   if (!productId) {
     const product = await stripe.products.create({
-      name: `Recurring Donation: ${fundraiserTitle}`,
+      name: levelName ? `${levelName} — ${fundraiserTitle}` : `Recurring Donation: ${fundraiserTitle}`,
       metadata: { fundraiserId },
     });
     productId = product.id;

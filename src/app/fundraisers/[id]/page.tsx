@@ -223,12 +223,14 @@ function OverviewTab({ fundraiser, pct, onRefresh }: { fundraiser: Fundraiser; p
               {fundraiser.isActive ? "Active" : "Inactive"}
             </span>
           </div>
-          <div>
-            <span className="text-gray-500">Stripe payment Public URL:</span>{" "}
-            <Link href={publicUrl} className="text-indigo-600 hover:underline" target="_blank">
-              /donate/{fundraiser.slug}
-            </Link>
-          </div>
+          {fundraiser.sponsorshipLevels.length > 0 && (
+            <div>
+              <span className="text-gray-500">Stripe payment Public URL:</span>{" "}
+              <Link href={publicUrl} className="text-indigo-600 hover:underline" target="_blank">
+                /donate/{fundraiser.slug}
+              </Link>
+            </div>
+          )}
           {fundraiser.startDate && (
             <div>
               <span className="text-gray-500">Start:</span>{" "}
@@ -1160,13 +1162,15 @@ function SettingsTab({
         </button>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-5">
-        <h3 className="text-sm font-medium text-gray-900 mb-1">Public Donation Link</h3>
-        <p className="text-sm text-gray-600 mb-2">Share this link for people to donate online:</p>
-        <code className="text-sm bg-gray-100 px-3 py-1.5 rounded block">
-          {typeof window !== "undefined" ? window.location.origin : ""}/donate/{fundraiser.slug}
-        </code>
-      </div>
+      {fundraiser.sponsorshipLevels.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-5">
+          <h3 className="text-sm font-medium text-gray-900 mb-1">Public Donation Link</h3>
+          <p className="text-sm text-gray-600 mb-2">Share this link for people to donate online via Stripe:</p>
+          <code className="text-sm bg-gray-100 px-3 py-1.5 rounded block">
+            {typeof window !== "undefined" ? window.location.origin : ""}/donate/{fundraiser.slug}
+          </code>
+        </div>
+      )}
 
       <div className="bg-red-50 border border-red-200 rounded-lg p-5">
         <h3 className="text-sm font-medium text-red-800 mb-2">Danger Zone</h3>

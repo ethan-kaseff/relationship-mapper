@@ -4,6 +4,15 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { formatCurrency, dollarsToCents } from "@/lib/currency";
 
+interface SponsorshipLevel {
+  id: string;
+  name: string;
+  amount: number;
+  seats: number | null;
+  description: string | null;
+  displayOrder: number;
+}
+
 interface Fundraiser {
   id: string;
   title: string;
@@ -13,6 +22,7 @@ interface Fundraiser {
   presetAmounts: number[];
   slug: string;
   isActive: boolean;
+  sponsorshipLevels: SponsorshipLevel[];
 }
 
 export default function DonatePage() {
@@ -22,6 +32,7 @@ export default function DonatePage() {
   const [error, setError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  const [selectedLevelId, setSelectedLevelId] = useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<number | null>(null);
   const [customAmount, setCustomAmount] = useState("");
   const [donorName, setDonorName] = useState("");
@@ -44,7 +55,13 @@ export default function DonatePage() {
       .finally(() => setLoading(false));
   }, [slug]);
 
-  const amountInCents = selectedPreset || (customAmount ? dollarsToCents(parseFloat(customAmount)) : 0);
+  const hasLevels = (fundraiser?.sponsorshipLevels?.length ?? 0) > 0;
+
+  const selectedLevel = fundraiser?.sponsorshipLevels.find((l) => l.id === selectedLevelId) ?? null;
+
+  const amountInCents = hasLevels
+    ? (selectedLevel?.amount ?? 0)
+    : (selectedPreset || (customAmount ? dollarsToCents(parseFloat(customAmount)) : 0));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,10 +81,12 @@ export default function DonatePage() {
           donorName: isAnonymous ? "Anonymous" : donorName,
           donorEmail,
           isAnonymous,
-          isRecurring,
-          recurringInterval: isRecurring ? recurringInterval : undefined,
+          isRecurring: hasLevels ? false : isRecurring,
+          recurringInterval: !hasLevels && isRecurring ? recurringInterval : undefined,
           tributeType: showTribute ? tributeType : undefined,
           tributeName: showTribute ? tributeName : undefined,
+          sponsorshipLevelId: selectedLevelId || undefined,
+          levelName: selectedLevel?.name || undefined,
         }),
       });
 
@@ -145,76 +164,113 @@ export default function DonatePage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Amount presets */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Select Amount
-              </label>
-              <div className="grid grid-cols-3 gap-2">
-                {(fundraiser.presetAmounts as number[]).map((cents) => (
-                  <button
-                    key={cents}
-                    type="button"
-                    onClick={() => {
-                      setSelectedPreset(cents);
-                      setCustomAmount("");
-                    }}
-                    className={`py-3 rounded-md text-sm font-medium transition-colors ${
-                      selectedPreset === cents
-                        ? "bg-indigo-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    {formatCurrency(cents)}
-                  </button>
-                ))}
+            {hasLevels ? (
+              /* Sponsorship level cards */
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Select a Sponsorship Level
+                </label>
+                <div className="space-y-2">
+                  {fundraiser.sponsorshipLevels.map((level) => (
+                    <button
+                      key={level.id}
+                      type="button"
+                      onClick={() => setSelectedLevelId(level.id)}
+                      className={`w-full text-left px-4 py-3 rounded-md border-2 transition-colors ${
+                        selectedLevelId === level.id
+                          ? "border-indigo-600 bg-indigo-50"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-gray-900">{level.name}</span>
+                        <span className="font-bold text-indigo-600">{formatCurrency(level.amount)}</span>
+                      </div>
+                      {(level.description || level.seats) && (
+                        <div className="mt-1 text-sm text-gray-500">
+                          {level.description && <span>{level.description}</span>}
+                          {level.description && level.seats && <span className="mx-1">·</span>}
+                          {level.seats && <span>{level.seats} seat{level.seats !== 1 ? "s" : ""}</span>}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            ) : (
+              <>
+                {/* Preset amount buttons */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Amount
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(fundraiser.presetAmounts as number[]).map((cents) => (
+                      <button
+                        key={cents}
+                        type="button"
+                        onClick={() => {
+                          setSelectedPreset(cents);
+                          setCustomAmount("");
+                        }}
+                        className={`py-3 rounded-md text-sm font-medium transition-colors ${
+                          selectedPreset === cents
+                            ? "bg-indigo-600 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                      >
+                        {formatCurrency(cents)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-            {/* Custom amount */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Or enter custom amount
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-gray-500">$</span>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="1"
-                  value={customAmount}
-                  onChange={(e) => {
-                    setCustomAmount(e.target.value);
-                    setSelectedPreset(null);
-                  }}
-                  placeholder="0.00"
-                  className="w-full pl-7 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                />
-              </div>
-            </div>
+                {/* Custom amount */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Or enter custom amount
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-2.5 text-gray-500">$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="1"
+                      value={customAmount}
+                      onChange={(e) => {
+                        setCustomAmount(e.target.value);
+                        setSelectedPreset(null);
+                      }}
+                      placeholder="0.00"
+                      className="w-full pl-7 border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
 
-            {/* Recurring */}
-            <div className="border border-gray-200 rounded-md p-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={isRecurring}
-                  onChange={(e) => setIsRecurring(e.target.checked)}
-                  className="rounded text-indigo-600"
-                />
-                <span className="text-sm text-gray-700">Make this a recurring donation</span>
-              </label>
-              {isRecurring && (
-                <select
-                  value={recurringInterval}
-                  onChange={(e) => setRecurringInterval(e.target.value)}
-                  className="mt-2 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                >
-                  <option value="month">Monthly</option>
-                  <option value="year">Yearly</option>
-                </select>
-              )}
-            </div>
+                {/* Recurring */}
+                <div className="border border-gray-200 rounded-md p-4">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isRecurring}
+                      onChange={(e) => setIsRecurring(e.target.checked)}
+                      className="rounded text-indigo-600"
+                    />
+                    <span className="text-sm text-gray-700">Make this a recurring donation</span>
+                  </label>
+                  {isRecurring && (
+                    <select
+                      value={recurringInterval}
+                      onChange={(e) => setRecurringInterval(e.target.value)}
+                      className="mt-2 w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    >
+                      <option value="month">Monthly</option>
+                      <option value="year">Yearly</option>
+                    </select>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Donor info */}
             <div className="space-y-3">
@@ -284,9 +340,20 @@ export default function DonatePage() {
               {submitting
                 ? "Redirecting to checkout..."
                 : amountInCents >= 100
-                  ? `Donate ${formatCurrency(amountInCents)}${isRecurring ? `/${recurringInterval === "year" ? "year" : "month"}` : ""}`
-                  : "Select an amount"}
+                  ? `Donate ${formatCurrency(amountInCents)}${!hasLevels && isRecurring ? `/${recurringInterval === "year" ? "year" : "month"}` : ""}`
+                  : hasLevels ? "Select a sponsorship level" : "Select an amount"}
             </button>
+
+            {/* Cancel */}
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => window.history.back()}
+                className="text-sm text-gray-400 hover:text-gray-600"
+              >
+                Cancel
+              </button>
+            </div>
           </form>
         </div>
       </div>
