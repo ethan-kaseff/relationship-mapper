@@ -143,6 +143,8 @@ export default function NoticeManager({
   const context: EvalContext = { paidPeopleIds };
 
   const eventGroups = [...new Set(invites.map((i) => i.group).filter((g) => g && g.trim()))].sort();
+  const eventCities = [...new Set(invites.map((i) => i.person?.city).filter((c): c is string => !!c && !!c.trim()))].sort();
+  const eventStates = [...new Set(invites.map((i) => i.person?.state).filter((s): s is string => !!s && !!s.trim()))].sort();
 
   const evaluated = notices
     .filter((n) => n.isActive)
@@ -302,8 +304,14 @@ export default function NoticeManager({
       );
     }
 
-    // Group — derived from this event's invites
-    if (fieldDef.key === "group" && eventGroups.length > 0) {
+    // Fields derived from this event's invite list
+    const eventDerivedOptions: Record<string, string[]> = {
+      group: eventGroups,
+      "person.city": eventCities,
+      "person.state": eventStates,
+    };
+    const derivedOpts = eventDerivedOptions[fieldDef.key];
+    if (derivedOpts && derivedOpts.length > 0) {
       return (
         <select
           value={condition.value}
@@ -311,7 +319,7 @@ export default function NoticeManager({
           className="text-sm border border-gray-300 rounded px-2 py-1"
         >
           <option value="">Select…</option>
-          {eventGroups.map((g) => <option key={g} value={g}>{g}</option>)}
+          {derivedOpts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
         </select>
       );
     }
