@@ -533,6 +533,7 @@ model Donation {
   isTaxDeductible   Boolean    @default(true) @map("is_tax_deductible")
   taxDeductibleAmount Int?     @map("tax_deductible_amount")
   notes             String?
+  seatsChangeNote   String?    @map("seats_change_note")
   approvalStatus    String     @default("AUTO_APPROVED") @map("approval_status")
   qbSyncStatus      String     @default("NOT_SYNCED") @map("qb_sync_status")
   qbReceiptId       String?    @map("qb_receipt_id")

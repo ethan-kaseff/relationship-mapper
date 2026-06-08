@@ -77,6 +77,7 @@ interface InviteManagerProps {
   syncResult?: string | null;
   onSyncCC?: () => void;
   tableNames?: Record<string, string>;
+  seatDiscrepancies?: Record<string, { allowed: number; used: number; note: string | null }>;
 }
 
 const RSVP_COLORS: Record<string, string> = {
@@ -409,7 +410,7 @@ function AddPlaceholderModal({ eventId, onClose, onAdded }: { eventId: string; o
   );
 }
 
-export default function InviteManager({ eventId, invites, trackMeals, trackSeating, onRefresh, ccConnected, syncing, syncResult, onSyncCC, tableNames = {} }: InviteManagerProps) {
+export default function InviteManager({ eventId, invites, trackMeals, trackSeating, onRefresh, ccConnected, syncing, syncResult, onSyncCC, tableNames = {}, seatDiscrepancies = {} }: InviteManagerProps) {
   const [showAddPeople, setShowAddPeople] = useState(false);
   const [showAddPartner, setShowAddPartner] = useState(false);
   const [showAddGuest, setShowAddGuest] = useState(false);
@@ -726,6 +727,14 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                     <span>{getDisplayName(inv)} <span className="text-xs bg-purple-100 text-purple-700 border border-purple-200 rounded px-1">Guest</span></span>
                   ) : (
                     <span>{inv.person ? `${inv.person.lastName}, ${inv.person.firstName}` : "Unknown"}</span>
+                  )}
+                  {inv.peopleId && seatDiscrepancies[inv.peopleId] && seatDiscrepancies[inv.peopleId].used < seatDiscrepancies[inv.peopleId].allowed && (
+                    <span
+                      className="ml-1 inline-flex items-center text-xs bg-amber-100 text-amber-700 border border-amber-200 rounded px-1"
+                      title={`${seatDiscrepancies[inv.peopleId].used} of ${seatDiscrepancies[inv.peopleId].allowed} seats used${seatDiscrepancies[inv.peopleId].note ? `\n${seatDiscrepancies[inv.peopleId].note}` : ""}`}
+                    >
+                      {seatDiscrepancies[inv.peopleId].used}/{seatDiscrepancies[inv.peopleId].allowed}
+                    </span>
                   )}
                 </td>
                 <td className="px-4 py-3">

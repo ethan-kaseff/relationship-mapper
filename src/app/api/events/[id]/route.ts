@@ -53,7 +53,7 @@ export async function GET(
             goalAmount: true,
             currentAmount: true,
             _count: { select: { donations: true } },
-            donations: { select: { id: true, peopleId: true, approvalStatus: true, qbSyncStatus: true, isRecurring: true, amount: true, paymentMethod: true, sponsorshipLevel: { select: { name: true } } } },
+            donations: { select: { id: true, peopleId: true, approvalStatus: true, qbSyncStatus: true, isRecurring: true, amount: true, paymentMethod: true, seatsChangeNote: true, sponsoredSeats: true, seatsUsed: true, sponsorshipLevel: { select: { name: true } } } },
           },
           take: 1,
         },
