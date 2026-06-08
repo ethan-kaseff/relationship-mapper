@@ -37,6 +37,7 @@ interface InviteForEval {
   tableRequest: string | null;
   guestName: string | null;
   guestEmail: string | null;
+  sponsoredSeats: number | null;
   person: {
     firstName: string;
     lastName: string;
@@ -45,6 +46,9 @@ interface InviteForEval {
     status: string;
     city: string | null;
     state: string | null;
+    phoneNumber: string | null;
+    zip: string | null;
+    communicationMethod: { name: string } | null;
     assignedTo: { id: string } | null;
     tags: { tag: { id: string; name: string } }[];
     partnerRoles: { partner: { organizationType: { typeName: string } | null } }[];
@@ -53,7 +57,7 @@ interface InviteForEval {
 
 interface Tag { id: string; name: string; }
 interface StaffUser { id: string; firstName: string; lastName: string; }
-interface DonationForEval { peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; sponsorshipLevel: { name: string } | null; }
+interface DonationForEval { peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; amount: number; paymentMethod: string; sponsorshipLevel: { name: string } | null; }
 
 interface FormState {
   name: string;
@@ -73,6 +77,7 @@ function toEvalInvite(invite: InviteForEval): EvalInvite {
     dietary: invite.dietary,
     notes: invite.notes,
     tableId: invite.tableId,
+    sponsoredSeats: invite.sponsoredSeats,
     isGuest: invite.isGuest,
     isPlaceholder: invite.isPlaceholder,
     attended: invite.attended,
@@ -80,7 +85,14 @@ function toEvalInvite(invite: InviteForEval): EvalInvite {
     tableRequest: invite.tableRequest,
     peopleId: invite.peopleId,
     guestEmail: invite.guestEmail,
-    person: invite.person ?? null,
+    person: invite.person
+      ? {
+          ...invite.person,
+          phoneNumber: invite.person.phoneNumber,
+          zip: invite.person.zip,
+          communicationMethod: invite.person.communicationMethod?.name ?? null,
+        }
+      : null,
   };
 }
 
@@ -98,11 +110,13 @@ export default function NoticeManager({
   eventId,
   invites,
   donations,
+  tableNameMap,
   isAdmin,
 }: {
   eventId: string;
   invites: InviteForEval[];
   donations: DonationForEval[];
+  tableNameMap: Record<string, string>;
   isAdmin: boolean;
 }) {
   const [notices, setNotices] = useState<EventNotice[]>([]);
@@ -144,14 +158,14 @@ export default function NoticeManager({
   const hasFundraiser = donations.length > 0;
 
   const paidPeopleIds = new Set(donations.map((d) => d.peopleId).filter((id): id is string => id !== null));
-  const donationsByPeopleId = new Map<string, { approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; sponsorshipLevelName: string | null }[]>();
+  const donationsByPeopleId = new Map<string, { approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; amount: number; paymentMethod: string; sponsorshipLevelName: string | null }[]>();
   for (const d of donations) {
     if (!d.peopleId) continue;
     const existing = donationsByPeopleId.get(d.peopleId) ?? [];
-    existing.push({ approvalStatus: d.approvalStatus, qbSyncStatus: d.qbSyncStatus, isRecurring: d.isRecurring, sponsorshipLevelName: d.sponsorshipLevel?.name ?? null });
+    existing.push({ approvalStatus: d.approvalStatus, qbSyncStatus: d.qbSyncStatus, isRecurring: d.isRecurring, amount: d.amount, paymentMethod: d.paymentMethod, sponsorshipLevelName: d.sponsorshipLevel?.name ?? null });
     donationsByPeopleId.set(d.peopleId, existing);
   }
-  const context: EvalContext = { paidPeopleIds, donationsByPeopleId };
+  const context: EvalContext = { paidPeopleIds, donationsByPeopleId, tableNameMap };
 
   const availableFields = NOTICE_FIELDS.filter((f) => !f.requiresFundraiser || hasFundraiser);
   const inviteFields = availableFields.filter((f) => f.group === "Invite");
@@ -162,6 +176,8 @@ export default function NoticeManager({
   const eventSponsorshipLevels = [...new Set(donations.map((d) => d.sponsorshipLevel?.name).filter((n): n is string => !!n))].sort();
   const eventCities = [...new Set(invites.map((i) => i.person?.city).filter((c): c is string => !!c && !!c.trim()))].sort();
   const eventStates = [...new Set(invites.map((i) => i.person?.state).filter((s): s is string => !!s && !!s.trim()))].sort();
+  const eventZips = [...new Set(invites.map((i) => i.person?.zip).filter((z): z is string => !!z && !!z.trim()))].sort();
+  const eventTableNames = [...new Set(invites.filter((i) => i.tableId).map((i) => tableNameMap[i.tableId!]).filter((n): n is string => !!n))].sort();
 
   const evaluated = notices
     .filter((n) => n.isActive)
@@ -326,7 +342,9 @@ export default function NoticeManager({
       group: eventGroups,
       "person.city": eventCities,
       "person.state": eventStates,
+      "person.zip": eventZips,
       "donation.sponsorshipLevel": eventSponsorshipLevels,
+      "tableName": eventTableNames,
     };
     const derivedOpts = eventDerivedOptions[fieldDef.key];
     if (derivedOpts && derivedOpts.length > 0) {
@@ -355,6 +373,21 @@ export default function NoticeManager({
           <option value="">Select…</option>
           {opts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
         </select>
+      );
+    }
+
+    // Number input
+    if (fieldDef.type === "number") {
+      return (
+        <input
+          type="number"
+          value={condition.value}
+          onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
+          placeholder="Amount"
+          className="text-sm border border-gray-300 rounded px-2 py-1 w-28"
+          min="0"
+          step="1"
+        />
       );
     }
 

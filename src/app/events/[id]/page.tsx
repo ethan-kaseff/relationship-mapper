@@ -28,6 +28,7 @@ interface EventInvite {
   ticketType: string;
   seatingRequest: string | null;
   tableRequest: string | null;
+  sponsoredSeats: number | null;
   person: {
     id: string;
     firstName: string;
@@ -37,6 +38,9 @@ interface EventInvite {
     status: string;
     city: string | null;
     state: string | null;
+    phoneNumber: string | null;
+    zip: string | null;
+    communicationMethod: { name: string } | null;
     assignedTo: { id: string; firstName: string; lastName: string } | null;
     tags: { tag: { id: string; name: string } }[];
     partnerRoles: {
@@ -69,7 +73,7 @@ interface EventData {
     title: string;
     goalAmount: number;
     currentAmount: number;
-    donations: { id: string; peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; sponsorshipLevel: { name: string } | null }[];
+    donations: { id: string; peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; amount: number; paymentMethod: string; sponsorshipLevel: { name: string } | null }[];
   }[];
 }
 
@@ -589,6 +593,10 @@ export default function EventDetailPage() {
               eventId={event.id}
               invites={event.invites}
               donations={event.fundraisers.flatMap((f) => f.donations)}
+              tableNameMap={(() => {
+                const layout = event.seatingLayout as { tables?: { id: string; name: string }[] } | null;
+                return Object.fromEntries((layout?.tables ?? []).map((t) => [t.id, t.name]));
+              })()}
               isAdmin={isAdmin}
             />
           </div>
