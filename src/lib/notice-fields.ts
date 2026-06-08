@@ -24,7 +24,7 @@ export interface NoticeCondition {
 export const NOTICE_FIELDS: NoticeFieldDef[] = [
   // ── Invite ──────────────────────────────────────────────────────────────────
   { key: "rsvpStatus",            label: "RSVP Status",              type: "enum",    options: ["PENDING","YES","NO","MAYBE"],     group: "Invite" },
-  { key: "ticketType",            label: "Ticket Type",              type: "text",                                                 group: "Invite" },
+  { key: "ticketType",            label: "Ticket Type",              type: "enum",    options: ["Regular","Comp","Press","Staff","VIP","Sponsor","Table"], group: "Invite" },
   { key: "group",                 label: "Group",                    type: "text",                                                 group: "Invite" },
   { key: "meal",                  label: "Meal",                     type: "text",                                                 group: "Invite" },
   { key: "dietary",               label: "Dietary (contains)",       type: "text",                                                 group: "Invite" },
@@ -134,17 +134,11 @@ function evalCondition(invite: EvalInvite, condition: NoticeCondition, context: 
       break;
 
     // ── Ticket Type ──────────────────────────────────────────────────────────
-    case "ticketType": {
-      const t = invite.ticketType.toLowerCase();
-      const v = value.toLowerCase();
-      if (operator === "is")          return t === v;
-      if (operator === "is_not")      return t !== v;
-      if (operator === "contains")    return t.includes(v);
-      if (operator === "not_contains") return !t.includes(v);
-      if (operator === "is_empty")    return !invite.ticketType;
-      if (operator === "is_not_empty") return !!invite.ticketType;
+    case "ticketType":
+      if (operator === "is")        return invite.ticketType === value;
+      if (operator === "is_not")    return invite.ticketType !== value;
+      if (operator === "is_any_of") return vals.includes(invite.ticketType);
       break;
-    }
 
     // ── Group ────────────────────────────────────────────────────────────────
     case "group": {
