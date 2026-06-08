@@ -142,6 +142,8 @@ export default function NoticeManager({
 
   const context: EvalContext = { paidPeopleIds };
 
+  const eventGroups = [...new Set(invites.map((i) => i.group).filter((g) => g && g.trim()))].sort();
+
   const evaluated = notices
     .filter((n) => n.isActive)
     .map((n) => ({
@@ -296,6 +298,20 @@ export default function NoticeManager({
           {staff.map((u) => (
             <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
           ))}
+        </select>
+      );
+    }
+
+    // Group — derived from this event's invites
+    if (fieldDef.key === "group" && eventGroups.length > 0) {
+      return (
+        <select
+          value={condition.value}
+          onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
+          className="text-sm border border-gray-300 rounded px-2 py-1"
+        >
+          <option value="">Select…</option>
+          {eventGroups.map((g) => <option key={g} value={g}>{g}</option>)}
         </select>
       );
     }
