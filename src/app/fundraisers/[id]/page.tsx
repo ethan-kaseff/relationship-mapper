@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import { formatCurrency, dollarsToCents, centsToDollars } from "@/lib/currency";
 import AddSolicitationsModal from "@/components/fundraisers/AddSolicitationsModal";
 import FundraiserEventSection from "@/components/fundraisers/FundraiserEventSection";
@@ -81,12 +82,14 @@ interface Solicitation {
   person: { id: string; firstName: string; lastName: string; email1: string | null; email2: string | null };
 }
 
-type Tab = "overview" | "levels" | "donations" | "solicitations" | "approvals" | "settings";
+type Tab = "overview" | "levels" | "donations" | "solicitations" | "approvals" | "notices" | "settings";
 
 export default function FundraiserDetailPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "SYSTEM_ADMIN" || session?.user?.role === "OFFICE_ADMIN";
   const [fundraiser, setFundraiser] = useState<Fundraiser | null>(null);
   const [solicitations, setSolicitations] = useState<Solicitation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -121,14 +124,19 @@ export default function FundraiserDetailPage() {
     : 0;
 
   const pendingDonations = fundraiser.donations.filter((d) => d.approvalStatus === "PENDING");
+  const sponsorshipsWithOpenSeats = fundraiser.donations.filter(
+    (d) => (d.sponsoredSeats ?? 0) > 0 && (d.sponsoredSeats ?? 0) > (d.seatsUsed ?? 0)
+  );
+  const totalNoticeCount = pendingDonations.length + sponsorshipsWithOpenSeats.length;
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: "overview", label: "Overview" },
     { key: "levels", label: "Sponsorship Levels", badge: fundraiser.sponsorshipLevels.length || undefined },
     ...(!fundraiser.event ? [{ key: "solicitations" as Tab, label: "Ask List", badge: solicitations.length || undefined }] : []),
     { key: "donations", label: "Donations" },
-    { key: "approvals", label: "Approvals", badge: pendingDonations.length },
-    { key: "settings", label: "Settings" },
+    { key: "approvals", label: "Approvals", badge: pendingDonations.length || undefined },
+    { key: "notices", label: "Notices", badge: totalNoticeCount || undefined },
+    ...(isAdmin ? [{ key: "settings" as Tab, label: "Settings" }] : []),
   ];
 
   return (
@@ -180,7 +188,8 @@ export default function FundraiserDetailPage() {
         />
       )}
       {tab === "approvals" && <ApprovalsTab fundraiser={fundraiser} pending={pendingDonations} onRefresh={load} />}
-      {tab === "settings" && <SettingsTab fundraiser={fundraiser} onRefresh={load} onDelete={() => router.push("/fundraisers")} />}
+      {tab === "notices" && <NoticesTab pendingDonations={pendingDonations} sponsorshipsWithOpenSeats={sponsorshipsWithOpenSeats} />}
+      {tab === "settings" && isAdmin && <SettingsTab fundraiser={fundraiser} onRefresh={load} onDelete={() => router.push("/fundraisers")} />}
     </div>
   );
 }
@@ -1185,6 +1194,66 @@ function SettingsTab({
           {deleting ? "Deleting..." : "Delete Fundraiser"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function NoticesTab({
+  pendingDonations,
+  sponsorshipsWithOpenSeats,
+}: {
+  pendingDonations: Donation[];
+  sponsorshipsWithOpenSeats: Donation[];
+}) {
+  const totalCount = pendingDonations.length + sponsorshipsWithOpenSeats.length;
+
+  return (
+    <div className="max-w-2xl space-y-3">
+      {totalCount === 0 ? (
+        <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 flex items-center gap-2">
+          <span>✓</span>
+          <span>No notices — everything looks good!</span>
+        </div>
+      ) : (
+        <>
+          {pendingDonations.length > 0 && (
+            <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              <div className="flex items-start gap-2">
+                <span>⚠</span>
+                <div>
+                  <p className="font-medium">{pendingDonations.length} donation{pendingDonations.length !== 1 ? "s" : ""} pending approval:</p>
+                  <ul className="mt-1.5 space-y-0.5 text-xs">
+                    {pendingDonations.map((d) => (
+                      <li key={d.id} className="font-medium">
+                        {d.isAnonymous ? "Anonymous" : d.person ? `${d.person.firstName} ${d.person.lastName}` : d.donorName || "Unknown"}
+                        {" — "}{d.paymentMethod}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+          {sponsorshipsWithOpenSeats.length > 0 && (
+            <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+              <div className="flex items-start gap-2">
+                <span>⚠</span>
+                <div>
+                  <p className="font-medium">{sponsorshipsWithOpenSeats.length} sponsorship{sponsorshipsWithOpenSeats.length !== 1 ? "s have" : " has"} unassigned seats:</p>
+                  <ul className="mt-1.5 space-y-0.5 text-xs">
+                    {sponsorshipsWithOpenSeats.map((d) => (
+                      <li key={d.id}>
+                        <span className="font-medium">{d.person ? `${d.person.firstName} ${d.person.lastName}` : d.donorName || "Unknown"}</span>
+                        {" — "}{(d.seatsUsed ?? 0)} of {d.sponsoredSeats} seat{d.sponsoredSeats !== 1 ? "s" : ""} filled
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }
