@@ -6,3 +6,10 @@ prisma/dev.db-journal
 .vercel
 .env*.local
 src/generated/
+
+# OS / editor junk
+.DS_Store
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
+*.tsbuildinfo
