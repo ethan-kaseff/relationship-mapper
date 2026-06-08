@@ -52,7 +52,7 @@ export async function GET(
             goalAmount: true,
             currentAmount: true,
             _count: { select: { donations: true } },
-            donations: { select: { id: true, peopleId: true, approvalStatus: true, qbSyncStatus: true, isRecurring: true } },
+            donations: { select: { id: true, peopleId: true, approvalStatus: true, qbSyncStatus: true, isRecurring: true, sponsorshipLevel: { select: { name: true } } } },
           },
           take: 1,
         },

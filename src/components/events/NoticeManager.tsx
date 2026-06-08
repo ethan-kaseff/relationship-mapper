@@ -53,7 +53,7 @@ interface InviteForEval {
 
 interface Tag { id: string; name: string; }
 interface StaffUser { id: string; firstName: string; lastName: string; }
-interface DonationForEval { peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; }
+interface DonationForEval { peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; sponsorshipLevel: { name: string } | null; }
 
 interface FormState {
   name: string;
@@ -144,11 +144,11 @@ export default function NoticeManager({
   const hasFundraiser = donations.length > 0;
 
   const paidPeopleIds = new Set(donations.map((d) => d.peopleId).filter((id): id is string => id !== null));
-  const donationsByPeopleId = new Map<string, { approvalStatus: string; qbSyncStatus: string; isRecurring: boolean }[]>();
+  const donationsByPeopleId = new Map<string, { approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; sponsorshipLevelName: string | null }[]>();
   for (const d of donations) {
     if (!d.peopleId) continue;
     const existing = donationsByPeopleId.get(d.peopleId) ?? [];
-    existing.push({ approvalStatus: d.approvalStatus, qbSyncStatus: d.qbSyncStatus, isRecurring: d.isRecurring });
+    existing.push({ approvalStatus: d.approvalStatus, qbSyncStatus: d.qbSyncStatus, isRecurring: d.isRecurring, sponsorshipLevelName: d.sponsorshipLevel?.name ?? null });
     donationsByPeopleId.set(d.peopleId, existing);
   }
   const context: EvalContext = { paidPeopleIds, donationsByPeopleId };
@@ -159,6 +159,7 @@ export default function NoticeManager({
   const fundraiserFields = availableFields.filter((f) => f.group === "Fundraiser");
 
   const eventGroups = [...new Set(invites.map((i) => i.group).filter((g) => g && g.trim()))].sort();
+  const eventSponsorshipLevels = [...new Set(donations.map((d) => d.sponsorshipLevel?.name).filter((n): n is string => !!n))].sort();
   const eventCities = [...new Set(invites.map((i) => i.person?.city).filter((c): c is string => !!c && !!c.trim()))].sort();
   const eventStates = [...new Set(invites.map((i) => i.person?.state).filter((s): s is string => !!s && !!s.trim()))].sort();
 
@@ -325,6 +326,7 @@ export default function NoticeManager({
       group: eventGroups,
       "person.city": eventCities,
       "person.state": eventStates,
+      "donation.sponsorshipLevel": eventSponsorshipLevels,
     };
     const derivedOpts = eventDerivedOptions[fieldDef.key];
     if (derivedOpts && derivedOpts.length > 0) {

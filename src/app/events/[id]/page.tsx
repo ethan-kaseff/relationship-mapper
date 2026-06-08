@@ -69,7 +69,7 @@ interface EventData {
     title: string;
     goalAmount: number;
     currentAmount: number;
-    donations: { id: string; peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean }[];
+    donations: { id: string; peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; sponsorshipLevel: { name: string } | null }[];
   }[];
 }
 

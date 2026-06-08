@@ -45,6 +45,7 @@ export const NOTICE_FIELDS: NoticeFieldDef[] = [
   { key: "donation.approvalStatus", label: "Donation Approval",  type: "enum",    options: ["AUTO_APPROVED","MANUALLY_APPROVED","PENDING","REJECTED"], group: "Fundraiser", requiresFundraiser: true },
   { key: "donation.qbSyncStatus",   label: "QB Sync Status",     type: "enum",    options: ["NOT_SYNCED","SYNCED","ERROR"],                            group: "Fundraiser", requiresFundraiser: true },
   { key: "donation.isRecurring",    label: "Recurring Donor",    type: "boolean",                                                                      group: "Fundraiser", requiresFundraiser: true },
+  { key: "donation.sponsorshipLevel", label: "Sponsorship Level", type: "text",                                                                         group: "Fundraiser", requiresFundraiser: true },
   // ── Person ───────────────────────────────────────────────────────────────────
   { key: "person.status",         label: "Person Status",            type: "enum",    options: ["ACTIVE","INACTIVE","DECEASED"],   group: "Person" },
   { key: "person.city",           label: "City",                     type: "text",                                                 group: "Person" },
@@ -122,7 +123,7 @@ export interface EvalInvite {
 
 export interface EvalContext {
   paidPeopleIds: Set<string>;
-  donationsByPeopleId: Map<string, { approvalStatus: string; qbSyncStatus: string; isRecurring: boolean }[]>;
+  donationsByPeopleId: Map<string, { approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; sponsorshipLevelName: string | null }[]>;
 }
 
 function str(s: string | null | undefined): string {
@@ -297,6 +298,20 @@ function evalCondition(invite: EvalInvite, condition: NoticeCondition, context: 
       const donations = context.donationsByPeopleId.get(invite.peopleId) ?? [];
       const isRecurring = donations.some((d) => d.isRecurring);
       return operator === "is_true" ? isRecurring : !isRecurring;
+    }
+
+    case "donation.sponsorshipLevel": {
+      if (!invite.peopleId) return false;
+      const donations = context.donationsByPeopleId.get(invite.peopleId) ?? [];
+      const levels = donations.map((d) => d.sponsorshipLevelName ?? "").filter(Boolean);
+      const v = value.toLowerCase();
+      if (operator === "is")           return levels.some((l) => l.toLowerCase() === v);
+      if (operator === "is_not")       return !levels.some((l) => l.toLowerCase() === v);
+      if (operator === "contains")     return levels.some((l) => l.toLowerCase().includes(v));
+      if (operator === "not_contains") return !levels.some((l) => l.toLowerCase().includes(v));
+      if (operator === "is_empty")     return levels.length === 0;
+      if (operator === "is_not_empty") return levels.length > 0;
+      break;
     }
   }
   return false;
