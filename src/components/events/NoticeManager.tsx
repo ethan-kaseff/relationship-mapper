@@ -112,6 +112,7 @@ export default function NoticeManager({
   const [saving, setSaving] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
   const [staff, setStaff] = useState<StaffUser[]>([]);
+  const [lookupOptions, setLookupOptions] = useState<Record<string, string[]>>({});
 
   const fetchNotices = useCallback(async () => {
     const res = await fetch(`/api/event-notices?eventId=${eventId}`);
@@ -128,6 +129,15 @@ export default function NoticeManager({
     if (!isAdmin) return;
     fetch("/api/tags").then((r) => r.json()).then((d: Tag[]) => setTags(d));
     fetch("/api/users/assignable").then((r) => r.json()).then((d: StaffUser[]) => setStaff(d));
+    // Fetch dynamic options for fields with optionsUrl
+    const fieldsWithUrl = NOTICE_FIELDS.filter((f) => f.optionsUrl);
+    fieldsWithUrl.forEach((f) => {
+      fetch(f.optionsUrl!).then((r) => r.json()).then((data: Record<string, string>[]) => {
+        const key = f.optionsLabelKey ?? "name";
+        const opts = data.map((item) => item[key]).filter(Boolean);
+        setLookupOptions((prev) => ({ ...prev, [f.key]: opts }));
+      });
+    });
   }, [isAdmin]);
 
   const context: EvalContext = { paidPeopleIds };
@@ -286,6 +296,22 @@ export default function NoticeManager({
           {staff.map((u) => (
             <option key={u.id} value={u.id}>{u.firstName} {u.lastName}</option>
           ))}
+        </select>
+      );
+    }
+
+    // Dynamic lookup options (dietary, orgType, etc.)
+    if (fieldDef.optionsUrl) {
+      const opts = lookupOptions[fieldDef.key] ?? [];
+      if (opts.length === 0) return <span className="text-xs text-gray-400 mt-1">Loading…</span>;
+      return (
+        <select
+          value={condition.value}
+          onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
+          className="text-sm border border-gray-300 rounded px-2 py-1"
+        >
+          <option value="">Select…</option>
+          {opts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
         </select>
       );
     }

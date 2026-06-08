@@ -5,6 +5,8 @@ export interface NoticeFieldDef {
   label: string;
   type: FieldType;
   options?: string[];
+  optionsUrl?: string;
+  optionsLabelKey?: string;
   group: "Invite" | "Person";
 }
 
@@ -26,8 +28,8 @@ export const NOTICE_FIELDS: NoticeFieldDef[] = [
   { key: "rsvpStatus",            label: "RSVP Status",              type: "enum",    options: ["PENDING","YES","NO","MAYBE"],     group: "Invite" },
   { key: "ticketType",            label: "Ticket Type",              type: "enum",    options: ["Regular","Comp","Press","Staff","VIP","Sponsor","Table"], group: "Invite" },
   { key: "group",                 label: "Group",                    type: "text",                                                 group: "Invite" },
-  { key: "meal",                  label: "Meal",                     type: "text",                                                 group: "Invite" },
-  { key: "dietary",               label: "Dietary (contains)",       type: "text",                                                 group: "Invite" },
+  { key: "meal",                  label: "Meal",                     type: "enum",    options: ["Standard","Kosher","Vegan","Vegetarian"],           group: "Invite" },
+  { key: "dietary",               label: "Dietary Restriction",      type: "text",    optionsUrl: "/api/lookup/dietary-options",   optionsLabelKey: "name",     group: "Invite" },
   { key: "isGuest",               label: "Is Guest",                 type: "boolean",                                              group: "Invite" },
   { key: "isPlaceholder",         label: "Is Placeholder",           type: "boolean",                                              group: "Invite" },
   { key: "isSeated",              label: "Is Seated",                type: "boolean",                                              group: "Invite" },
@@ -44,7 +46,7 @@ export const NOTICE_FIELDS: NoticeFieldDef[] = [
   { key: "person.state",          label: "State",                    type: "text",                                                 group: "Person" },
   { key: "person.tags",           label: "Person Tag",               type: "tags",                                                 group: "Person" },
   { key: "person.assignedTo",     label: "Assigned To",              type: "staff",                                                group: "Person" },
-  { key: "person.orgType",        label: "Organization Type",        type: "text",                                                 group: "Person" },
+  { key: "person.orgType",        label: "Organization Type",        type: "text",    optionsUrl: "/api/lookup/organization-types", optionsLabelKey: "typeName", group: "Person" },
 ];
 
 export const OPERATORS: Record<FieldType, OperatorDef[]> = {
@@ -154,17 +156,11 @@ function evalCondition(invite: EvalInvite, condition: NoticeCondition, context: 
     }
 
     // ── Meal ─────────────────────────────────────────────────────────────────
-    case "meal": {
-      const m = invite.meal.toLowerCase();
-      const v = value.toLowerCase();
-      if (operator === "is")          return m === v;
-      if (operator === "is_not")      return m !== v;
-      if (operator === "contains")    return m.includes(v);
-      if (operator === "not_contains") return !m.includes(v);
-      if (operator === "is_empty")    return !invite.meal;
-      if (operator === "is_not_empty") return !!invite.meal;
+    case "meal":
+      if (operator === "is")        return invite.meal === value;
+      if (operator === "is_not")    return invite.meal !== value;
+      if (operator === "is_any_of") return vals.includes(invite.meal);
       break;
-    }
 
     // ── Dietary ──────────────────────────────────────────────────────────────
     case "dietary": {
