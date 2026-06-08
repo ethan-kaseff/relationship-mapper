@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import InviteManager from "@/components/events/InviteManager";
 import SeatingChartWrapper from "@/components/events/SeatingChartWrapper";
 import EventFundraiserSection from "@/components/events/EventFundraiserSection";
+import NoticeManager from "@/components/events/NoticeManager";
 
 interface EventInvite {
   id: string;
@@ -32,6 +34,11 @@ interface EventInvite {
     lastName: string;
     email1: string | null;
     email2: string | null;
+    status: string;
+    city: string | null;
+    state: string | null;
+    assignedTo: { id: string; firstName: string; lastName: string } | null;
+    tags: { tag: { id: string; name: string } }[];
     partnerRoles: {
       partner: {
         organizationType: {
@@ -72,8 +79,10 @@ export default function EventDetailPage() {
   const searchParams = useSearchParams();
   const [event, setEvent] = useState<EventData | null>(null);
   const [loading, setLoading] = useState(true);
-  const initialTab = searchParams.get("tab") as "details" | "invites" | "notices" | "seating" | null;
-  const [activeTab, setActiveTab] = useState<"details" | "invites" | "notices" | "seating">(initialTab || "details");
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "SYSTEM_ADMIN" || session?.user?.role === "OFFICE_ADMIN";
+  const initialTab = searchParams.get("tab") as "details" | "invites" | "notices" | "seating" | "settings" | null;
+  const [activeTab, setActiveTab] = useState<"details" | "invites" | "notices" | "seating" | "settings">(initialTab || "details");
   // Track whether the seating chart has been opened at least once so we can keep it mounted
   const [seatingEverOpened, setSeatingEverOpened] = useState(initialTab === "seating");
   const [editing, setEditing] = useState(false);
@@ -243,13 +252,16 @@ export default function EventDetailPage() {
   });
   const totalNoticeCount = placeholderCount + unfulfilledSeatingRequests.length + unpaidRegular.length + unfulfilledTableRequests.length;
 
-  const tabs: { id: "details" | "invites" | "notices" | "seating"; label: string; count?: number }[] = [
+  const tabs: { id: "details" | "invites" | "notices" | "seating" | "settings"; label: string; count?: number }[] = [
     { id: "details", label: "Details" },
     { id: "invites", label: "Invites", count: event.invites.length },
     { id: "notices", label: "Notices", count: totalNoticeCount },
   ];
   if (event.trackSeating) {
     tabs.push({ id: "seating", label: "Seating Chart", count: rsvpCounts.YES });
+  }
+  if (isAdmin) {
+    tabs.push({ id: "settings", label: "Settings" });
   }
 
   return (
@@ -267,12 +279,6 @@ export default function EventDetailPage() {
             className="px-3 py-1.5 text-sm border border-indigo-300 text-indigo-600 rounded-md hover:bg-indigo-50"
           >
             Export Emails (CSV)
-          </button>
-          <button
-            onClick={handleDelete}
-            className="px-3 py-1.5 text-sm border border-red-300 text-red-600 rounded-md hover:bg-red-50"
-          >
-            Delete Event
           </button>
         </div>
       </div>
@@ -509,7 +515,7 @@ export default function EventDetailPage() {
           {totalNoticeCount === 0 ? (
             <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 flex items-center gap-2">
               <span>✓</span>
-              <span>No notices — everything looks good!</span>
+              <span>No system notices — everything looks good!</span>
             </div>
           ) : (
             <>
@@ -576,6 +582,16 @@ export default function EventDetailPage() {
               )}
             </>
           )}
+
+          {/* Custom notices */}
+          <div className="pt-1">
+            <NoticeManager
+              eventId={event.id}
+              invites={event.invites}
+              paidPeopleIds={new Set(event.fundraisers.flatMap((f) => f.donations.map((d) => d.peopleId)).filter((pid): pid is string => pid !== null))}
+              isAdmin={isAdmin}
+            />
+          </div>
         </div>
       )}
 
@@ -585,6 +601,23 @@ export default function EventDetailPage() {
             event={event}
             onRefresh={fetchEvent}
           />
+        </div>
+      )}
+
+      {activeTab === "settings" && isAdmin && (
+        <div className="max-w-2xl space-y-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-5">
+            <h3 className="text-sm font-medium text-red-800 mb-2">Danger Zone</h3>
+            <p className="text-sm text-red-600 mb-3">
+              Deleting this event will permanently remove all invites and seating data.
+            </p>
+            <button
+              onClick={handleDelete}
+              className="bg-red-600 text-white px-4 py-2 rounded-md text-sm hover:bg-red-700"
+            >
+              Delete Event
+            </button>
+          </div>
         </div>
       )}
 

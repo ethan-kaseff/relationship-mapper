@@ -34,6 +34,12 @@ export async function GET(
                     },
                   },
                 },
+                tags: {
+                  include: { tag: { select: { id: true, name: true } } },
+                },
+                assignedTo: {
+                  select: { id: true, firstName: true, lastName: true },
+                },
               },
             },
           },
