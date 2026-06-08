@@ -38,7 +38,7 @@ export async function PATCH(
 
   try {
     const { id: fundraiserId, donationId } = await params;
-    const { seatsUsed, sponsoredSeats } = validation.data;
+    const { seatsUsed, sponsoredSeats, seatsChangeNote } = validation.data;
 
     const donation = await prisma.donation.findUnique({
       where: { id: donationId },
@@ -55,6 +55,7 @@ export async function PATCH(
       data: {
         seatsUsed,
         ...(sponsoredSeats !== undefined ? { sponsoredSeats } : {}),
+        ...(seatsChangeNote !== undefined ? { seatsChangeNote } : {}),
       },
     });
 

@@ -37,6 +37,7 @@ interface InviteForEval {
   tableRequest: string | null;
   guestName: string | null;
   guestEmail: string | null;
+  sponsoredSeats: number | null;
   person: {
     firstName: string;
     lastName: string;
@@ -45,6 +46,9 @@ interface InviteForEval {
     status: string;
     city: string | null;
     state: string | null;
+    phoneNumber: string | null;
+    zip: string | null;
+    communicationMethod: { name: string } | null;
     assignedTo: { id: string } | null;
     tags: { tag: { id: string; name: string } }[];
     partnerRoles: { partner: { organizationType: { typeName: string } | null } }[];
@@ -53,6 +57,7 @@ interface InviteForEval {
 
 interface Tag { id: string; name: string; }
 interface StaffUser { id: string; firstName: string; lastName: string; }
+interface DonationForEval { peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; amount: number; paymentMethod: string; sponsorshipLevel: { name: string } | null; }
 
 interface FormState {
   name: string;
@@ -72,6 +77,7 @@ function toEvalInvite(invite: InviteForEval): EvalInvite {
     dietary: invite.dietary,
     notes: invite.notes,
     tableId: invite.tableId,
+    sponsoredSeats: invite.sponsoredSeats,
     isGuest: invite.isGuest,
     isPlaceholder: invite.isPlaceholder,
     attended: invite.attended,
@@ -79,7 +85,14 @@ function toEvalInvite(invite: InviteForEval): EvalInvite {
     tableRequest: invite.tableRequest,
     peopleId: invite.peopleId,
     guestEmail: invite.guestEmail,
-    person: invite.person ?? null,
+    person: invite.person
+      ? {
+          ...invite.person,
+          phoneNumber: invite.person.phoneNumber,
+          zip: invite.person.zip,
+          communicationMethod: invite.person.communicationMethod?.name ?? null,
+        }
+      : null,
   };
 }
 
@@ -96,12 +109,14 @@ function newCondition(): NoticeCondition {
 export default function NoticeManager({
   eventId,
   invites,
-  paidPeopleIds,
+  donations,
+  tableNameMap,
   isAdmin,
 }: {
   eventId: string;
   invites: InviteForEval[];
-  paidPeopleIds: Set<string>;
+  donations: DonationForEval[];
+  tableNameMap: Record<string, string>;
   isAdmin: boolean;
 }) {
   const [notices, setNotices] = useState<EventNotice[]>([]);
@@ -112,6 +127,7 @@ export default function NoticeManager({
   const [saving, setSaving] = useState(false);
   const [tags, setTags] = useState<Tag[]>([]);
   const [staff, setStaff] = useState<StaffUser[]>([]);
+  const [lookupOptions, setLookupOptions] = useState<Record<string, string[]>>({});
 
   const fetchNotices = useCallback(async () => {
     const res = await fetch(`/api/event-notices?eventId=${eventId}`);
@@ -128,9 +144,40 @@ export default function NoticeManager({
     if (!isAdmin) return;
     fetch("/api/tags").then((r) => r.json()).then((d: Tag[]) => setTags(d));
     fetch("/api/users/assignable").then((r) => r.json()).then((d: StaffUser[]) => setStaff(d));
+    // Fetch dynamic options for fields with optionsUrl
+    const fieldsWithUrl = NOTICE_FIELDS.filter((f) => f.optionsUrl);
+    fieldsWithUrl.forEach((f) => {
+      fetch(f.optionsUrl!).then((r) => r.json()).then((data: Record<string, string>[]) => {
+        const key = f.optionsLabelKey ?? "name";
+        const opts = data.map((item) => item[key]).filter(Boolean);
+        setLookupOptions((prev) => ({ ...prev, [f.key]: opts }));
+      });
+    });
   }, [isAdmin]);
 
-  const context: EvalContext = { paidPeopleIds };
+  const hasFundraiser = donations.length > 0;
+
+  const paidPeopleIds = new Set(donations.map((d) => d.peopleId).filter((id): id is string => id !== null));
+  const donationsByPeopleId = new Map<string, { approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; amount: number; paymentMethod: string; sponsorshipLevelName: string | null }[]>();
+  for (const d of donations) {
+    if (!d.peopleId) continue;
+    const existing = donationsByPeopleId.get(d.peopleId) ?? [];
+    existing.push({ approvalStatus: d.approvalStatus, qbSyncStatus: d.qbSyncStatus, isRecurring: d.isRecurring, amount: d.amount, paymentMethod: d.paymentMethod, sponsorshipLevelName: d.sponsorshipLevel?.name ?? null });
+    donationsByPeopleId.set(d.peopleId, existing);
+  }
+  const context: EvalContext = { paidPeopleIds, donationsByPeopleId, tableNameMap };
+
+  const availableFields = NOTICE_FIELDS.filter((f) => !f.requiresFundraiser || hasFundraiser);
+  const inviteFields = availableFields.filter((f) => f.group === "Invite");
+  const personFields = availableFields.filter((f) => f.group === "Person");
+  const fundraiserFields = availableFields.filter((f) => f.group === "Fundraiser");
+
+  const eventGroups = [...new Set(invites.map((i) => i.group).filter((g) => g && g.trim()))].sort();
+  const eventSponsorshipLevels = [...new Set(donations.map((d) => d.sponsorshipLevel?.name).filter((n): n is string => !!n))].sort();
+  const eventCities = [...new Set(invites.map((i) => i.person?.city).filter((c): c is string => !!c && !!c.trim()))].sort();
+  const eventStates = [...new Set(invites.map((i) => i.person?.state).filter((s): s is string => !!s && !!s.trim()))].sort();
+  const eventZips = [...new Set(invites.map((i) => i.person?.zip).filter((z): z is string => !!z && !!z.trim()))].sort();
+  const eventTableNames = [...new Set(invites.filter((i) => i.tableId).map((i) => tableNameMap[i.tableId!]).filter((n): n is string => !!n))].sort();
 
   const evaluated = notices
     .filter((n) => n.isActive)
@@ -290,6 +337,60 @@ export default function NoticeManager({
       );
     }
 
+    // Fields derived from this event's invite list
+    const eventDerivedOptions: Record<string, string[]> = {
+      group: eventGroups,
+      "person.city": eventCities,
+      "person.state": eventStates,
+      "person.zip": eventZips,
+      "donation.sponsorshipLevel": eventSponsorshipLevels,
+      "tableName": eventTableNames,
+    };
+    const derivedOpts = eventDerivedOptions[fieldDef.key];
+    if (derivedOpts && derivedOpts.length > 0) {
+      return (
+        <select
+          value={condition.value}
+          onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
+          className="text-sm border border-gray-300 rounded px-2 py-1"
+        >
+          <option value="">Select…</option>
+          {derivedOpts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+      );
+    }
+
+    // Dynamic lookup options (dietary, orgType, etc.)
+    if (fieldDef.optionsUrl) {
+      const opts = lookupOptions[fieldDef.key] ?? [];
+      if (opts.length === 0) return <span className="text-xs text-gray-400 mt-1">Loading…</span>;
+      return (
+        <select
+          value={condition.value}
+          onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
+          className="text-sm border border-gray-300 rounded px-2 py-1"
+        >
+          <option value="">Select…</option>
+          {opts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+        </select>
+      );
+    }
+
+    // Number input
+    if (fieldDef.type === "number") {
+      return (
+        <input
+          type="number"
+          value={condition.value}
+          onChange={(e) => updateCondition(condition.id, { value: e.target.value })}
+          placeholder="Amount"
+          className="text-sm border border-gray-300 rounded px-2 py-1 w-28"
+          min="0"
+          step="1"
+        />
+      );
+    }
+
     return (
       <input
         type="text"
@@ -300,9 +401,6 @@ export default function NoticeManager({
       />
     );
   }
-
-  const inviteFields = NOTICE_FIELDS.filter((f) => f.group === "Invite");
-  const personFields = NOTICE_FIELDS.filter((f) => f.group === "Person");
 
   if (loading) return <div className="text-gray-400 text-sm py-2">Loading notices…</div>;
 
@@ -392,6 +490,11 @@ export default function NoticeManager({
                                 <optgroup label="Person">
                                   {personFields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
                                 </optgroup>
+                                {fundraiserFields.length > 0 && (
+                                  <optgroup label="Fundraiser">
+                                    {fundraiserFields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                                  </optgroup>
+                                )}
                               </select>
                               <select
                                 value={condition.operator}

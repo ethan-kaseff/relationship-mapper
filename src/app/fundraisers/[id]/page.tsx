@@ -38,6 +38,7 @@ interface Donation {
   partner: PartnerOption | null;
   sponsoredSeats: number | null;
   seatsUsed: number | null;
+  seatsChangeNote: string | null;
   isAnonymous: boolean;
   paymentMethod: string;
   tributeType: string | null;
@@ -495,12 +496,20 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
   const [seatsValues, setSeatsValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsUsed != null ? String(d.seatsUsed) : ""]))
   );
+  const [seatsNoteValues, setSeatsNoteValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsChangeNote ?? ""]))
+  );
+  const [notesSavedId, setNotesSavedId] = useState<string | null>(null);
+  const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
 
   const selectedLevel = fundraiser.sponsorshipLevels.find((l) => l.id === form.sponsorshipLevelId);
 
   useEffect(() => {
     setSeatsValues(
       Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsUsed != null ? String(d.seatsUsed) : ""]))
+    );
+    setSeatsNoteValues(
+      Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsChangeNote ?? ""]))
     );
   }, [fundraiser.donations]);
 
@@ -591,6 +600,26 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
     }
 
     updateSeatsUsed(donationId, value);
+  }
+
+  async function saveSeatsNote(donationId: string) {
+    setSavingNoteId(donationId);
+    try {
+      const donation = fundraiser.donations.find((d) => d.id === donationId);
+      await fetch(`/api/fundraisers/${fundraiser.id}/donations/${donationId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          seatsUsed: donation?.seatsUsed ?? null,
+          seatsChangeNote: seatsNoteValues[donationId] ?? null,
+        }),
+      });
+      onRefresh();
+      setNotesSavedId(donationId);
+      setTimeout(() => setNotesSavedId(null), 3000);
+    } finally {
+      setSavingNoteId(null);
+    }
   }
 
   function exportEmailsCSV() {
@@ -949,52 +978,87 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
                     </td>
                   )}
                   {hasEvent && (
-                    <td className="px-4 py-2">
+                    <td className={`px-4 py-2 ${d.sponsoredSeats != null && d.seatsUsed != null && d.seatsUsed < d.sponsoredSeats ? "bg-amber-50" : ""}`}>
                       {d.sponsoredSeats != null && d.sponsoredSeats > 0 ? (
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            min={0}
-                            max={d.sponsoredSeats}
-                            value={seatsValues[d.id] ?? ""}
-                            placeholder="0"
-                            disabled={updatingSeatsId === d.id}
-                            onChange={(e) => { setSeatsSavedId(null); setSeatsValues((prev) => ({ ...prev, [d.id]: e.target.value })); }}
-                            onKeyDown={(e) => { if (e.key === "Enter") handleSaveSeats(d.id, seatsValues[d.id] ?? ""); if (e.key === "Escape") { setSeatsValues((prev) => ({ ...prev, [d.id]: d.seatsUsed != null ? String(d.seatsUsed) : "" })); setConfirmPending(null); } }}
-                            className="w-16 border border-gray-300 rounded px-2 py-0.5 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
-                          />
-                          {confirmPending?.donationId === d.id ? (
-                            <span className="text-xs text-amber-700 whitespace-nowrap flex items-center gap-1">
-                              {confirmPending.tableAssignedCount} table-assigned seat{confirmPending.tableAssignedCount !== 1 ? "s" : ""} will be removed.
-                              <button
-                                onClick={() => { updateSeatsUsed(confirmPending.donationId, confirmPending.value); setConfirmPending(null); }}
-                                className="font-semibold text-red-600 hover:text-red-800 underline"
-                              >Confirm</button>
-                              <span className="text-gray-400">·</span>
-                              <button
-                                onClick={() => { setSeatsValues((prev) => ({ ...prev, [d.id]: d.seatsUsed != null ? String(d.seatsUsed) : "" })); setConfirmPending(null); }}
-                                className="text-gray-500 hover:text-gray-700 underline"
-                              >Cancel</button>
-                            </span>
-                          ) : (seatsValues[d.id] ?? "") !== (d.seatsUsed != null ? String(d.seatsUsed) : "") && updatingSeatsId !== d.id ? (
-                            <>
-                              <button
-                                onClick={() => handleSaveSeats(d.id, seatsValues[d.id] ?? "")}
-                                className="text-green-600 hover:text-green-800 font-bold text-sm px-1"
-                                title="Save"
-                              >✓</button>
-                              <button
-                                onClick={() => setSeatsValues((prev) => ({ ...prev, [d.id]: d.seatsUsed != null ? String(d.seatsUsed) : "" }))}
-                                className="text-gray-400 hover:text-gray-600 font-bold text-sm px-1"
-                                title="Cancel"
-                              >✕</button>
-                            </>
-                          ) : seatsSavedId === d.id ? (
-                            <span className="text-xs text-green-600 whitespace-nowrap">Invite list updated</span>
-                          ) : null}
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              min={0}
+                              max={d.sponsoredSeats}
+                              value={seatsValues[d.id] ?? ""}
+                              placeholder="0"
+                              disabled={updatingSeatsId === d.id}
+                              onChange={(e) => { setSeatsSavedId(null); setSeatsValues((prev) => ({ ...prev, [d.id]: e.target.value })); }}
+                              onKeyDown={(e) => { if (e.key === "Enter") handleSaveSeats(d.id, seatsValues[d.id] ?? ""); if (e.key === "Escape") { setSeatsValues((prev) => ({ ...prev, [d.id]: d.seatsUsed != null ? String(d.seatsUsed) : "" })); setConfirmPending(null); } }}
+                              className="w-16 border border-gray-300 rounded px-2 py-0.5 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
+                            />
+                            {confirmPending?.donationId === d.id ? (
+                              <span className="text-xs text-amber-700 whitespace-nowrap flex items-center gap-1">
+                                {confirmPending.tableAssignedCount} table-assigned seat{confirmPending.tableAssignedCount !== 1 ? "s" : ""} will be removed.
+                                <button
+                                  onClick={() => { updateSeatsUsed(confirmPending.donationId, confirmPending.value); setConfirmPending(null); }}
+                                  className="font-semibold text-red-600 hover:text-red-800 underline"
+                                >Confirm</button>
+                                <span className="text-gray-400">·</span>
+                                <button
+                                  onClick={() => { setSeatsValues((prev) => ({ ...prev, [d.id]: d.seatsUsed != null ? String(d.seatsUsed) : "" })); setConfirmPending(null); }}
+                                  className="text-gray-500 hover:text-gray-700 underline"
+                                >Cancel</button>
+                              </span>
+                            ) : (seatsValues[d.id] ?? "") !== (d.seatsUsed != null ? String(d.seatsUsed) : "") && updatingSeatsId !== d.id ? (
+                              <>
+                                <button
+                                  onClick={() => handleSaveSeats(d.id, seatsValues[d.id] ?? "")}
+                                  className="text-green-600 hover:text-green-800 font-bold text-sm px-1"
+                                  title="Save"
+                                >✓</button>
+                                <button
+                                  onClick={() => setSeatsValues((prev) => ({ ...prev, [d.id]: d.seatsUsed != null ? String(d.seatsUsed) : "" }))}
+                                  className="text-gray-400 hover:text-gray-600 font-bold text-sm px-1"
+                                  title="Cancel"
+                                >✕</button>
+                              </>
+                            ) : seatsSavedId === d.id ? (
+                              <span className="text-xs text-green-600 whitespace-nowrap">Invite list updated</span>
+                            ) : null}
+                          </div>
+                          {d.sponsoredSeats != null && d.seatsUsed != null && d.seatsUsed < d.sponsoredSeats && (
+                            <div className="text-xs text-amber-700 font-medium">
+                              {d.sponsoredSeats - d.seatsUsed} unused seat{d.sponsoredSeats - d.seatsUsed !== 1 ? "s" : ""}
+                            </div>
+                          )}
+                          <div className="space-y-1">
+                            <textarea
+                              rows={2}
+                              value={seatsNoteValues[d.id] ?? ""}
+                              onChange={(e) => { setNotesSavedId(null); setSeatsNoteValues((prev) => ({ ...prev, [d.id]: e.target.value })); }}
+                              placeholder="Reason for change (optional)"
+                              className="w-full text-xs border border-gray-200 rounded px-2 py-1 resize-none focus:ring-1 focus:ring-indigo-400 focus:border-transparent"
+                            />
+                            {(seatsNoteValues[d.id] ?? "") !== (d.seatsChangeNote ?? "") && (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => saveSeatsNote(d.id)}
+                                  disabled={savingNoteId === d.id}
+                                  className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                  {savingNoteId === d.id ? "Saving…" : "Save note"}
+                                </button>
+                                <button
+                                  onClick={() => setSeatsNoteValues((prev) => ({ ...prev, [d.id]: d.seatsChangeNote ?? "" }))}
+                                  className="text-xs text-gray-500 hover:text-gray-700"
+                                >Cancel</button>
+                                {notesSavedId === d.id && <span className="text-xs text-green-600">Saved</span>}
+                              </div>
+                            )}
+                            {notesSavedId === d.id && (seatsNoteValues[d.id] ?? "") === (d.seatsChangeNote ?? "") && (
+                              <span className="text-xs text-green-600">Saved</span>
+                            )}
+                          </div>
                         </div>
                       ) : (
-                        <span className="text-gray-300 text-xs">—</span>
+                        <span className="text-xs text-gray-400">—</span>
                       )}
                     </td>
                   )}

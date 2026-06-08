@@ -28,6 +28,7 @@ interface EventInvite {
   ticketType: string;
   seatingRequest: string | null;
   tableRequest: string | null;
+  sponsoredSeats: number | null;
   person: {
     id: string;
     firstName: string;
@@ -37,6 +38,9 @@ interface EventInvite {
     status: string;
     city: string | null;
     state: string | null;
+    phoneNumber: string | null;
+    zip: string | null;
+    communicationMethod: { name: string } | null;
     assignedTo: { id: string; firstName: string; lastName: string } | null;
     tags: { tag: { id: string; name: string } }[];
     partnerRoles: {
@@ -69,7 +73,7 @@ interface EventData {
     title: string;
     goalAmount: number;
     currentAmount: number;
-    donations: { id: string; peopleId: string | null; approvalStatus: string; qbSyncStatus: string }[];
+    donations: { id: string; peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; amount: number; paymentMethod: string; sponsoredSeats: number | null; seatsUsed: number | null; seatsChangeNote: string | null; sponsorshipLevel: { name: string } | null }[];
   }[];
 }
 
@@ -250,7 +254,10 @@ export default function EventDetailPage() {
       (other) => other.id !== i.id && other.tableId === i.tableId && other.group === i.tableRequest
     );
   });
-  const totalNoticeCount = placeholderCount + unfulfilledSeatingRequests.length + unpaidRegular.length + unfulfilledTableRequests.length;
+  const seatDiscrepancyCount = event.fundraisers.flatMap((f) =>
+    f.donations.filter((d) => d.sponsoredSeats != null && d.seatsUsed != null && d.seatsUsed < d.sponsoredSeats)
+  ).length;
+  const totalNoticeCount = placeholderCount + unfulfilledSeatingRequests.length + unpaidRegular.length + unfulfilledTableRequests.length + seatDiscrepancyCount;
 
   const tabs: { id: "details" | "invites" | "notices" | "seating" | "settings"; label: string; count?: number }[] = [
     { id: "details", label: "Details" },
@@ -507,6 +514,13 @@ export default function EventDetailPage() {
             if (!layout?.tables) return {};
             return Object.fromEntries(layout.tables.map((t) => [t.id, t.name]));
           })()}
+          seatDiscrepancies={Object.fromEntries(
+            event.fundraisers.flatMap((f) =>
+              f.donations
+                .filter((d) => d.peopleId && d.sponsoredSeats != null && d.sponsoredSeats > 0)
+                .map((d) => [d.peopleId!, { allowed: d.sponsoredSeats!, used: d.seatsUsed ?? 0, note: d.seatsChangeNote }])
+            )
+          )}
         />
       )}
 
@@ -580,6 +594,39 @@ export default function EventDetailPage() {
                   </div>
                 </div>
               )}
+              {(() => {
+                const discrepancies = event.fundraisers.flatMap((f) =>
+                  f.donations.filter(
+                    (d) => d.sponsoredSeats != null && d.seatsUsed != null && d.seatsUsed < d.sponsoredSeats && d.peopleId
+                  ).map((d) => {
+                    const invite = event.invites.find((i) => i.peopleId === d.peopleId);
+                    const name = invite?.person ? `${invite.person.firstName} ${invite.person.lastName}` : d.peopleId;
+                    return { name, allowed: d.sponsoredSeats!, used: d.seatsUsed!, note: d.seatsChangeNote };
+                  })
+                );
+                if (discrepancies.length === 0) return null;
+                return (
+                  <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                    <div className="flex items-start gap-2">
+                      <span>⚠</span>
+                      <div>
+                        <p className="font-medium">{discrepancies.length} sponsor{discrepancies.length !== 1 ? "s are" : " is"} using fewer seats than purchased:</p>
+                        <ul className="mt-1.5 space-y-1.5 text-xs">
+                          {discrepancies.map((disc, i) => (
+                            <li key={i}>
+                              <span className="font-medium">{disc.name}</span>
+                              {" — "}{disc.used} of {disc.allowed} seat{disc.allowed !== 1 ? "s" : ""} used
+                              {disc.note && (
+                                <div className="mt-0.5 text-amber-700 whitespace-pre-wrap">{disc.note}</div>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
             </>
           )}
 
@@ -588,7 +635,11 @@ export default function EventDetailPage() {
             <NoticeManager
               eventId={event.id}
               invites={event.invites}
-              paidPeopleIds={new Set(event.fundraisers.flatMap((f) => f.donations.map((d) => d.peopleId)).filter((pid): pid is string => pid !== null))}
+              donations={event.fundraisers.flatMap((f) => f.donations)}
+              tableNameMap={(() => {
+                const layout = event.seatingLayout as { tables?: { id: string; name: string }[] } | null;
+                return Object.fromEntries((layout?.tables ?? []).map((t) => [t.id, t.name]));
+              })()}
               isAdmin={isAdmin}
             />
           </div>

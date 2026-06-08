@@ -23,6 +23,7 @@ export const createDonationSchema = z.object({
 export const updateDonationSeatsSchema = z.object({
   seatsUsed: z.number().int().min(0).nullable(),
   sponsoredSeats: z.number().int().min(0).optional().nullable(),
+  seatsChangeNote: z.string().max(5000).optional().nullable(),
 });
 
 export const updateDonationApprovalSchema = z.object({

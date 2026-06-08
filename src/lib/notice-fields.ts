@@ -1,11 +1,14 @@
-export type FieldType = "boolean" | "enum" | "text" | "tags" | "staff";
+export type FieldType = "boolean" | "enum" | "text" | "number" | "tags" | "staff";
 
 export interface NoticeFieldDef {
   key: string;
   label: string;
   type: FieldType;
   options?: string[];
-  group: "Invite" | "Person";
+  optionsUrl?: string;
+  optionsLabelKey?: string;
+  group: "Invite" | "Person" | "Fundraiser";
+  requiresFundraiser?: boolean;
 }
 
 export interface OperatorDef {
@@ -24,10 +27,10 @@ export interface NoticeCondition {
 export const NOTICE_FIELDS: NoticeFieldDef[] = [
   // ── Invite ──────────────────────────────────────────────────────────────────
   { key: "rsvpStatus",            label: "RSVP Status",              type: "enum",    options: ["PENDING","YES","NO","MAYBE"],     group: "Invite" },
-  { key: "ticketType",            label: "Ticket Type",              type: "text",                                                 group: "Invite" },
+  { key: "ticketType",            label: "Ticket Type",              type: "enum",    options: ["Regular","Comp","Press","Staff","VIP","Sponsor","Table"], group: "Invite" },
   { key: "group",                 label: "Group",                    type: "text",                                                 group: "Invite" },
-  { key: "meal",                  label: "Meal",                     type: "text",                                                 group: "Invite" },
-  { key: "dietary",               label: "Dietary (contains)",       type: "text",                                                 group: "Invite" },
+  { key: "meal",                  label: "Meal",                     type: "enum",    options: ["Standard","Kosher","Vegan","Vegetarian"],           group: "Invite" },
+  { key: "dietary",               label: "Dietary Restriction",      type: "text",    optionsUrl: "/api/lookup/dietary-options",   optionsLabelKey: "name",     group: "Invite" },
   { key: "isGuest",               label: "Is Guest",                 type: "boolean",                                              group: "Invite" },
   { key: "isPlaceholder",         label: "Is Placeholder",           type: "boolean",                                              group: "Invite" },
   { key: "isSeated",              label: "Is Seated",                type: "boolean",                                              group: "Invite" },
@@ -38,13 +41,26 @@ export const NOTICE_FIELDS: NoticeFieldDef[] = [
   { key: "hasEmail",              label: "Has Email on File",        type: "boolean",                                              group: "Invite" },
   { key: "hasNotes",              label: "Has Notes",                type: "boolean",                                              group: "Invite" },
   { key: "hasPaid",               label: "Has Paid",                 type: "boolean",                                              group: "Invite" },
-  // ── Person ──────────────────────────────────────────────────────────────────
+  { key: "tableName",           label: "Table",                    type: "text",                                                 group: "Invite" },
+  { key: "noteText",            label: "Notes Content",            type: "text",                                                 group: "Invite" },
+  { key: "hasSponsoredSeats",   label: "Has Sponsored Seats",      type: "boolean",                                              group: "Invite" },
+  // ── Fundraiser ───────────────────────────────────────────────────────────────
+  { key: "donation.approvalStatus", label: "Donation Approval",  type: "enum",    options: ["AUTO_APPROVED","MANUALLY_APPROVED","PENDING","REJECTED"], group: "Fundraiser", requiresFundraiser: true },
+  { key: "donation.qbSyncStatus",   label: "QB Sync Status",     type: "enum",    options: ["NOT_SYNCED","SYNCED","ERROR"],                            group: "Fundraiser", requiresFundraiser: true },
+  { key: "donation.isRecurring",    label: "Recurring Donor",    type: "boolean",                                                                      group: "Fundraiser", requiresFundraiser: true },
+  { key: "donation.sponsorshipLevel", label: "Sponsorship Level", type: "text",                                                                         group: "Fundraiser", requiresFundraiser: true },
+  { key: "donation.amount",        label: "Donation Amount ($)",  type: "number",                                               group: "Fundraiser", requiresFundraiser: true },
+  { key: "donation.paymentMethod", label: "Payment Method",       type: "enum",    options: ["stripe","zeffy","cash","check","ach"], group: "Fundraiser", requiresFundraiser: true },
+  // ── Person ───────────────────────────────────────────────────────────────────
   { key: "person.status",         label: "Person Status",            type: "enum",    options: ["ACTIVE","INACTIVE","DECEASED"],   group: "Person" },
   { key: "person.city",           label: "City",                     type: "text",                                                 group: "Person" },
   { key: "person.state",          label: "State",                    type: "text",                                                 group: "Person" },
   { key: "person.tags",           label: "Person Tag",               type: "tags",                                                 group: "Person" },
   { key: "person.assignedTo",     label: "Assigned To",              type: "staff",                                                group: "Person" },
-  { key: "person.orgType",        label: "Organization Type",        type: "text",                                                 group: "Person" },
+  { key: "person.orgType",        label: "Organization Type",        type: "text",    optionsUrl: "/api/lookup/organization-types", optionsLabelKey: "typeName", group: "Person" },
+  { key: "person.hasPhone",     label: "Has Phone Number",         type: "boolean",                                              group: "Person" },
+  { key: "person.zip",          label: "Zip Code",                 type: "text",                                                 group: "Person" },
+  { key: "person.contactMethod",label: "Preferred Contact Method", type: "text",    optionsUrl: "/api/lookup/communication-methods", optionsLabelKey: "name", group: "Person" },
 ];
 
 export const OPERATORS: Record<FieldType, OperatorDef[]> = {
@@ -78,6 +94,14 @@ export const OPERATORS: Record<FieldType, OperatorDef[]> = {
     { value: "is_assigned",   label: "is assigned (anyone)", hasValue: false },
     { value: "is_unassigned", label: "is unassigned",    hasValue: false },
   ],
+  number: [
+    { value: "eq",  label: "equals",                 hasValue: true },
+    { value: "neq", label: "does not equal",         hasValue: true },
+    { value: "gt",  label: "greater than",           hasValue: true },
+    { value: "gte", label: "greater than or equal",  hasValue: true },
+    { value: "lt",  label: "less than",              hasValue: true },
+    { value: "lte", label: "less than or equal",     hasValue: true },
+  ],
 };
 
 export function defaultOperator(type: FieldType): string {
@@ -94,6 +118,7 @@ export interface EvalInvite {
   dietary: string[];
   notes: string | null;
   tableId: string | null;
+  sponsoredSeats: number | null;
   isGuest: boolean;
   isPlaceholder: boolean;
   attended: boolean;
@@ -107,6 +132,9 @@ export interface EvalInvite {
     status: string;
     city: string | null;
     state: string | null;
+    phoneNumber: string | null;
+    zip: string | null;
+    communicationMethod: string | null;
     assignedTo: { id: string } | null;
     tags: { tag: { id: string; name: string } }[];
     partnerRoles: { partner: { organizationType: { typeName: string } | null } }[];
@@ -115,6 +143,8 @@ export interface EvalInvite {
 
 export interface EvalContext {
   paidPeopleIds: Set<string>;
+  donationsByPeopleId: Map<string, { approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; sponsorshipLevelName: string | null; amount: number; paymentMethod: string }[]>;
+  tableNameMap: Record<string, string>;
 }
 
 function str(s: string | null | undefined): string {
@@ -134,17 +164,11 @@ function evalCondition(invite: EvalInvite, condition: NoticeCondition, context: 
       break;
 
     // ── Ticket Type ──────────────────────────────────────────────────────────
-    case "ticketType": {
-      const t = invite.ticketType.toLowerCase();
-      const v = value.toLowerCase();
-      if (operator === "is")          return t === v;
-      if (operator === "is_not")      return t !== v;
-      if (operator === "contains")    return t.includes(v);
-      if (operator === "not_contains") return !t.includes(v);
-      if (operator === "is_empty")    return !invite.ticketType;
-      if (operator === "is_not_empty") return !!invite.ticketType;
+    case "ticketType":
+      if (operator === "is")        return invite.ticketType === value;
+      if (operator === "is_not")    return invite.ticketType !== value;
+      if (operator === "is_any_of") return vals.includes(invite.ticketType);
       break;
-    }
 
     // ── Group ────────────────────────────────────────────────────────────────
     case "group": {
@@ -160,17 +184,11 @@ function evalCondition(invite: EvalInvite, condition: NoticeCondition, context: 
     }
 
     // ── Meal ─────────────────────────────────────────────────────────────────
-    case "meal": {
-      const m = invite.meal.toLowerCase();
-      const v = value.toLowerCase();
-      if (operator === "is")          return m === v;
-      if (operator === "is_not")      return m !== v;
-      if (operator === "contains")    return m.includes(v);
-      if (operator === "not_contains") return !m.includes(v);
-      if (operator === "is_empty")    return !invite.meal;
-      if (operator === "is_not_empty") return !!invite.meal;
+    case "meal":
+      if (operator === "is")        return invite.meal === value;
+      if (operator === "is_not")    return invite.meal !== value;
+      if (operator === "is_any_of") return vals.includes(invite.meal);
       break;
-    }
 
     // ── Dietary ──────────────────────────────────────────────────────────────
     case "dietary": {
@@ -208,6 +226,35 @@ function evalCondition(invite: EvalInvite, condition: NoticeCondition, context: 
       const paid = invite.peopleId ? context.paidPeopleIds.has(invite.peopleId) : false;
       return operator === "is_true" ? paid : !paid;
     }
+
+    case "tableName": {
+      const name = invite.tableId ? (context.tableNameMap[invite.tableId] ?? "") : "";
+      const v = value.toLowerCase();
+      if (operator === "is")           return name.toLowerCase() === v;
+      if (operator === "is_not")       return name.toLowerCase() !== v;
+      if (operator === "contains")     return name.toLowerCase().includes(v);
+      if (operator === "not_contains") return !name.toLowerCase().includes(v);
+      if (operator === "is_empty")     return !name;
+      if (operator === "is_not_empty") return !!name;
+      break;
+    }
+
+    case "noteText": {
+      const notes = (invite.notes ?? "").toLowerCase();
+      const v = value.toLowerCase();
+      if (operator === "is")           return notes === v;
+      if (operator === "is_not")       return notes !== v;
+      if (operator === "contains")     return notes.includes(v);
+      if (operator === "not_contains") return !notes.includes(v);
+      if (operator === "is_empty")     return !notes.trim();
+      if (operator === "is_not_empty") return !!notes.trim();
+      break;
+    }
+
+    case "hasSponsoredSeats":
+      return operator === "is_true"
+        ? (invite.sponsoredSeats !== null && invite.sponsoredSeats > 0)
+        : !(invite.sponsoredSeats !== null && invite.sponsoredSeats > 0);
 
     // ── Person fields ─────────────────────────────────────────────────────────
     case "person.status":
@@ -272,6 +319,98 @@ function evalCondition(invite: EvalInvite, condition: NoticeCondition, context: 
       if (operator === "not_contains") return !joined.includes(v);
       if (operator === "is_empty")    return types.length === 0;
       if (operator === "is_not_empty") return types.length > 0;
+      break;
+    }
+
+    case "person.hasPhone":
+      return operator === "is_true" ? !!invite.person?.phoneNumber : !invite.person?.phoneNumber;
+
+    case "person.zip": {
+      const zip = str(invite.person?.zip).toLowerCase();
+      const v = value.toLowerCase();
+      if (operator === "is")           return zip === v;
+      if (operator === "is_not")       return zip !== v;
+      if (operator === "contains")     return zip.includes(v);
+      if (operator === "not_contains") return !zip.includes(v);
+      if (operator === "is_empty")     return !zip.trim();
+      if (operator === "is_not_empty") return !!zip.trim();
+      break;
+    }
+
+    case "person.contactMethod": {
+      const method = (invite.person?.communicationMethod ?? "").toLowerCase();
+      const v = value.toLowerCase();
+      if (operator === "is")           return method === v;
+      if (operator === "is_not")       return method !== v;
+      if (operator === "is_empty")     return !method;
+      if (operator === "is_not_empty") return !!method;
+      break;
+    }
+
+    // ── Fundraiser fields ─────────────────────────────────────────────────────
+    case "donation.approvalStatus": {
+      if (!invite.peopleId) return false;
+      const donations = context.donationsByPeopleId.get(invite.peopleId) ?? [];
+      if (donations.length === 0) return false;
+      if (operator === "is")        return donations.some((d) => d.approvalStatus === value);
+      if (operator === "is_not")    return donations.every((d) => d.approvalStatus !== value);
+      if (operator === "is_any_of") return donations.some((d) => vals.includes(d.approvalStatus));
+      break;
+    }
+
+    case "donation.qbSyncStatus": {
+      if (!invite.peopleId) return false;
+      const donations = context.donationsByPeopleId.get(invite.peopleId) ?? [];
+      if (donations.length === 0) return false;
+      if (operator === "is")        return donations.some((d) => d.qbSyncStatus === value);
+      if (operator === "is_not")    return donations.every((d) => d.qbSyncStatus !== value);
+      if (operator === "is_any_of") return donations.some((d) => vals.includes(d.qbSyncStatus));
+      break;
+    }
+
+    case "donation.isRecurring": {
+      if (!invite.peopleId) return false;
+      const donations = context.donationsByPeopleId.get(invite.peopleId) ?? [];
+      const isRecurring = donations.some((d) => d.isRecurring);
+      return operator === "is_true" ? isRecurring : !isRecurring;
+    }
+
+    case "donation.sponsorshipLevel": {
+      if (!invite.peopleId) return false;
+      const donations = context.donationsByPeopleId.get(invite.peopleId) ?? [];
+      const levels = donations.map((d) => d.sponsorshipLevelName ?? "").filter(Boolean);
+      const v = value.toLowerCase();
+      if (operator === "is")           return levels.some((l) => l.toLowerCase() === v);
+      if (operator === "is_not")       return !levels.some((l) => l.toLowerCase() === v);
+      if (operator === "contains")     return levels.some((l) => l.toLowerCase().includes(v));
+      if (operator === "not_contains") return !levels.some((l) => l.toLowerCase().includes(v));
+      if (operator === "is_empty")     return levels.length === 0;
+      if (operator === "is_not_empty") return levels.length > 0;
+      break;
+    }
+
+    case "donation.amount": {
+      if (!invite.peopleId) return false;
+      const donations = context.donationsByPeopleId.get(invite.peopleId) ?? [];
+      if (donations.length === 0) return false;
+      const inputCents = Math.round(parseFloat(value || "0") * 100);
+      const maxAmount = Math.max(...donations.map((d) => d.amount));
+      if (operator === "eq")  return donations.some((d) => d.amount === inputCents);
+      if (operator === "neq") return donations.every((d) => d.amount !== inputCents);
+      if (operator === "gt")  return maxAmount > inputCents;
+      if (operator === "gte") return maxAmount >= inputCents;
+      if (operator === "lt")  return donations.some((d) => d.amount < inputCents);
+      if (operator === "lte") return donations.some((d) => d.amount <= inputCents);
+      break;
+    }
+
+    case "donation.paymentMethod": {
+      if (!invite.peopleId) return false;
+      const donations = context.donationsByPeopleId.get(invite.peopleId) ?? [];
+      if (donations.length === 0) return false;
+      if (operator === "is")        return donations.some((d) => d.paymentMethod === value);
+      if (operator === "is_not")    return donations.every((d) => d.paymentMethod !== value);
+      if (operator === "is_any_of") return donations.some((d) => vals.includes(d.paymentMethod));
       break;
     }
   }
