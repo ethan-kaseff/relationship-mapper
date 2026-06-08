@@ -56,6 +56,14 @@
 
 Barry and Ethan both use this same flow. Never skip it.
 
+**Always leave the repo clean after a merge.** Once a PR is merged, return to
+`main`, `git pull`, delete the merged feature branch with `git branch -D`
+(capital D — squash-merges aren't recognized by lowercase `-d`), run
+`git remote prune origin`, and confirm `git status` is clean with only `main`
+(or branches with genuinely unfinished work) remaining. Full checklist is
+step 10 of `claude-helpers/Deploy Changes to Live Site.md`. This prevents stale
+branches and junk files from accumulating.
+
 | Barry says | File to read |
 |------------|--------------|
 | "Let's get started" / start of session / "start work" | `claude-helpers/Before Starting Work.md` |

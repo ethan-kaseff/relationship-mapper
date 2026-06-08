@@ -142,15 +142,39 @@ gh pr view <branch-name> --json state,mergedAt,mergeStateStatus
     Re-run step 8 to see what.
   - Anything else — tell Barry what `gh pr view` shows and stop.
 
-## 10. Sync local main and clean up
+## 10. Sync local main and clean up — REQUIRED
+
+After every merge, leave the repo in a clean state: back on `main`, fully
+synced, with no leftover branches. Run all of these:
 
 ```
 git checkout main
 git pull origin main
-git branch -d <branch-name>
+git branch -D <branch-name>
+git remote prune origin
 ```
 
-(The remote branch was deleted by auto-merge; this removes the local copy.)
+Notes:
+- Use `git branch -D` (capital D), **not** `-d`. Because PRs are
+  **squash-merged**, git does not recognize the feature branch as merged and
+  lowercase `-d` will fail with "not fully merged." The GitHub PR showing
+  `MERGED` (step 9) is the real confirmation the work is safe — `-D` is correct
+  here.
+- `git remote prune origin` removes stale `origin/work/*` remote-tracking refs
+  for branches GitHub already deleted on merge. (This repo also has
+  `fetch.prune = true` set, so future fetches prune automatically — but run it
+  explicitly here so cleanup never depends on a later fetch.)
+
+Then verify the repo is clean:
+
+```
+git status            # expect: "On branch main ... nothing to commit, working tree clean"
+git branch            # expect: only `main` (plus any branch with genuinely unfinished work)
+```
+
+If `git status` shows leftover junk (`.DS_Store`, `*.tsbuildinfo`, etc.), it
+should be covered by `.gitignore` — if a new junk pattern appears, add it to
+`.gitignore` rather than leaving it untracked.
 
 ---
 
