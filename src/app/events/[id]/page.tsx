@@ -69,7 +69,7 @@ interface EventData {
     title: string;
     goalAmount: number;
     currentAmount: number;
-    donations: { id: string; peopleId: string | null; approvalStatus: string; qbSyncStatus: string }[];
+    donations: { id: string; peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean }[];
   }[];
 }
 
@@ -588,7 +588,7 @@ export default function EventDetailPage() {
             <NoticeManager
               eventId={event.id}
               invites={event.invites}
-              paidPeopleIds={new Set(event.fundraisers.flatMap((f) => f.donations.map((d) => d.peopleId)).filter((pid): pid is string => pid !== null))}
+              donations={event.fundraisers.flatMap((f) => f.donations)}
               isAdmin={isAdmin}
             />
           </div>

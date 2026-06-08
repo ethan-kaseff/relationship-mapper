@@ -53,6 +53,7 @@ interface InviteForEval {
 
 interface Tag { id: string; name: string; }
 interface StaffUser { id: string; firstName: string; lastName: string; }
+interface DonationForEval { peopleId: string | null; approvalStatus: string; qbSyncStatus: string; isRecurring: boolean; }
 
 interface FormState {
   name: string;
@@ -96,12 +97,12 @@ function newCondition(): NoticeCondition {
 export default function NoticeManager({
   eventId,
   invites,
-  paidPeopleIds,
+  donations,
   isAdmin,
 }: {
   eventId: string;
   invites: InviteForEval[];
-  paidPeopleIds: Set<string>;
+  donations: DonationForEval[];
   isAdmin: boolean;
 }) {
   const [notices, setNotices] = useState<EventNotice[]>([]);
@@ -140,7 +141,22 @@ export default function NoticeManager({
     });
   }, [isAdmin]);
 
-  const context: EvalContext = { paidPeopleIds };
+  const hasFundraiser = donations.length > 0;
+
+  const paidPeopleIds = new Set(donations.map((d) => d.peopleId).filter((id): id is string => id !== null));
+  const donationsByPeopleId = new Map<string, { approvalStatus: string; qbSyncStatus: string; isRecurring: boolean }[]>();
+  for (const d of donations) {
+    if (!d.peopleId) continue;
+    const existing = donationsByPeopleId.get(d.peopleId) ?? [];
+    existing.push({ approvalStatus: d.approvalStatus, qbSyncStatus: d.qbSyncStatus, isRecurring: d.isRecurring });
+    donationsByPeopleId.set(d.peopleId, existing);
+  }
+  const context: EvalContext = { paidPeopleIds, donationsByPeopleId };
+
+  const availableFields = NOTICE_FIELDS.filter((f) => !f.requiresFundraiser || hasFundraiser);
+  const inviteFields = availableFields.filter((f) => f.group === "Invite");
+  const personFields = availableFields.filter((f) => f.group === "Person");
+  const fundraiserFields = availableFields.filter((f) => f.group === "Fundraiser");
 
   const eventGroups = [...new Set(invites.map((i) => i.group).filter((g) => g && g.trim()))].sort();
   const eventCities = [...new Set(invites.map((i) => i.person?.city).filter((c): c is string => !!c && !!c.trim()))].sort();
@@ -351,9 +367,6 @@ export default function NoticeManager({
     );
   }
 
-  const inviteFields = NOTICE_FIELDS.filter((f) => f.group === "Invite");
-  const personFields = NOTICE_FIELDS.filter((f) => f.group === "Person");
-
   if (loading) return <div className="text-gray-400 text-sm py-2">Loading notices…</div>;
 
   return (
@@ -442,6 +455,11 @@ export default function NoticeManager({
                                 <optgroup label="Person">
                                   {personFields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
                                 </optgroup>
+                                {fundraiserFields.length > 0 && (
+                                  <optgroup label="Fundraiser">
+                                    {fundraiserFields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                                  </optgroup>
+                                )}
                               </select>
                               <select
                                 value={condition.operator}

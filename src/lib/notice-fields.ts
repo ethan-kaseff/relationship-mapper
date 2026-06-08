@@ -7,7 +7,8 @@ export interface NoticeFieldDef {
   options?: string[];
   optionsUrl?: string;
   optionsLabelKey?: string;
-  group: "Invite" | "Person";
+  group: "Invite" | "Person" | "Fundraiser";
+  requiresFundraiser?: boolean;
 }
 
 export interface OperatorDef {
@@ -40,7 +41,11 @@ export const NOTICE_FIELDS: NoticeFieldDef[] = [
   { key: "hasEmail",              label: "Has Email on File",        type: "boolean",                                              group: "Invite" },
   { key: "hasNotes",              label: "Has Notes",                type: "boolean",                                              group: "Invite" },
   { key: "hasPaid",               label: "Has Paid",                 type: "boolean",                                              group: "Invite" },
-  // ── Person ──────────────────────────────────────────────────────────────────
+  // ── Fundraiser ───────────────────────────────────────────────────────────────
+  { key: "donation.approvalStatus", label: "Donation Approval",  type: "enum",    options: ["AUTO_APPROVED","MANUALLY_APPROVED","PENDING","REJECTED"], group: "Fundraiser", requiresFundraiser: true },
+  { key: "donation.qbSyncStatus",   label: "QB Sync Status",     type: "enum",    options: ["NOT_SYNCED","SYNCED","ERROR"],                            group: "Fundraiser", requiresFundraiser: true },
+  { key: "donation.isRecurring",    label: "Recurring Donor",    type: "boolean",                                                                      group: "Fundraiser", requiresFundraiser: true },
+  // ── Person ───────────────────────────────────────────────────────────────────
   { key: "person.status",         label: "Person Status",            type: "enum",    options: ["ACTIVE","INACTIVE","DECEASED"],   group: "Person" },
   { key: "person.city",           label: "City",                     type: "text",                                                 group: "Person" },
   { key: "person.state",          label: "State",                    type: "text",                                                 group: "Person" },
@@ -117,6 +122,7 @@ export interface EvalInvite {
 
 export interface EvalContext {
   paidPeopleIds: Set<string>;
+  donationsByPeopleId: Map<string, { approvalStatus: string; qbSyncStatus: string; isRecurring: boolean }[]>;
 }
 
 function str(s: string | null | undefined): string {
@@ -263,6 +269,34 @@ function evalCondition(invite: EvalInvite, condition: NoticeCondition, context: 
       if (operator === "is_empty")    return types.length === 0;
       if (operator === "is_not_empty") return types.length > 0;
       break;
+    }
+
+    // ── Fundraiser fields ─────────────────────────────────────────────────────
+    case "donation.approvalStatus": {
+      if (!invite.peopleId) return false;
+      const donations = context.donationsByPeopleId.get(invite.peopleId) ?? [];
+      if (donations.length === 0) return false;
+      if (operator === "is")        return donations.some((d) => d.approvalStatus === value);
+      if (operator === "is_not")    return donations.every((d) => d.approvalStatus !== value);
+      if (operator === "is_any_of") return donations.some((d) => vals.includes(d.approvalStatus));
+      break;
+    }
+
+    case "donation.qbSyncStatus": {
+      if (!invite.peopleId) return false;
+      const donations = context.donationsByPeopleId.get(invite.peopleId) ?? [];
+      if (donations.length === 0) return false;
+      if (operator === "is")        return donations.some((d) => d.qbSyncStatus === value);
+      if (operator === "is_not")    return donations.every((d) => d.qbSyncStatus !== value);
+      if (operator === "is_any_of") return donations.some((d) => vals.includes(d.qbSyncStatus));
+      break;
+    }
+
+    case "donation.isRecurring": {
+      if (!invite.peopleId) return false;
+      const donations = context.donationsByPeopleId.get(invite.peopleId) ?? [];
+      const isRecurring = donations.some((d) => d.isRecurring);
+      return operator === "is_true" ? isRecurring : !isRecurring;
     }
   }
   return false;
