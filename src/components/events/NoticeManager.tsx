@@ -272,7 +272,7 @@ export default function NoticeManager({
     }));
   }
 
-  function ValueInput({ condition }: { condition: NoticeCondition }) {
+  function renderValueInput(condition: NoticeCondition) {
     const fieldDef = NOTICE_FIELDS.find((f) => f.key === condition.field);
     if (!fieldDef) return null;
     const opDef = OPERATORS[fieldDef.type].find((o) => o.value === condition.operator);
@@ -571,7 +571,7 @@ export default function NoticeManager({
                               >
                                 {ops.map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
                               </select>
-                              <ValueInput condition={condition} />
+                              {renderValueInput(condition)}
                               <button onClick={() => removeCondition(condition.id)} className="text-gray-400 hover:text-red-500 text-sm mt-1" title="Remove">✕</button>
                             </div>
                           );
@@ -661,7 +661,7 @@ export default function NoticeManager({
                           >
                             {ops.map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
                           </select>
-                          <ValueInput condition={condition} />
+                          {renderValueInput(condition)}
                           <button onClick={() => removeCondition(condition.id)} className="text-gray-400 hover:text-red-500 text-sm mt-1" title="Remove">✕</button>
                         </div>
                       );

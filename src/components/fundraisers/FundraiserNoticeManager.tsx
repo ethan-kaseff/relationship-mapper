@@ -245,7 +245,7 @@ export default function FundraiserNoticeManager({
     }));
   }
 
-  function ValueInput({ condition }: { condition: NoticeCondition }) {
+  function renderValueInput(condition: NoticeCondition) {
     const fieldDef = FUNDRAISER_NOTICE_FIELDS.find((f) => f.key === condition.field);
     if (!fieldDef) return null;
     const opDef = OPERATORS[fieldDef.type].find((o) => o.value === condition.operator);
@@ -374,38 +374,7 @@ export default function FundraiserNoticeManager({
     );
   }
 
-  function ConditionRow({ condition, idx, bgClass }: { condition: NoticeCondition; idx: number; bgClass: string }) {
-    const fieldDef = FUNDRAISER_NOTICE_FIELDS.find((fd) => fd.key === condition.field);
-    const ops = OPERATORS[fieldDef?.type ?? "text"];
-    return (
-      <div className={`flex flex-wrap items-start gap-2 border border-gray-200 rounded p-2 ${bgClass}`}>
-        <span className="text-xs text-gray-400 mt-1.5 w-4">{idx + 1}.</span>
-        <select
-          value={condition.field}
-          onChange={(e) => updateCondition(condition.id, { field: e.target.value })}
-          className="text-sm border border-gray-300 rounded px-2 py-1"
-        >
-          <optgroup label="Donation">
-            {donationFields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-          </optgroup>
-          <optgroup label="Person">
-            {personFields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
-          </optgroup>
-        </select>
-        <select
-          value={condition.operator}
-          onChange={(e) => updateCondition(condition.id, { operator: e.target.value })}
-          className="text-sm border border-gray-300 rounded px-2 py-1"
-        >
-          {ops.map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
-        </select>
-        <ValueInput condition={condition} />
-        <button onClick={() => removeCondition(condition.id)} className="text-gray-400 hover:text-red-500 text-sm mt-1" title="Remove">✕</button>
-      </div>
-    );
-  }
-
-  function NoticeForm({ bgClass }: { bgClass: string }) {
+  function renderNoticeForm(bgClass: string) {
     return (
       <div className={`rounded-md p-3 space-y-3 ${bgClass}`}>
         <div>
@@ -428,9 +397,36 @@ export default function FundraiserNoticeManager({
           ))}
         </div>
         <div className="space-y-2">
-          {form.conditions.map((condition, idx) => (
-            <ConditionRow key={condition.id} condition={condition} idx={idx} bgClass="bg-white" />
-          ))}
+          {form.conditions.map((condition, idx) => {
+            const fieldDef = FUNDRAISER_NOTICE_FIELDS.find((fd) => fd.key === condition.field);
+            const ops = OPERATORS[fieldDef?.type ?? "text"];
+            return (
+              <div key={condition.id} className="flex flex-wrap items-start gap-2 border border-gray-200 rounded p-2 bg-white">
+                <span className="text-xs text-gray-400 mt-1.5 w-4">{idx + 1}.</span>
+                <select
+                  value={condition.field}
+                  onChange={(e) => updateCondition(condition.id, { field: e.target.value })}
+                  className="text-sm border border-gray-300 rounded px-2 py-1"
+                >
+                  <optgroup label="Donation">
+                    {donationFields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                  </optgroup>
+                  <optgroup label="Person">
+                    {personFields.map((f) => <option key={f.key} value={f.key}>{f.label}</option>)}
+                  </optgroup>
+                </select>
+                <select
+                  value={condition.operator}
+                  onChange={(e) => updateCondition(condition.id, { operator: e.target.value })}
+                  className="text-sm border border-gray-300 rounded px-2 py-1"
+                >
+                  {ops.map((op) => <option key={op.value} value={op.value}>{op.label}</option>)}
+                </select>
+                {renderValueInput(condition)}
+                <button onClick={() => removeCondition(condition.id)} className="text-gray-400 hover:text-red-500 text-sm mt-1" title="Remove">✕</button>
+              </div>
+            );
+          })}
           <button onClick={addCondition} className="text-xs text-blue-600 hover:text-blue-800">+ Add condition</button>
         </div>
         <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
@@ -554,7 +550,7 @@ export default function FundraiserNoticeManager({
                 <div key={n.id} className="border border-gray-200 rounded-md overflow-hidden">
                   {editingId === n.id ? (
                     <div className="p-3">
-                      <NoticeForm bgClass="bg-gray-50" />
+                      {renderNoticeForm("bg-gray-50")}
                     </div>
                   ) : (
                     <div className="flex items-center justify-between gap-2 px-3 py-2.5">
@@ -582,7 +578,7 @@ export default function FundraiserNoticeManager({
               {editingId === "new" ? (
                 <div className="border border-blue-200 bg-blue-50 rounded-md p-3">
                   <p className="text-xs font-medium text-blue-700 mb-3">New Notice</p>
-                  <NoticeForm bgClass="bg-blue-50" />
+                  {renderNoticeForm("bg-blue-50")}
                 </div>
               ) : (
                 <button
