@@ -1282,6 +1282,10 @@ function SettingsTab({
   );
 }
 
+function donorRowName(d: Donation): string {
+  return d.isAnonymous ? "Anonymous" : d.person ? `${d.person.firstName} ${d.person.lastName}` : d.donorName || "Unknown";
+}
+
 function NoticesTab({
   fundraiserId,
   donations,
@@ -1295,57 +1299,123 @@ function NoticesTab({
   sponsorshipsWithOpenSeats: Donation[];
   isAdmin: boolean;
 }) {
-  const totalCount = pendingDonations.length + sponsorshipsWithOpenSeats.length;
+  const [customNoticeRows, setCustomNoticeRows] = useState<string[][]>([]);
   const sponsorshipLevelNames = [...new Set(donations.map((d) => d.sponsorshipLevel?.name).filter((n): n is string => !!n))];
 
+  const systemNoticeRows: string[][] = [
+    ...pendingDonations.map((d) => [
+      "Pending approval",
+      donorRowName(d),
+      d.person?.email1 || d.person?.email2 || "",
+      d.sponsorshipLevel?.name ?? "",
+      (d.amount / 100).toFixed(2),
+      d.approvalStatus,
+      d.qbSyncStatus,
+      d.isRecurring ? "Yes" : "No",
+      d.paymentMethod,
+      d.sponsoredSeats != null ? String(d.sponsoredSeats) : "",
+      d.seatsUsed != null ? String(d.seatsUsed) : "",
+    ]),
+    ...sponsorshipsWithOpenSeats.map((d) => [
+      "Sponsorship has unassigned seats",
+      donorRowName(d),
+      d.person?.email1 || d.person?.email2 || "",
+      d.sponsorshipLevel?.name ?? "",
+      (d.amount / 100).toFixed(2),
+      d.approvalStatus,
+      d.qbSyncStatus,
+      d.isRecurring ? "Yes" : "No",
+      d.paymentMethod,
+      d.sponsoredSeats != null ? String(d.sponsoredSeats) : "",
+      d.seatsUsed != null ? String(d.seatsUsed) : "",
+    ]),
+  ];
+
+  const NOTICE_XLSX_HEADERS = ["Name", "Email", "Sponsorship Level", "Amount ($)", "Approval Status", "QB Sync", "Recurring", "Payment Method", "Sponsored Seats", "Seats Used"];
+
+  async function downloadAllNoticesXlsx() {
+    const res = await fetch("/api/export/xlsx", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: "fundraiser-notices.xlsx",
+        sheets: [
+          { name: "System Notices", headers: ["Notice", ...NOTICE_XLSX_HEADERS], rows: systemNoticeRows },
+          { name: "Custom Notices", headers: ["Notice", ...NOTICE_XLSX_HEADERS], rows: customNoticeRows },
+        ],
+      }),
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "fundraiser-notices.xlsx";
+    a.click();
+  }
+
   return (
-    <div className="max-w-2xl space-y-4">
-      {totalCount > 0 && (
-        <div className="space-y-3">
-          {pendingDonations.length > 0 && (
-            <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-              <div className="flex items-start gap-2">
-                <span>⚠</span>
-                <div>
-                  <p className="font-medium">{pendingDonations.length} donation{pendingDonations.length !== 1 ? "s" : ""} pending approval:</p>
-                  <ul className="mt-1.5 space-y-0.5 text-xs">
-                    {pendingDonations.map((d) => (
-                      <li key={d.id} className="font-medium">
-                        {d.isAnonymous ? "Anonymous" : d.person ? `${d.person.firstName} ${d.person.lastName}` : d.donorName || "Unknown"}
-                        {" — "}{d.paymentMethod}
-                      </li>
-                    ))}
-                  </ul>
+    <div className="max-w-2xl space-y-5">
+      <div className="flex justify-end">
+        <button
+          onClick={downloadAllNoticesXlsx}
+          className="text-sm border border-indigo-300 text-indigo-600 px-3 py-1.5 rounded-md hover:bg-indigo-50"
+        >
+          Export all notices as Excel
+        </button>
+      </div>
+      <div className="space-y-1">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">System Notices</h3>
+        <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-hidden">
+          {[
+            {
+              label: "Donations pending approval",
+              count: pendingDonations.length,
+              items: pendingDonations.map((d) => {
+                const name = d.isAnonymous ? "Anonymous" : d.person ? `${d.person.firstName} ${d.person.lastName}` : d.donorName || "Unknown";
+                return `${name} — ${d.paymentMethod}`;
+              }),
+            },
+            {
+              label: "Sponsorships with unassigned seats",
+              count: sponsorshipsWithOpenSeats.length,
+              items: sponsorshipsWithOpenSeats.map((d) => {
+                const name = d.person ? `${d.person.firstName} ${d.person.lastName}` : d.donorName || "Unknown";
+                return `${name} — ${d.seatsUsed ?? 0} of ${d.sponsoredSeats} seats filled`;
+              }),
+            },
+          ].map(({ label, count, items }) => (
+            <div key={label} className={`px-4 py-2.5 text-sm ${count > 0 ? "bg-amber-50" : "bg-white"}`}>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className={count > 0 ? "text-amber-500" : "text-green-500"}>
+                    {count > 0 ? "⚠" : "✓"}
+                  </span>
+                  <span className={count > 0 ? "font-medium text-amber-900" : "text-gray-600"}>{label}</span>
                 </div>
+                <span className={`text-xs shrink-0 ${count > 0 ? "text-amber-700 font-medium" : "text-gray-400"}`}>
+                  {count > 0 ? `${count} ${count === 1 ? "issue" : "issues"}` : "none"}
+                </span>
               </div>
+              {count > 0 && (
+                <ul className="mt-1.5 ml-6 space-y-0.5 text-xs text-amber-800">
+                  {items.map((item, i) => <li key={i}>{item}</li>)}
+                </ul>
+              )}
             </div>
-          )}
-          {sponsorshipsWithOpenSeats.length > 0 && (
-            <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-              <div className="flex items-start gap-2">
-                <span>⚠</span>
-                <div>
-                  <p className="font-medium">{sponsorshipsWithOpenSeats.length} sponsorship{sponsorshipsWithOpenSeats.length !== 1 ? "s have" : " has"} unassigned seats:</p>
-                  <ul className="mt-1.5 space-y-0.5 text-xs">
-                    {sponsorshipsWithOpenSeats.map((d) => (
-                      <li key={d.id}>
-                        <span className="font-medium">{d.person ? `${d.person.firstName} ${d.person.lastName}` : d.donorName || "Unknown"}</span>
-                        {" — "}{(d.seatsUsed ?? 0)} of {d.sponsoredSeats} seat{d.sponsoredSeats !== 1 ? "s" : ""} filled
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
+          ))}
         </div>
-      )}
-      <FundraiserNoticeManager
-        fundraiserId={fundraiserId}
-        donations={donations as DonationForEval[]}
-        sponsorshipLevelNames={sponsorshipLevelNames}
-        isAdmin={isAdmin}
-      />
+      </div>
+
+      <div className="space-y-3">
+        <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Custom Notices</h3>
+        <FundraiserNoticeManager
+          fundraiserId={fundraiserId}
+          donations={donations as DonationForEval[]}
+          sponsorshipLevelNames={sponsorshipLevelNames}
+          isAdmin={isAdmin}
+          onEvaluatedRowsChange={setCustomNoticeRows}
+        />
+      </div>
     </div>
   );
 }

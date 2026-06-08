@@ -108,11 +108,13 @@ export default function FundraiserNoticeManager({
   donations,
   sponsorshipLevelNames,
   isAdmin,
+  onEvaluatedRowsChange,
 }: {
   fundraiserId: string;
   donations: DonationForEval[];
   sponsorshipLevelNames: string[];
   isAdmin: boolean;
+  onEvaluatedRowsChange?: (rows: string[][]) => void;
 }) {
   const [notices, setNotices] = useState<FundraiserNotice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -120,6 +122,7 @@ export default function FundraiserNoticeManager({
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [lookupOptions, setLookupOptions] = useState<Record<string, string[]>>({});
@@ -161,6 +164,14 @@ export default function FundraiserNoticeManager({
       ),
     }))
     .filter((r) => r.matching.length > 0);
+
+  useEffect(() => {
+    onEvaluatedRowsChange?.(
+      evaluated.flatMap(({ notice, matching }) =>
+        matching.map((d) => [notice.name, ...donationRow(d)])
+      )
+    );
+  }, [notices]);
 
   function startEdit(notice: FundraiserNotice) {
     setForm({ name: notice.name, conditionLogic: notice.conditionLogic, conditions: notice.conditions, isActive: notice.isActive });
@@ -436,6 +447,56 @@ export default function FundraiserNoticeManager({
     );
   }
 
+  function donationRow(d: DonationForEval): string[] {
+    return [
+      donorName(d),
+      d.person?.email1 || d.person?.email2 || "",
+      d.sponsorshipLevel?.name ?? "",
+      (d.amount / 100).toFixed(2),
+      d.approvalStatus,
+      d.qbSyncStatus,
+      d.isRecurring ? "Yes" : "No",
+      d.paymentMethod,
+      d.sponsoredSeats != null ? String(d.sponsoredSeats) : "",
+      d.seatsUsed != null ? String(d.seatsUsed) : "",
+    ];
+  }
+
+  const XLSX_HEADERS = ["Name", "Email", "Sponsorship Level", "Amount ($)", "Approval Status", "QB Sync", "Recurring", "Payment Method", "Sponsored Seats", "Seats Used"];
+
+  async function downloadXlsx(
+    filename: string,
+    headersOrSheets: string[] | { name: string; headers: string[]; rows: string[][] }[],
+    rows?: string[][]
+  ) {
+    const body = Array.isArray(headersOrSheets) && headersOrSheets.length > 0 && typeof headersOrSheets[0] === "object" && "name" in headersOrSheets[0]
+      ? { filename, sheets: headersOrSheets as { name: string; headers: string[]; rows: string[][] }[] }
+      : { filename, headers: headersOrSheets as string[], rows: rows! };
+    const res = await fetch("/api/export/xlsx", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+  }
+
+  function copyNotice(noticeId: string, matching: DonationForEval[]) {
+    const text = matching.map(donorName).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(noticeId);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  }
+
+  function downloadNotice(notice: FundraiserNotice, matching: DonationForEval[]) {
+    downloadXlsx(`${notice.name}.xlsx`, XLSX_HEADERS, matching.map(donationRow));
+  }
+
   if (loading) return <div className="text-gray-400 text-sm py-2">Loading notices…</div>;
 
   return (
@@ -451,23 +512,32 @@ export default function FundraiserNoticeManager({
       )}
       {evaluated.map(({ notice, matching }) => (
         <div key={notice.id} className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-          <div className="flex items-start gap-2">
-            <span>⚠</span>
-            <div>
-              <p className="font-medium">
-                {notice.name}{" "}
-                <span className="font-normal text-amber-700">({matching.length} {matching.length === 1 ? "donation" : "donations"})</span>
-              </p>
-              <ul className="mt-1.5 space-y-0.5 text-xs">
-                {matching.map((d) => (
-                  <li key={d.id} className="font-medium">{donorName(d)}</li>
-                ))}
-              </ul>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <span>⚠</span>
+              <div>
+                <p className="font-medium">
+                  {notice.name}{" "}
+                  <span className="font-normal text-amber-700">({matching.length} {matching.length === 1 ? "donation" : "donations"})</span>
+                </p>
+                <ul className="mt-1.5 space-y-0.5 text-xs">
+                  {matching.map((d) => (
+                    <li key={d.id} className="font-medium">{donorName(d)}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <div className="flex gap-1.5 shrink-0">
+              <button onClick={() => copyNotice(notice.id, matching)} className="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 bg-amber-50 hover:bg-amber-100 rounded px-2 py-0.5 transition-colors">
+                {copiedId === notice.id ? "Copied!" : "Copy"}
+              </button>
+              <button onClick={() => downloadNotice(notice, matching)} className="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 bg-amber-50 hover:bg-amber-100 rounded px-2 py-0.5 transition-colors">
+                Excel
+              </button>
             </div>
           </div>
         </div>
       ))}
-
       {isAdmin && (
         <div className="border border-gray-200 rounded-lg overflow-hidden">
           <button

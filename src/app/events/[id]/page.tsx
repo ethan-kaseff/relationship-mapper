@@ -97,6 +97,7 @@ export default function EventDetailPage() {
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportStatuses, setExportStatuses] = useState({ YES: true, NO: false, MAYBE: false, PENDING: false });
+  const [customNoticeRows, setCustomNoticeRows] = useState<string[][]>([]);
 
   const fetchEvent = useCallback(async () => {
     const res = await fetch(`/api/events/${id}`);
@@ -205,6 +206,28 @@ export default function EventDetailPage() {
     if (res.ok) router.push("/events");
   }
 
+  const NOTICE_XLSX_HEADERS = ["Name", "Email", "Group", "RSVP Status", "Ticket Type", "Table", "Meal", "Org Type"];
+
+  async function downloadAllNoticesXlsx() {
+    const res = await fetch("/api/export/xlsx", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        filename: `${event?.title.replace(/[^a-z0-9]/gi, "-") ?? "event"}-notices.xlsx`,
+        sheets: [
+          { name: "System Notices", headers: ["Notice", ...NOTICE_XLSX_HEADERS], rows: systemNoticeRows },
+          { name: "Custom Notices", headers: ["Notice", ...NOTICE_XLSX_HEADERS], rows: customNoticeRows },
+        ],
+      }),
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${event?.title.replace(/[^a-z0-9]/gi, "-") ?? "event"}-notices.xlsx`;
+    a.click();
+  }
+
   function exportEmailsCSV() {
     if (!event) return;
     const selected = Object.entries(exportStatuses).filter(([, v]) => v).map(([k]) => k);
@@ -238,7 +261,8 @@ export default function EventDetailPage() {
     PENDING: event.invites.filter((i) => i.rsvpStatus === "PENDING").length,
   };
 
-  const placeholderCount = event.invites.filter((i) => i.isPlaceholder).length;
+  const placeholders = event.invites.filter((i) => i.isPlaceholder);
+  const placeholderCount = placeholders.length;
   const unfulfilledSeatingRequests = event.invites.filter(
     (i) => i.seatingRequest && i.seatingRequest.trim() !== "" && !i.tableId
   );
@@ -254,10 +278,63 @@ export default function EventDetailPage() {
       (other) => other.id !== i.id && other.tableId === i.tableId && other.group === i.tableRequest
     );
   });
-  const seatDiscrepancyCount = event.fundraisers.flatMap((f) =>
-    f.donations.filter((d) => d.sponsoredSeats != null && d.seatsUsed != null && d.seatsUsed < d.sponsoredSeats)
-  ).length;
-  const totalNoticeCount = placeholderCount + unfulfilledSeatingRequests.length + unpaidRegular.length + unfulfilledTableRequests.length + seatDiscrepancyCount;
+  const seatDiscrepancies = event.fundraisers.flatMap((f) =>
+    f.donations.filter((d) => d.sponsoredSeats != null && d.seatsUsed != null && d.seatsUsed < d.sponsoredSeats && d.peopleId)
+      .map((d) => {
+        const invite = event.invites.find((i) => i.peopleId === d.peopleId);
+        const name = invite?.person ? `${invite.person.firstName} ${invite.person.lastName}` : d.peopleId ?? "Unknown";
+        return { name, allowed: d.sponsoredSeats!, used: d.seatsUsed!, note: d.seatsChangeNote };
+      })
+  );
+  const totalNoticeCount = placeholderCount + unfulfilledSeatingRequests.length + unpaidRegular.length + unfulfilledTableRequests.length + seatDiscrepancies.length;
+
+  const tableNameMap: Record<string, string> = (() => {
+    const layout = event.seatingLayout as { tables?: { id: string; name: string }[] } | null;
+    if (!layout?.tables) return {};
+    return Object.fromEntries(layout.tables.map((t) => [t.id, t.name]));
+  })();
+
+  function sysName(i: EventInvite) {
+    return i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown";
+  }
+  function sysEmail(i: EventInvite) {
+    return i.person?.email1 || i.person?.email2 || i.guestEmail || "";
+  }
+  function sysOrgType(i: EventInvite) {
+    return i.person?.partnerRoles[0]?.partner?.organizationType?.typeName ?? "";
+  }
+
+  const systemNoticeRows: string[][] = [
+    ...placeholders.map((i) => [
+      "Seats need names",
+      sysName(i), sysEmail(i), i.group, i.rsvpStatus, i.ticketType,
+      i.tableId ? (tableNameMap[i.tableId] ?? "") : "",
+      i.meal, sysOrgType(i),
+    ]),
+    ...unfulfilledSeatingRequests.map((i) => [
+      "Special seating request not placed",
+      sysName(i), sysEmail(i), i.group, i.rsvpStatus, i.ticketType,
+      i.tableId ? (tableNameMap[i.tableId] ?? "") : "",
+      i.meal, sysOrgType(i),
+    ]),
+    ...unpaidRegular.map((i) => [
+      "RSVP'd Yes but not paid",
+      sysName(i), sysEmail(i), i.group, i.rsvpStatus, i.ticketType,
+      i.tableId ? (tableNameMap[i.tableId] ?? "") : "",
+      i.meal, sysOrgType(i),
+    ]),
+    ...unfulfilledTableRequests.map((i) => [
+      "Not seated with requested group",
+      sysName(i), sysEmail(i), i.group, i.rsvpStatus, i.ticketType,
+      i.tableId ? (tableNameMap[i.tableId] ?? "") : "",
+      i.meal, sysOrgType(i),
+    ]),
+    ...seatDiscrepancies.map((d) => {
+      const inv = event.invites.find((i) => i.person && `${i.person.firstName} ${i.person.lastName}` === d.name);
+      const email = inv?.person?.email1 || inv?.person?.email2 || "";
+      return ["Sponsor using fewer seats than purchased", d.name, email, "", "", "", "", "", ""];
+    }),
+  ];
 
   const tabs: { id: "details" | "invites" | "notices" | "seating" | "settings"; label: string; count?: number }[] = [
     { id: "details", label: "Details" },
@@ -281,12 +358,14 @@ export default function EventDetailPage() {
           <h1 className="text-2xl font-bold text-indigo-900 mt-1">{event.title}</h1>
         </div>
         <div className="flex gap-2 items-center">
-          <button
-            onClick={() => setShowExportModal(true)}
-            className="px-3 py-1.5 text-sm border border-indigo-300 text-indigo-600 rounded-md hover:bg-indigo-50"
-          >
-            Export Emails (CSV)
-          </button>
+          {activeTab === "invites" && (
+            <button
+              onClick={() => setShowExportModal(true)}
+              className="px-3 py-1.5 text-sm border border-indigo-300 text-indigo-600 rounded-md hover:bg-indigo-50"
+            >
+              Export Emails (CSV)
+            </button>
+          )}
         </div>
       </div>
 
@@ -509,11 +588,7 @@ export default function EventDetailPage() {
           syncing={syncing}
           syncResult={syncResult}
           onSyncCC={handleSyncCC}
-          tableNames={(() => {
-            const layout = event.seatingLayout as { tables?: { id: string; name: string }[] } | null;
-            if (!layout?.tables) return {};
-            return Object.fromEntries(layout.tables.map((t) => [t.id, t.name]));
-          })()}
+          tableNames={tableNameMap}
           seatDiscrepancies={Object.fromEntries(
             event.fundraisers.flatMap((f) =>
               f.donations
@@ -525,122 +600,82 @@ export default function EventDetailPage() {
       )}
 
       {activeTab === "notices" && (
-        <div className="max-w-2xl space-y-3">
-          {totalNoticeCount === 0 ? (
-            <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 flex items-center gap-2">
-              <span>✓</span>
-              <span>No system notices — everything looks good!</span>
+        <div className="max-w-2xl space-y-5">
+          <div className="flex justify-end">
+            <button
+              onClick={downloadAllNoticesXlsx}
+              className="text-sm border border-indigo-300 text-indigo-600 px-3 py-1.5 rounded-md hover:bg-indigo-50"
+            >
+              Export all notices as Excel
+            </button>
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">System Notices</h3>
+            <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 overflow-hidden">
+              {[
+                {
+                  label: "Seats need names",
+                  count: placeholderCount,
+                  items: placeholders.map((i) => i.group ? `${i.group} (placeholder)` : "Unnamed placeholder"),
+                },
+                {
+                  label: "Special seating requests not placed",
+                  count: unfulfilledSeatingRequests.length,
+                  items: unfulfilledSeatingRequests.map((i) => {
+                    const name = i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown";
+                    return `${name} — "${i.seatingRequest}"`;
+                  }),
+                },
+                {
+                  label: "RSVP'd Yes but not paid",
+                  count: unpaidRegular.length,
+                  items: unpaidRegular.map((i) => i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown"),
+                },
+                {
+                  label: "Not seated with requested group",
+                  count: unfulfilledTableRequests.length,
+                  items: unfulfilledTableRequests.map((i) => {
+                    const name = i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown";
+                    return `${name} — requested: ${i.tableRequest}`;
+                  }),
+                },
+                {
+                  label: "Sponsors using fewer seats than purchased",
+                  count: seatDiscrepancies.length,
+                  items: seatDiscrepancies.map((d) => `${d.name} — ${d.used} of ${d.allowed} used${d.note ? `: ${d.note.split("\n")[0]}` : ""}`),
+                },
+              ].map(({ label, count, items }) => (
+                <div key={label} className={`px-4 py-2.5 text-sm ${count > 0 ? "bg-amber-50" : "bg-white"}`}>
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span className={count > 0 ? "text-amber-500" : "text-green-500"}>
+                        {count > 0 ? "⚠" : "✓"}
+                      </span>
+                      <span className={count > 0 ? "font-medium text-amber-900" : "text-gray-600"}>{label}</span>
+                    </div>
+                    <span className={`text-xs shrink-0 ${count > 0 ? "text-amber-700 font-medium" : "text-gray-400"}`}>
+                      {count > 0 ? `${count} ${count === 1 ? "issue" : "issues"}` : "none"}
+                    </span>
+                  </div>
+                  {count > 0 && (
+                    <ul className="mt-1.5 ml-6 space-y-0.5 text-xs text-amber-800">
+                      {items.map((item, i) => <li key={i}>{item}</li>)}
+                    </ul>
+                  )}
+                </div>
+              ))}
             </div>
-          ) : (
-            <>
-              {placeholderCount > 0 && (
-                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                  <div className="flex items-start gap-2">
-                    <span>⚠</span>
-                    <span className="font-medium">{placeholderCount} seat{placeholderCount !== 1 ? "s" : ""} still need names — follow up with sponsors to confirm attendees</span>
-                  </div>
-                </div>
-              )}
-              {unfulfilledSeatingRequests.length > 0 && (
-                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                  <div className="flex items-start gap-2">
-                    <span>⚠</span>
-                    <div>
-                      <p className="font-medium">{unfulfilledSeatingRequests.length} special seating request{unfulfilledSeatingRequests.length !== 1 ? "s" : ""} not yet placed:</p>
-                      <ul className="mt-1.5 space-y-0.5 text-xs">
-                        {unfulfilledSeatingRequests.map((i) => (
-                          <li key={i.id}>
-                            <span className="font-medium">{i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown"}</span>
-                            {" — "}&ldquo;{i.seatingRequest}&rdquo;
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {unpaidRegular.length > 0 && (
-                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                  <div className="flex items-start gap-2">
-                    <span>⚠</span>
-                    <div>
-                      <p className="font-medium">{unpaidRegular.length} {unpaidRegular.length !== 1 ? "people have" : "person has"} RSVP&apos;d Yes with a regular ticket but {unpaidRegular.length !== 1 ? "have" : "has"} not paid:</p>
-                      <ul className="mt-1.5 space-y-0.5 text-xs">
-                        {unpaidRegular.map((i) => (
-                          <li key={i.id} className="font-medium">
-                            {i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown"}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {unfulfilledTableRequests.length > 0 && (
-                <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                  <div className="flex items-start gap-2">
-                    <span>⚠</span>
-                    <div>
-                      <p className="font-medium">{unfulfilledTableRequests.length} guest{unfulfilledTableRequests.length !== 1 ? "s are" : " is"} not seated with their requested group:</p>
-                      <ul className="mt-1.5 space-y-0.5 text-xs">
-                        {unfulfilledTableRequests.map((i) => (
-                          <li key={i.id}>
-                            <span className="font-medium">{i.person ? `${i.person.firstName} ${i.person.lastName}` : i.guestName || "Unknown"}</span>
-                            {" — requested: "}{i.tableRequest}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
-              {(() => {
-                const discrepancies = event.fundraisers.flatMap((f) =>
-                  f.donations.filter(
-                    (d) => d.sponsoredSeats != null && d.seatsUsed != null && d.seatsUsed < d.sponsoredSeats && d.peopleId
-                  ).map((d) => {
-                    const invite = event.invites.find((i) => i.peopleId === d.peopleId);
-                    const name = invite?.person ? `${invite.person.firstName} ${invite.person.lastName}` : d.peopleId;
-                    return { name, allowed: d.sponsoredSeats!, used: d.seatsUsed!, note: d.seatsChangeNote };
-                  })
-                );
-                if (discrepancies.length === 0) return null;
-                return (
-                  <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-                    <div className="flex items-start gap-2">
-                      <span>⚠</span>
-                      <div>
-                        <p className="font-medium">{discrepancies.length} sponsor{discrepancies.length !== 1 ? "s are" : " is"} using fewer seats than purchased:</p>
-                        <ul className="mt-1.5 space-y-1.5 text-xs">
-                          {discrepancies.map((disc, i) => (
-                            <li key={i}>
-                              <span className="font-medium">{disc.name}</span>
-                              {" — "}{disc.used} of {disc.allowed} seat{disc.allowed !== 1 ? "s" : ""} used
-                              {disc.note && (
-                                <div className="mt-0.5 text-amber-700 whitespace-pre-wrap">{disc.note}</div>
-                              )}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-            </>
-          )}
+          </div>
 
-          {/* Custom notices */}
-          <div className="pt-1">
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Custom Notices</h3>
             <NoticeManager
               eventId={event.id}
               invites={event.invites}
               donations={event.fundraisers.flatMap((f) => f.donations)}
-              tableNameMap={(() => {
-                const layout = event.seatingLayout as { tables?: { id: string; name: string }[] } | null;
-                return Object.fromEntries((layout?.tables ?? []).map((t) => [t.id, t.name]));
-              })()}
+              tableNameMap={tableNameMap}
               isAdmin={isAdmin}
+              onEvaluatedRowsChange={setCustomNoticeRows}
             />
           </div>
         </div>

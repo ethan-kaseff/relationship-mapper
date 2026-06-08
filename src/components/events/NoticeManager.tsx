@@ -112,12 +112,14 @@ export default function NoticeManager({
   donations,
   tableNameMap,
   isAdmin,
+  onEvaluatedRowsChange,
 }: {
   eventId: string;
   invites: InviteForEval[];
   donations: DonationForEval[];
   tableNameMap: Record<string, string>;
   isAdmin: boolean;
+  onEvaluatedRowsChange?: (rows: string[][]) => void;
 }) {
   const [notices, setNotices] = useState<EventNotice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -125,6 +127,7 @@ export default function NoticeManager({
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [tags, setTags] = useState<Tag[]>([]);
   const [staff, setStaff] = useState<StaffUser[]>([]);
   const [lookupOptions, setLookupOptions] = useState<Record<string, string[]>>({});
@@ -188,6 +191,14 @@ export default function NoticeManager({
       ),
     }))
     .filter((r) => r.matching.length > 0);
+
+  useEffect(() => {
+    onEvaluatedRowsChange?.(
+      evaluated.flatMap(({ notice, matching }) =>
+        matching.map((inv) => [notice.name, ...inviteRow(inv)])
+      )
+    );
+  }, [notices]);
 
   function startEdit(notice: EventNotice) {
     setForm({ name: notice.name, conditionLogic: notice.conditionLogic, conditions: notice.conditions, isActive: notice.isActive });
@@ -402,6 +413,54 @@ export default function NoticeManager({
     );
   }
 
+  function inviteRow(inv: InviteForEval): string[] {
+    return [
+      inviteName(inv),
+      inv.person?.email1 || inv.person?.email2 || inv.guestEmail || "",
+      inv.group,
+      inv.rsvpStatus,
+      inv.ticketType,
+      inv.tableId ? (tableNameMap[inv.tableId] ?? "") : "",
+      inv.meal,
+      inv.person?.partnerRoles[0]?.partner?.organizationType?.typeName ?? "",
+    ];
+  }
+
+  const XLSX_HEADERS = ["Name", "Email", "Group", "RSVP Status", "Ticket Type", "Table", "Meal", "Org Type"];
+
+  async function downloadXlsx(
+    filename: string,
+    headersOrSheets: string[] | { name: string; headers: string[]; rows: string[][] }[],
+    rows?: string[][]
+  ) {
+    const body = Array.isArray(headersOrSheets) && headersOrSheets.length > 0 && typeof headersOrSheets[0] === "object" && "name" in headersOrSheets[0]
+      ? { filename, sheets: headersOrSheets as { name: string; headers: string[]; rows: string[][] }[] }
+      : { filename, headers: headersOrSheets as string[], rows: rows! };
+    const res = await fetch("/api/export/xlsx", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    a.click();
+  }
+
+  function copyNotice(noticeId: string, matching: InviteForEval[]) {
+    const text = matching.map(inviteName).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopiedId(noticeId);
+      setTimeout(() => setCopiedId(null), 2000);
+    });
+  }
+
+  function downloadNotice(notice: EventNotice, matching: InviteForEval[]) {
+    downloadXlsx(`${notice.name}.xlsx`, XLSX_HEADERS, matching.map(inviteRow));
+  }
+
   if (loading) return <div className="text-gray-400 text-sm py-2">Loading notices…</div>;
 
   return (
@@ -418,23 +477,32 @@ export default function NoticeManager({
       )}
       {evaluated.map(({ notice, matching }) => (
         <div key={notice.id} className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
-          <div className="flex items-start gap-2">
-            <span>⚠</span>
-            <div>
-              <p className="font-medium">
-                {notice.name}{" "}
-                <span className="font-normal text-amber-700">({matching.length} {matching.length === 1 ? "person" : "people"})</span>
-              </p>
-              <ul className="mt-1.5 space-y-0.5 text-xs">
-                {matching.map((inv) => (
-                  <li key={inv.id} className="font-medium">{inviteName(inv)}</li>
-                ))}
-              </ul>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <span>⚠</span>
+              <div>
+                <p className="font-medium">
+                  {notice.name}{" "}
+                  <span className="font-normal text-amber-700">({matching.length} {matching.length === 1 ? "person" : "people"})</span>
+                </p>
+                <ul className="mt-1.5 space-y-0.5 text-xs">
+                  {matching.map((inv) => (
+                    <li key={inv.id} className="font-medium">{inviteName(inv)}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+            <div className="flex gap-1.5 shrink-0">
+              <button onClick={() => copyNotice(notice.id, matching)} className="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 bg-amber-50 hover:bg-amber-100 rounded px-2 py-0.5 transition-colors">
+                {copiedId === notice.id ? "Copied!" : "Copy"}
+              </button>
+              <button onClick={() => downloadNotice(notice, matching)} className="text-xs text-amber-700 hover:text-amber-900 border border-amber-300 bg-amber-50 hover:bg-amber-100 rounded px-2 py-0.5 transition-colors">
+                Excel
+              </button>
             </div>
           </div>
         </div>
       ))}
-
       {/* Admin: manage notices */}
       {isAdmin && (
         <div className="border border-gray-200 rounded-lg overflow-hidden">
