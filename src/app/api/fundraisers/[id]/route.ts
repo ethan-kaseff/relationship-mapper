@@ -19,7 +19,32 @@ export async function GET(
         donations: {
           orderBy: { donatedAt: "desc" },
           include: {
-            person: { select: { id: true, firstName: true, lastName: true } },
+            person: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                status: true,
+                city: true,
+                state: true,
+                zip: true,
+                phoneNumber: true,
+                email1: true,
+                email2: true,
+                communicationMethod: { select: { name: true } },
+                assignedTo: { select: { id: true, firstName: true, lastName: true } },
+                tags: { include: { tag: { select: { id: true, name: true } } } },
+                partnerRoles: {
+                  include: {
+                    partner: {
+                      include: {
+                        organizationType: { select: { typeName: true } },
+                      },
+                    },
+                  },
+                },
+              },
+            },
             sponsorshipLevel: { select: { id: true, name: true, amount: true, seats: true } },
             partner: { select: { id: true, organizationName: true } },
           },

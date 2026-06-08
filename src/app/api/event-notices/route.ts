@@ -12,9 +12,14 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const eventId = searchParams.get("eventId");
+    const fundraiserId = searchParams.get("fundraiserId");
     const officeFilter = await getOfficeFilter();
     const notices = await prisma.eventNotice.findMany({
-      where: { ...officeFilter, eventId: eventId ?? undefined },
+      where: {
+        ...officeFilter,
+        ...(eventId ? { eventId } : {}),
+        ...(fundraiserId ? { fundraiserId } : {}),
+      },
       orderBy: [{ displayOrder: "asc" }, { createdAt: "asc" }],
     });
     return NextResponse.json(notices);
@@ -40,6 +45,7 @@ export async function POST(request: Request) {
         isActive: validation.data.isActive,
         displayOrder: validation.data.displayOrder,
         eventId: validation.data.eventId ?? null,
+        fundraiserId: validation.data.fundraiserId ?? null,
         officeId,
         createdById,
       },

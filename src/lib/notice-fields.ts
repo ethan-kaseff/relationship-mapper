@@ -7,7 +7,7 @@ export interface NoticeFieldDef {
   options?: string[];
   optionsUrl?: string;
   optionsLabelKey?: string;
-  group: "Invite" | "Person" | "Fundraiser";
+  group: "Invite" | "Person" | "Fundraiser" | "Donation";
   requiresFundraiser?: boolean;
 }
 
@@ -425,5 +425,259 @@ export function evaluateNotice(
 ): boolean {
   if (conditions.length === 0) return false;
   const results = conditions.map((c) => evalCondition(invite, c, context));
+  return logic === "AND" ? results.every(Boolean) : results.some(Boolean);
+}
+
+// ── Fundraiser Notice Fields ─────────────────────────────────────────────────
+
+export const FUNDRAISER_NOTICE_FIELDS: NoticeFieldDef[] = [
+  // ── Donation ─────────────────────────────────────────────────────────────────
+  { key: "amount",           label: "Donation Amount ($)",      type: "number",                                                                       group: "Donation" },
+  { key: "approvalStatus",   label: "Approval Status",          type: "enum",    options: ["AUTO_APPROVED","MANUALLY_APPROVED","PENDING","REJECTED"],  group: "Donation" },
+  { key: "qbSyncStatus",     label: "QB Sync Status",           type: "enum",    options: ["NOT_SYNCED","SYNCED","ERROR"],                             group: "Donation" },
+  { key: "isRecurring",      label: "Recurring Donor",          type: "boolean",                                                                      group: "Donation" },
+  { key: "sponsorshipLevel", label: "Sponsorship Level",        type: "text",                                                                         group: "Donation" },
+  { key: "paymentMethod",    label: "Payment Method",           type: "enum",    options: ["stripe","zeffy","cash","check","ach","online","pledge","other"], group: "Donation" },
+  { key: "sponsoredSeats",   label: "Sponsored Seats",          type: "number",                                                                       group: "Donation" },
+  { key: "seatsUsed",        label: "Seats Used",               type: "number",                                                                       group: "Donation" },
+  { key: "hasSeatDiscrepancy", label: "Has Seat Discrepancy",   type: "boolean",                                                                      group: "Donation" },
+  { key: "isAnonymous",      label: "Is Anonymous",             type: "boolean",                                                                      group: "Donation" },
+  { key: "hasNotes",         label: "Has Notes",                type: "boolean",                                                                      group: "Donation" },
+  { key: "noteText",         label: "Notes Content",            type: "text",                                                                         group: "Donation" },
+  // ── Person ───────────────────────────────────────────────────────────────────
+  { key: "person.status",       label: "Person Status",            type: "enum",    options: ["ACTIVE","INACTIVE","DECEASED"],                          group: "Person" },
+  { key: "person.city",         label: "City",                     type: "text",                                                                       group: "Person" },
+  { key: "person.state",        label: "State",                    type: "text",                                                                       group: "Person" },
+  { key: "person.zip",          label: "Zip Code",                 type: "text",                                                                       group: "Person" },
+  { key: "person.tags",         label: "Person Tag",               type: "tags",                                                                       group: "Person" },
+  { key: "person.assignedTo",   label: "Assigned To",              type: "staff",                                                                      group: "Person" },
+  { key: "person.orgType",      label: "Organization Type",        type: "text",    optionsUrl: "/api/lookup/organization-types", optionsLabelKey: "typeName", group: "Person" },
+  { key: "person.hasPhone",     label: "Has Phone Number",         type: "boolean",                                                                    group: "Person" },
+  { key: "person.contactMethod",label: "Preferred Contact Method", type: "text",    optionsUrl: "/api/lookup/communication-methods", optionsLabelKey: "name", group: "Person" },
+];
+
+export interface EvalDonation {
+  id: string;
+  amount: number;
+  approvalStatus: string;
+  qbSyncStatus: string;
+  isRecurring: boolean;
+  sponsorshipLevelName: string | null;
+  paymentMethod: string;
+  sponsoredSeats: number | null;
+  seatsUsed: number | null;
+  isAnonymous: boolean;
+  notes: string | null;
+  person: {
+    status: string;
+    city: string | null;
+    state: string | null;
+    zip: string | null;
+    phoneNumber: string | null;
+    email1: string | null;
+    email2: string | null;
+    communicationMethod: string | null;
+    assignedTo: { id: string } | null;
+    tags: { tag: { id: string; name: string } }[];
+    partnerRoles: { partner: { organizationType: { typeName: string } | null } }[];
+  } | null;
+}
+
+function evalDonationCondition(donation: EvalDonation, condition: NoticeCondition): boolean {
+  const { field, operator, value } = condition;
+  const vals = value ? value.split(",").map((v) => v.trim()).filter(Boolean) : [];
+
+  switch (field) {
+    case "amount": {
+      const inputCents = Math.round(parseFloat(value || "0") * 100);
+      if (operator === "eq")  return donation.amount === inputCents;
+      if (operator === "neq") return donation.amount !== inputCents;
+      if (operator === "gt")  return donation.amount > inputCents;
+      if (operator === "gte") return donation.amount >= inputCents;
+      if (operator === "lt")  return donation.amount < inputCents;
+      if (operator === "lte") return donation.amount <= inputCents;
+      break;
+    }
+
+    case "approvalStatus":
+      if (operator === "is")        return donation.approvalStatus === value;
+      if (operator === "is_not")    return donation.approvalStatus !== value;
+      if (operator === "is_any_of") return vals.includes(donation.approvalStatus);
+      break;
+
+    case "qbSyncStatus":
+      if (operator === "is")        return donation.qbSyncStatus === value;
+      if (operator === "is_not")    return donation.qbSyncStatus !== value;
+      if (operator === "is_any_of") return vals.includes(donation.qbSyncStatus);
+      break;
+
+    case "isRecurring":
+      return operator === "is_true" ? donation.isRecurring : !donation.isRecurring;
+
+    case "sponsorshipLevel": {
+      const level = (donation.sponsorshipLevelName ?? "").toLowerCase();
+      const v = value.toLowerCase();
+      if (operator === "is")           return level === v;
+      if (operator === "is_not")       return level !== v;
+      if (operator === "contains")     return level.includes(v);
+      if (operator === "not_contains") return !level.includes(v);
+      if (operator === "is_empty")     return !level;
+      if (operator === "is_not_empty") return !!level;
+      break;
+    }
+
+    case "paymentMethod":
+      if (operator === "is")        return donation.paymentMethod === value;
+      if (operator === "is_not")    return donation.paymentMethod !== value;
+      if (operator === "is_any_of") return vals.includes(donation.paymentMethod);
+      break;
+
+    case "sponsoredSeats": {
+      const seats = donation.sponsoredSeats ?? 0;
+      const inputVal = parseInt(value || "0");
+      if (operator === "eq")  return seats === inputVal;
+      if (operator === "neq") return seats !== inputVal;
+      if (operator === "gt")  return seats > inputVal;
+      if (operator === "gte") return seats >= inputVal;
+      if (operator === "lt")  return seats < inputVal;
+      if (operator === "lte") return seats <= inputVal;
+      break;
+    }
+
+    case "seatsUsed": {
+      const used = donation.seatsUsed ?? 0;
+      const inputVal = parseInt(value || "0");
+      if (operator === "eq")  return used === inputVal;
+      if (operator === "neq") return used !== inputVal;
+      if (operator === "gt")  return used > inputVal;
+      if (operator === "gte") return used >= inputVal;
+      if (operator === "lt")  return used < inputVal;
+      if (operator === "lte") return used <= inputVal;
+      break;
+    }
+
+    case "hasSeatDiscrepancy": {
+      const discrepancy = donation.seatsUsed !== null && donation.sponsoredSeats !== null && donation.seatsUsed < donation.sponsoredSeats;
+      return operator === "is_true" ? discrepancy : !discrepancy;
+    }
+
+    case "isAnonymous":
+      return operator === "is_true" ? donation.isAnonymous : !donation.isAnonymous;
+
+    case "hasNotes":
+      return operator === "is_true" ? !!(donation.notes?.trim()) : !(donation.notes?.trim());
+
+    case "noteText": {
+      const notes = (donation.notes ?? "").toLowerCase();
+      const v = value.toLowerCase();
+      if (operator === "is")           return notes === v;
+      if (operator === "is_not")       return notes !== v;
+      if (operator === "contains")     return notes.includes(v);
+      if (operator === "not_contains") return !notes.includes(v);
+      if (operator === "is_empty")     return !notes.trim();
+      if (operator === "is_not_empty") return !!notes.trim();
+      break;
+    }
+
+    case "person.status":
+      if (!donation.person) return false;
+      if (operator === "is")        return donation.person.status === value;
+      if (operator === "is_not")    return donation.person.status !== value;
+      if (operator === "is_any_of") return vals.includes(donation.person.status);
+      break;
+
+    case "person.city": {
+      const city = str(donation.person?.city).toLowerCase();
+      const v = value.toLowerCase();
+      if (operator === "is")          return city === v;
+      if (operator === "is_not")      return city !== v;
+      if (operator === "contains")    return city.includes(v);
+      if (operator === "not_contains") return !city.includes(v);
+      if (operator === "is_empty")    return !city.trim();
+      if (operator === "is_not_empty") return !!city.trim();
+      break;
+    }
+
+    case "person.state": {
+      const state = str(donation.person?.state).toLowerCase();
+      const v = value.toLowerCase();
+      if (operator === "is")          return state === v;
+      if (operator === "is_not")      return state !== v;
+      if (operator === "contains")    return state.includes(v);
+      if (operator === "not_contains") return !state.includes(v);
+      if (operator === "is_empty")    return !state.trim();
+      if (operator === "is_not_empty") return !!state.trim();
+      break;
+    }
+
+    case "person.zip": {
+      const zip = str(donation.person?.zip).toLowerCase();
+      const v = value.toLowerCase();
+      if (operator === "is")           return zip === v;
+      if (operator === "is_not")       return zip !== v;
+      if (operator === "contains")     return zip.includes(v);
+      if (operator === "not_contains") return !zip.includes(v);
+      if (operator === "is_empty")     return !zip.trim();
+      if (operator === "is_not_empty") return !!zip.trim();
+      break;
+    }
+
+    case "person.tags": {
+      if (!donation.person) return operator === "has_none" || operator === "has_none_of";
+      const tagIds = donation.person.tags.map((t) => t.tag.id);
+      if (operator === "has_any_of")  return vals.some((id) => tagIds.includes(id));
+      if (operator === "has_all_of")  return vals.every((id) => tagIds.includes(id));
+      if (operator === "has_none_of") return !vals.some((id) => tagIds.includes(id));
+      if (operator === "has_any")     return tagIds.length > 0;
+      if (operator === "has_none")    return tagIds.length === 0;
+      break;
+    }
+
+    case "person.assignedTo": {
+      const assignedId = donation.person?.assignedTo?.id;
+      if (operator === "is")           return assignedId === value;
+      if (operator === "is_not")       return assignedId !== value;
+      if (operator === "is_assigned")  return !!assignedId;
+      if (operator === "is_unassigned") return !assignedId;
+      break;
+    }
+
+    case "person.orgType": {
+      if (!donation.person) return operator === "is_empty";
+      const types = donation.person.partnerRoles.map((pr) => pr.partner.organizationType?.typeName ?? "");
+      const joined = types.join(",").toLowerCase();
+      const v = value.toLowerCase();
+      if (operator === "is")          return types.some((t) => t.toLowerCase() === v);
+      if (operator === "is_not")      return !types.some((t) => t.toLowerCase() === v);
+      if (operator === "contains")    return joined.includes(v);
+      if (operator === "not_contains") return !joined.includes(v);
+      if (operator === "is_empty")    return types.length === 0;
+      if (operator === "is_not_empty") return types.length > 0;
+      break;
+    }
+
+    case "person.hasPhone":
+      return operator === "is_true" ? !!donation.person?.phoneNumber : !donation.person?.phoneNumber;
+
+    case "person.contactMethod": {
+      const method = (donation.person?.communicationMethod ?? "").toLowerCase();
+      const v = value.toLowerCase();
+      if (operator === "is")           return method === v;
+      if (operator === "is_not")       return method !== v;
+      if (operator === "is_empty")     return !method;
+      if (operator === "is_not_empty") return !!method;
+      break;
+    }
+  }
+  return false;
+}
+
+export function evaluateFundraiserNotice(
+  donation: EvalDonation,
+  conditions: NoticeCondition[],
+  logic: "AND" | "OR"
+): boolean {
+  if (conditions.length === 0) return false;
+  const results = conditions.map((c) => evalDonationCondition(donation, c));
   return logic === "AND" ? results.every(Boolean) : results.some(Boolean);
 }

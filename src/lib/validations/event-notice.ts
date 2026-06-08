@@ -14,6 +14,7 @@ export const createEventNoticeSchema = z.object({
   isActive: z.boolean().default(true),
   displayOrder: z.number().int().default(0),
   eventId: z.string().optional(),
+  fundraiserId: z.string().optional(),
 });
 
 export const updateEventNoticeSchema = createEventNoticeSchema.partial();
