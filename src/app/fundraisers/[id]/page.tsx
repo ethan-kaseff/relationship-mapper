@@ -7,11 +7,23 @@ import { useSession } from "next-auth/react";
 import { formatCurrency, dollarsToCents, centsToDollars } from "@/lib/currency";
 import AddSolicitationsModal from "@/components/fundraisers/AddSolicitationsModal";
 import FundraiserEventSection from "@/components/fundraisers/FundraiserEventSection";
+import FundraiserNoticeManager, { type DonationForEval } from "@/components/fundraisers/FundraiserNoticeManager";
 
 interface Person {
   id: string;
   firstName: string;
   lastName: string;
+  status: string;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  phoneNumber: string | null;
+  email1: string | null;
+  email2: string | null;
+  communicationMethod: { name: string } | null;
+  assignedTo: { id: string; firstName: string; lastName: string } | null;
+  tags: { tag: { id: string; name: string } }[];
+  partnerRoles: { partner: { organizationType: { typeName: string } | null } }[];
 }
 
 interface PartnerOption { id: string; organizationName: string | null; }
@@ -189,7 +201,15 @@ export default function FundraiserDetailPage() {
         />
       )}
       {tab === "approvals" && <ApprovalsTab fundraiser={fundraiser} pending={pendingDonations} onRefresh={load} />}
-      {tab === "notices" && <NoticesTab pendingDonations={pendingDonations} sponsorshipsWithOpenSeats={sponsorshipsWithOpenSeats} />}
+      {tab === "notices" && (
+        <NoticesTab
+          fundraiserId={fundraiser.id}
+          donations={fundraiser.donations}
+          pendingDonations={pendingDonations}
+          sponsorshipsWithOpenSeats={sponsorshipsWithOpenSeats}
+          isAdmin={isAdmin}
+        />
+      )}
       {tab === "settings" && isAdmin && <SettingsTab fundraiser={fundraiser} onRefresh={load} onDelete={() => router.push("/fundraisers")} />}
     </div>
   );
@@ -1263,23 +1283,25 @@ function SettingsTab({
 }
 
 function NoticesTab({
+  fundraiserId,
+  donations,
   pendingDonations,
   sponsorshipsWithOpenSeats,
+  isAdmin,
 }: {
+  fundraiserId: string;
+  donations: Donation[];
   pendingDonations: Donation[];
   sponsorshipsWithOpenSeats: Donation[];
+  isAdmin: boolean;
 }) {
   const totalCount = pendingDonations.length + sponsorshipsWithOpenSeats.length;
+  const sponsorshipLevelNames = [...new Set(donations.map((d) => d.sponsorshipLevel?.name).filter((n): n is string => !!n))];
 
   return (
-    <div className="max-w-2xl space-y-3">
-      {totalCount === 0 ? (
-        <div className="px-4 py-3 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800 flex items-center gap-2">
-          <span>✓</span>
-          <span>No notices — everything looks good!</span>
-        </div>
-      ) : (
-        <>
+    <div className="max-w-2xl space-y-4">
+      {totalCount > 0 && (
+        <div className="space-y-3">
           {pendingDonations.length > 0 && (
             <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
               <div className="flex items-start gap-2">
@@ -1316,8 +1338,14 @@ function NoticesTab({
               </div>
             </div>
           )}
-        </>
+        </div>
       )}
+      <FundraiserNoticeManager
+        fundraiserId={fundraiserId}
+        donations={donations as DonationForEval[]}
+        sponsorshipLevelNames={sponsorshipLevelNames}
+        isAdmin={isAdmin}
+      />
     </div>
   );
 }
