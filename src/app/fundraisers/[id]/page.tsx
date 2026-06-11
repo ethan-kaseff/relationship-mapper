@@ -8,6 +8,7 @@ import { formatCurrency, dollarsToCents, centsToDollars } from "@/lib/currency";
 import AddSolicitationsModal from "@/components/fundraisers/AddSolicitationsModal";
 import FundraiserEventSection from "@/components/fundraisers/FundraiserEventSection";
 import FundraiserNoticeManager, { type DonationForEval } from "@/components/fundraisers/FundraiserNoticeManager";
+import PledgesTab, { type Pledge } from "@/components/fundraisers/PledgesTab";
 
 interface Person {
   id: string;
@@ -74,6 +75,7 @@ interface Fundraiser {
   startDate: string | null;
   endDate: string | null;
   isActive: boolean;
+  solicitorTagId: string | null;
   event: {
     id: string;
     title: string;
@@ -89,13 +91,10 @@ interface Fundraiser {
   sponsorshipLevels: SponsorshipLevel[];
 }
 
-interface Solicitation {
-  id: string;
-  status: string;
-  person: { id: string; firstName: string; lastName: string; email1: string | null; email2: string | null };
-}
+// Ask-list rows are always person-backed (the bulk-add flow requires a person)
+type AskListSolicitation = Pledge & { person: NonNullable<Pledge["person"]> };
 
-type Tab = "overview" | "levels" | "donations" | "solicitations" | "approvals" | "notices" | "settings";
+type Tab = "overview" | "levels" | "donations" | "solicitations" | "pledges" | "approvals" | "notices" | "settings";
 
 export default function FundraiserDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -104,7 +103,7 @@ export default function FundraiserDetailPage() {
   const { data: session } = useSession();
   const isAdmin = session?.user?.role === "SYSTEM_ADMIN" || session?.user?.role === "OFFICE_ADMIN";
   const [fundraiser, setFundraiser] = useState<Fundraiser | null>(null);
-  const [solicitations, setSolicitations] = useState<Solicitation[]>([]);
+  const [solicitations, setSolicitations] = useState<Pledge[]>([]);
   const [loading, setLoading] = useState(true);
   const initialTab = searchParams.get("tab") as Tab | null;
   const [tab, setTab] = useState<Tab>(initialTab ?? "overview");
@@ -142,10 +141,20 @@ export default function FundraiserDetailPage() {
   );
   const totalNoticeCount = pendingDonations.length + sponsorshipsWithOpenSeats.length;
 
+  // Personal solicitations (pledges) live on every fundraiser; the email/mail
+  // Ask List only exists on fundraisers without a linked event (invites cover that).
+  const pledges = solicitations.filter((s) => s.channel === "PERSONAL");
+  const askList = solicitations.filter(
+    (s): s is AskListSolicitation => s.channel !== "PERSONAL" && s.person !== null
+  );
+  const allPeopleIds = solicitations.flatMap((s) => (s.person ? [s.person.id] : []));
+  const allPartnerIds = solicitations.flatMap((s) => (s.partner ? [s.partner.id] : []));
+
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: "overview", label: "Overview" },
     { key: "levels", label: "Sponsorship Levels", badge: fundraiser.sponsorshipLevels.length || undefined },
-    ...(!fundraiser.event ? [{ key: "solicitations" as Tab, label: "Ask List", badge: solicitations.length || undefined }] : []),
+    ...(!fundraiser.event ? [{ key: "solicitations" as Tab, label: "Ask List", badge: askList.length || undefined }] : []),
+    { key: "pledges", label: "Pledges", badge: pledges.length || undefined },
     { key: "donations", label: "Donations" },
     { key: "approvals", label: "Approvals", badge: pendingDonations.length || undefined },
     { key: "notices", label: "Notices", badge: totalNoticeCount || undefined },
@@ -196,7 +205,18 @@ export default function FundraiserDetailPage() {
       {tab === "solicitations" && !fundraiser.event && (
         <SolicitationsTab
           fundraiserId={fundraiser.id}
-          solicitations={solicitations}
+          solicitations={askList}
+          existingPeopleIds={allPeopleIds}
+          onRefresh={loadSolicitations}
+        />
+      )}
+      {tab === "pledges" && (
+        <PledgesTab
+          fundraiserId={fundraiser.id}
+          pledges={pledges}
+          solicitorTagId={fundraiser.solicitorTagId}
+          existingPeopleIds={allPeopleIds}
+          existingPartnerIds={allPartnerIds}
           onRefresh={loadSolicitations}
         />
       )}
@@ -1194,6 +1214,28 @@ function SettingsTab({
 }) {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [tags, setTags] = useState<{ id: string; name: string }[]>([]);
+  const [savingTag, setSavingTag] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/tags")
+      .then((r) => r.json())
+      .then((data) => setTags(Array.isArray(data) ? data : []));
+  }, []);
+
+  async function handleSolicitorTagChange(tagId: string) {
+    setSavingTag(true);
+    try {
+      const res = await fetch(`/api/fundraisers/${fundraiser.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ solicitorTagId: tagId || null }),
+      });
+      if (res.ok) onRefresh();
+    } finally {
+      setSavingTag(false);
+    }
+  }
 
   async function toggleActive() {
     setSaving(true);
@@ -1253,6 +1295,26 @@ function SettingsTab({
         >
           {saving ? "Updating..." : fundraiser.isActive ? "Deactivate Fundraiser" : "Activate Fundraiser"}
         </button>
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-5">
+        <h3 className="text-sm font-medium text-gray-900 mb-1">Solicitor Tag</h3>
+        <p className="text-sm text-gray-600 mb-3">
+          People with this tag appear in the Solicitor dropdown on the Pledges tab.
+          Use a different tag per fundraiser to keep each committee&apos;s list separate.
+        </p>
+        <select
+          value={fundraiser.solicitorTagId ?? ""}
+          onChange={(e) => handleSolicitorTagChange(e.target.value)}
+          disabled={savingTag}
+          className="w-full max-w-sm px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:opacity-50"
+        >
+          <option value="">— Default (people tagged &quot;Solicitor&quot;) —</option>
+          {tags.map((t) => (
+            <option key={t.id} value={t.id}>{t.name}</option>
+          ))}
+        </select>
+        {savingTag && <p className="text-xs text-gray-400 mt-1">Saving…</p>}
       </div>
 
       {fundraiser.sponsorshipLevels.length > 0 && (
@@ -1475,18 +1537,18 @@ const SOLICITATION_STATUS_COLORS: Record<string, string> = {
 function SolicitationsTab({
   fundraiserId,
   solicitations,
+  existingPeopleIds,
   onRefresh,
 }: {
   fundraiserId: string;
-  solicitations: Solicitation[];
+  solicitations: AskListSolicitation[];
+  existingPeopleIds: string[];
   onRefresh: () => void;
 }) {
   const [showModal, setShowModal] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
-
-  const existingPeopleIds = solicitations.map((s) => s.person.id);
 
   async function handleStatusChange(solId: string, status: string) {
     setUpdatingId(solId);

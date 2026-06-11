@@ -2,6 +2,9 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
 import { handleApiError, notFound } from "@/lib/api-error";
+import { validateBody, updatePledgeSchema } from "@/lib/validations";
+
+const DATE_FIELDS = ["pledgeDate", "palWrittenAt", "palSentAt", "calWrittenAt", "calSentAt"] as const;
 
 export async function PATCH(
   request: Request,
@@ -12,15 +15,30 @@ export async function PATCH(
 
   try {
     const { id: fundraiserId, solId } = await params;
-    const { status } = await request.json() as { status: string };
+
+    const validation = await validateBody(request, updatePledgeSchema);
+    if (!validation.success) return validation.response;
+    const data = validation.data;
 
     const existing = await prisma.fundraiserSolicitation.findFirst({ where: { id: solId, fundraiserId } });
     if (!existing) return notFound("Solicitation not found");
 
+    const updateData: Record<string, unknown> = { ...data };
+    for (const field of DATE_FIELDS) {
+      if (field in updateData) {
+        const value = updateData[field] as string | null;
+        updateData[field] = value ? new Date(value) : null;
+      }
+    }
+
     const updated = await prisma.fundraiserSolicitation.update({
       where: { id: solId },
-      data: { status },
-      include: { person: { select: { id: true, firstName: true, lastName: true } } },
+      data: updateData,
+      include: {
+        person: { select: { id: true, firstName: true, lastName: true, email1: true, email2: true } },
+        partner: { select: { id: true, organizationName: true, email: true } },
+        solicitor: { select: { id: true, firstName: true, lastName: true } },
+      },
     });
     return NextResponse.json(updated);
   } catch (error) {
