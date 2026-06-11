@@ -14,6 +14,7 @@ export * from "./zeffy";
 export * from "./tag";
 export * from "./sponsorship-level";
 export * from "./event-notice";
+export * from "./pledge";
 
 import { z } from "zod";
 import { NextResponse } from "next/server";

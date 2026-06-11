@@ -118,6 +118,7 @@ export async function PUT(
           : undefined,
         isActive: data.isActive,
         eventId: data.eventId,
+        solicitorTagId: data.solicitorTagId,
       },
     });
     return NextResponse.json(fundraiser);

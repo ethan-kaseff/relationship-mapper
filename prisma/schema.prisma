@@ -119,6 +119,7 @@ model Tag {
   personTags      PersonTag[]
   partnerTags     PartnerTag[]
   partnerRoleTags PartnerRoleTag[]
+  fundraisers     Fundraiser[]
 
   @@unique([name, officeId])
   @@index([officeId])
@@ -169,7 +170,8 @@ model People {
   eventInvites       EventInvite[]
   tags               PersonTag[]
   donations               Donation[]
-  solicitations           FundraiserSolicitation[]
+  solicitations           FundraiserSolicitation[] @relation("PersonSolicitations")
+  solicitorAssignments    FundraiserSolicitation[] @relation("SolicitorAssignments")
   emailRecipients         EmailRecipient[]
   personNotes             PersonNote[]
 
@@ -201,6 +203,7 @@ model Partner {
   partnerRoles            PartnerRole[]
   tags                    PartnerTag[]
   donations               Donation[]
+  solicitations           FundraiserSolicitation[]
 
   @@index([officeId])
   @@map("partner")
@@ -463,6 +466,8 @@ model Fundraiser {
   zeffyCampaignId String?    @unique @map("zeffy_campaign_id")
   eventId         String?    @map("event_id")
   event           Event?     @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  solicitorTagId  String?    @map("solicitor_tag_id") // tag identifying this fundraiser's solicitors
+  solicitorTag    Tag?       @relation(fields: [solicitorTagId], references: [id], onDelete: SetNull)
   officeId        String     @map("office_id")
   office          Office     @relation(fields: [officeId], references: [id])
   donations           Donation[]
@@ -498,15 +503,38 @@ model FundraiserSolicitation {
   id           String     @id @default(uuid())
   fundraiserId String     @map("fundraiser_id")
   fundraiser   Fundraiser @relation(fields: [fundraiserId], references: [id], onDelete: Cascade)
-  peopleId     String     @map("people_id")
-  person       People     @relation(fields: [peopleId], references: [id], onDelete: Cascade)
-  status       String     @default("PENDING") @map("status") // PENDING, SENT, DONATED, DECLINED
+  peopleId     String?    @map("people_id")
+  person       People?    @relation("PersonSolicitations", fields: [peopleId], references: [id], onDelete: Cascade)
+  partnerId    String?    @map("partner_id")
+  partner      Partner?   @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  status       String     @default("PENDING") @map("status") // PENDING, SENT, PLEDGED, DONATED, DECLINED
+  channel      String     @default("EMAIL") @map("channel") // PERSONAL, EMAIL, MAIL
+
+  // Personal-solicitation (pledge) pipeline fields
+  solicitorId  String?    @map("solicitor_id")
+  solicitor    People?    @relation("SolicitorAssignments", fields: [solicitorId], references: [id], onDelete: SetNull)
+  pledgeAmount Int?       @map("pledge_amount") // cents
+  pledgeDate   DateTime?  @map("pledge_date")
+  listedAs     String?    @map("listed_as") // public recognition name
+  palWrittenAt DateTime?  @map("pal_written_at") // pledge acknowledgment letter
+  palSentAt    DateTime?  @map("pal_sent_at")
+  calWrittenAt DateTime?  @map("cal_written_at") // contribution acknowledgment letter
+  calSentAt    DateTime?  @map("cal_sent_at")
+  nfgEntered   Boolean    @default(false) @map("nfg_entered") // Network for Good
+  nfgUpdated   Boolean    @default(false) @map("nfg_updated")
+  logoUrl      String?    @map("logo_url") // sponsor logo (Vercel Blob)
+  formInDrive  Boolean    @default(false) @map("form_in_drive")
+  notes        String?
+
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
   @@unique([fundraiserId, peopleId])
+  @@unique([fundraiserId, partnerId])
   @@index([fundraiserId])
   @@index([peopleId])
+  @@index([partnerId])
+  @@index([solicitorId])
   @@map("fundraiser_solicitation")
 }
 

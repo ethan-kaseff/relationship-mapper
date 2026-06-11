@@ -31,6 +31,7 @@ export const updateFundraiserSchema = z.object({
   endDate: z.string().optional().nullable(),
   isActive: z.boolean().optional(),
   eventId: z.string().uuid().optional().nullable(),
+  solicitorTagId: z.string().uuid().optional().nullable(),
 });
 
 export type CreateFundraiserInput = z.infer<typeof createFundraiserSchema>;
