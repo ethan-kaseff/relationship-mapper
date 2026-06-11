@@ -15,6 +15,7 @@ import PeopleStatusSection from "@/components/PeopleStatusSection";
 import TagToggle from "@/components/TagToggle";
 import MergePersonButton from "@/components/MergePersonButton";
 import { isCrossOfficeView } from "@/lib/office-filter";
+import AiBriefingButton from "@/components/AiBriefingButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -138,12 +139,18 @@ export default async function PersonDetailPage({
     <div>
       <div className="flex items-start justify-between mb-0">
         <h1 className="text-2xl font-bold text-indigo-900">{person.firstName} {person.lastName}</h1>
-        <Link
-          href="/people"
-          className="text-indigo-600 hover:underline text-sm mt-1"
-        >
-          Back to People
-        </Link>
+        <div className="flex items-center gap-3 mt-1">
+          <AiBriefingButton
+            personId={person.id}
+            personName={`${person.firstName} ${person.lastName}`}
+          />
+          <Link
+            href="/people"
+            className="text-indigo-600 hover:underline text-sm"
+          >
+            Back to People
+          </Link>
+        </div>
       </div>
 
       <PeopleStatusSection
