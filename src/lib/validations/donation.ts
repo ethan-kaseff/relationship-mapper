@@ -20,6 +20,11 @@ export const createDonationSchema = z.object({
   seatsUsed: z.number().int().min(0).optional().nullable(),
 });
 
+export const updateDonationCalSchema = z.object({
+  calWrittenAt: z.string().optional().nullable(),
+  calSentAt: z.string().optional().nullable(),
+});
+
 export const updateDonationSeatsSchema = z.object({
   seatsUsed: z.number().int().min(0).nullable(),
   sponsoredSeats: z.number().int().min(0).optional().nullable(),

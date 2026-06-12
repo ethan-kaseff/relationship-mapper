@@ -19,12 +19,18 @@ export interface Pledge {
   pledgeDate: string | null;
   palWrittenAt: string | null;
   palSentAt: string | null;
-  calWrittenAt: string | null;
-  calSentAt: string | null;
   nfgEntered: boolean;
   nfgUpdated: boolean;
   formInDrive: boolean;
   solicitationNotes: SolicitationNoteEntry[];
+}
+
+export interface DonationCalInfo {
+  id: string;
+  peopleId: string | null;
+  partnerId: string | null;
+  calWrittenAt: string | null;
+  calSentAt: string | null;
 }
 
 export interface LevelOption {
@@ -78,6 +84,7 @@ export default function PledgesTab({
   pledges,
   solicitorTagId,
   sponsorshipLevels,
+  donations,
   existingPeopleIds,
   existingPartnerIds,
   onRefresh,
@@ -86,6 +93,7 @@ export default function PledgesTab({
   pledges: Pledge[];
   solicitorTagId: string | null;
   sponsorshipLevels: LevelOption[];
+  donations: DonationCalInfo[];
   existingPeopleIds: string[];
   existingPartnerIds: string[];
   onRefresh: () => void;
@@ -136,6 +144,14 @@ export default function PledgesTab({
       return nameA.localeCompare(nameB);
     });
   }, [pledges, solicitorFilter]);
+
+  function calForPledge(pledge: Pledge): DonationCalInfo | null {
+    const matches = donations.filter((d) =>
+      pledge.partner ? d.partnerId === pledge.partner.id : pledge.person ? d.peopleId === pledge.person.id : false
+    );
+    if (matches.length === 0) return null;
+    return matches.find((d) => d.calWrittenAt || d.calSentAt) ?? matches[0];
+  }
 
   const totalAsked = pledges.reduce((sum, p) => sum + (p.askAmount ?? 0), 0);
   const totalPledged = pledges.reduce((sum, p) => sum + (p.pledgeAmount ?? 0), 0);
@@ -205,6 +221,7 @@ export default function PledgesTab({
                   onToggle={() => setExpandedId(expandedId === pledge.id ? null : pledge.id)}
                   solicitorOptions={solicitorOptions}
                   sponsorshipLevels={sponsorshipLevels}
+                  cal={calForPledge(pledge)}
                   onRefresh={onRefresh}
                 />
               ))}
@@ -245,6 +262,7 @@ function PledgeRow({
   onToggle,
   solicitorOptions,
   sponsorshipLevels,
+  cal,
   onRefresh,
 }: {
   fundraiserId: string;
@@ -253,6 +271,7 @@ function PledgeRow({
   onToggle: () => void;
   solicitorOptions: PersonOption[];
   sponsorshipLevels: LevelOption[];
+  cal: DonationCalInfo | null;
   onRefresh: () => void;
 }) {
   const displayName = pledge.partner
@@ -318,7 +337,7 @@ function PledgeRow({
           )}
         </td>
         <td className="px-3 py-2 text-center"><LetterCell writtenAt={pledge.palWrittenAt} sentAt={pledge.palSentAt} /></td>
-        <td className="px-3 py-2 text-center"><LetterCell writtenAt={pledge.calWrittenAt} sentAt={pledge.calSentAt} /></td>
+        <td className="px-3 py-2 text-center"><LetterCell writtenAt={cal?.calWrittenAt ?? null} sentAt={cal?.calSentAt ?? null} /></td>
         <td className="px-3 py-2 text-center">
           {pledge.nfgEntered && pledge.nfgUpdated ? (
             <span className="text-green-700 text-xs font-medium">✓✓</span>
@@ -345,6 +364,7 @@ function PledgeRow({
               pledge={pledge}
               solicitorOptions={solicitorOptions}
               sponsorshipLevels={sponsorshipLevels}
+              cal={cal}
               onSaved={onRefresh}
             />
           </td>
@@ -359,12 +379,14 @@ function PledgeEditor({
   pledge,
   solicitorOptions,
   sponsorshipLevels,
+  cal,
   onSaved,
 }: {
   fundraiserId: string;
   pledge: Pledge;
   solicitorOptions: PersonOption[];
   sponsorshipLevels: LevelOption[];
+  cal: DonationCalInfo | null;
   onSaved: () => void;
 }) {
   const [status, setStatus] = useState(pledge.status);
@@ -379,8 +401,6 @@ function PledgeEditor({
   const [pledgeDate, setPledgeDate] = useState(toDateInput(pledge.pledgeDate));
   const [palWrittenAt, setPalWrittenAt] = useState(toDateInput(pledge.palWrittenAt));
   const [palSentAt, setPalSentAt] = useState(toDateInput(pledge.palSentAt));
-  const [calWrittenAt, setCalWrittenAt] = useState(toDateInput(pledge.calWrittenAt));
-  const [calSentAt, setCalSentAt] = useState(toDateInput(pledge.calSentAt));
   const [nfgEntered, setNfgEntered] = useState(pledge.nfgEntered);
   const [nfgUpdated, setNfgUpdated] = useState(pledge.nfgUpdated);
   const [formInDrive, setFormInDrive] = useState(pledge.formInDrive);
@@ -404,8 +424,6 @@ function PledgeEditor({
         pledgeDate: pledgeDate || null,
         palWrittenAt: palWrittenAt || null,
         palSentAt: palSentAt || null,
-        calWrittenAt: calWrittenAt || null,
-        calSentAt: calSentAt || null,
         nfgEntered,
         nfgUpdated,
         formInDrive,
@@ -418,7 +436,7 @@ function PledgeEditor({
       return;
     }
     onSaved();
-  }, [fundraiserId, pledge.id, status, solicitorId, levelId, askAmount, pledgeAmount, pledgeDate, palWrittenAt, palSentAt, calWrittenAt, calSentAt, nfgEntered, nfgUpdated, formInDrive, onSaved]);
+  }, [fundraiserId, pledge.id, status, solicitorId, levelId, askAmount, pledgeAmount, pledgeDate, palWrittenAt, palSentAt, nfgEntered, nfgUpdated, formInDrive, onSaved]);
 
   async function remove() {
     if (!confirm("Remove this pledge from the list? This cannot be undone.")) return;
@@ -496,13 +514,17 @@ function PledgeEditor({
           <label className="block text-xs font-medium text-gray-500 mb-1">PAL Sent</label>
           <input type="date" value={palSentAt} onChange={(e) => setPalSentAt(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm" />
         </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">CAL Written</label>
-          <input type="date" value={calWrittenAt} onChange={(e) => setCalWrittenAt(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">CAL Sent</label>
-          <input type="date" value={calSentAt} onChange={(e) => setCalSentAt(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm" />
+        <div className="col-span-2">
+          <label className="block text-xs font-medium text-gray-500 mb-1">CAL (tracked on the donation)</label>
+          <p className="text-sm text-gray-600 py-1.5">
+            {cal && (cal.calWrittenAt || cal.calSentAt) ? (
+              <>
+                Written {cal.calWrittenAt ? formatDateShort(cal.calWrittenAt) : "—"} · Sent {cal.calSentAt ? formatDateShort(cal.calSentAt) : "—"}
+              </>
+            ) : (
+              <span className="text-gray-400">No donation acknowledgment yet — edit on the Donations tab once their gift is entered.</span>
+            )}
+          </p>
         </div>
       </div>
 
