@@ -31,6 +31,11 @@ export const updateDonationSeatsSchema = z.object({
   seatsChangeNote: z.string().max(5000).optional().nullable(),
 });
 
+export const updateDonationSeatPlanSchema = z.object({
+  seatsReleased: z.number().int().min(0).optional().nullable(),
+  attendancePlan: z.enum(["UNKNOWN", "USING_SEATS", "OTHER_TABLE", "NOT_ATTENDING"]).optional(),
+});
+
 export const updateDonationApprovalSchema = z.object({
   approvalStatus: z.enum(["APPROVED", "REJECTED"]),
   peopleId: z.string().uuid().optional().nullable(),
