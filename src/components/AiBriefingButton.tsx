@@ -20,7 +20,8 @@ export default function AiBriefingButton({ personId, personName }: AiBriefingBut
     try {
       const res = await fetch(`/api/people/${personId}/briefing`);
       if (!res.ok) {
-        throw new Error("Failed to generate briefing");
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error ?? "Failed to generate briefing");
       }
       if (!res.body) {
         throw new Error("No response body");

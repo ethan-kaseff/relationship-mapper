@@ -229,6 +229,14 @@ export default function SettingsPage() {
     resolving?: boolean;
   }>>([]);
 
+  // Claude AI integration state
+  const [aiConnected, setAiConnected] = useState(false);
+  const [aiLoading, setAiLoading] = useState(true);
+  const [aiApiKey, setAiApiKey] = useState("");
+  const [aiConnecting, setAiConnecting] = useState(false);
+  const [aiDisconnecting, setAiDisconnecting] = useState(false);
+  const [aiMessage, setAiMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
   // Data management state
   const [importType, setImportType] = useState<"people" | "partners" | "roles">("people");
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -467,6 +475,14 @@ export default function SettingsPage() {
         setZeffyLoading(false);
       })
       .catch(() => setZeffyLoading(false));
+
+    fetch("/api/anthropic/status")
+      .then((res) => res.json())
+      .then((data) => {
+        setAiConnected(data.connected);
+        setAiLoading(false);
+      })
+      .catch(() => setAiLoading(false));
   }, []);
 
   async function handleQbDisconnect() {
@@ -567,6 +583,51 @@ export default function SettingsPage() {
       setZeffyMessage({ type: "error", text: "Failed to disconnect." });
     } finally {
       setZeffyDisconnecting(false);
+    }
+  }
+
+  async function handleAiConnect(e: React.FormEvent) {
+    e.preventDefault();
+    if (!aiApiKey.trim()) return;
+    setAiConnecting(true);
+    setAiMessage(null);
+    try {
+      const res = await fetch("/api/anthropic/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: aiApiKey }),
+      });
+      if (res.ok) {
+        setAiConnected(true);
+        setAiApiKey("");
+        setAiMessage({ type: "success", text: "Claude AI connected! AI features are now live for your office." });
+      } else {
+        const data = await res.json();
+        const detail = Array.isArray(data.details) && data.details[0]?.message;
+        setAiMessage({ type: "error", text: detail || data.error || "Failed to connect." });
+      }
+    } catch {
+      setAiMessage({ type: "error", text: "Failed to connect." });
+    } finally {
+      setAiConnecting(false);
+    }
+  }
+
+  async function handleAiDisconnect() {
+    if (!confirm("Disconnect Claude AI? AI features will stop working for your office until a new key is added.")) return;
+    setAiDisconnecting(true);
+    try {
+      const res = await fetch("/api/anthropic/disconnect", { method: "POST" });
+      if (res.ok) {
+        setAiConnected(false);
+        setAiMessage({ type: "success", text: "Claude AI disconnected." });
+      } else {
+        setAiMessage({ type: "error", text: "Failed to disconnect." });
+      }
+    } catch {
+      setAiMessage({ type: "error", text: "Failed to disconnect." });
+    } finally {
+      setAiDisconnecting(false);
     }
   }
 
@@ -3042,6 +3103,86 @@ export default function SettingsPage() {
                   >
                     Connect
                   </a>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Claude AI Integration */}
+          {aiMessage && (
+            <div
+              className={`mt-4 p-3 rounded-md text-sm ${
+                aiMessage.type === "success"
+                  ? "bg-green-50 text-green-800 border border-green-200"
+                  : "bg-red-50 text-red-800 border border-red-200"
+              }`}
+            >
+              {aiMessage.text}
+              <button
+                onClick={() => setAiMessage(null)}
+                className="float-right text-xs underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          <div className="border border-gray-200 rounded-lg p-4 mt-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
+                  <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09Z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="font-medium text-gray-900">Claude AI</h3>
+                  <p className="text-sm text-gray-500">
+                    Powers AI features like person briefings. Each office uses its own
+                    Anthropic key and pays for its own usage.
+                  </p>
+                  {!aiConnected && !aiLoading && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      Create a key at console.anthropic.com → API Keys, then paste it here.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {aiLoading ? (
+                  <span className="text-sm text-gray-400">Checking...</span>
+                ) : aiConnected ? (
+                  <>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-green-100 text-green-700 text-sm rounded-full">
+                      <span className="w-2 h-2 bg-green-500 rounded-full" />
+                      Connected
+                    </span>
+                    <button
+                      onClick={handleAiDisconnect}
+                      disabled={aiDisconnecting}
+                      className="px-3 py-1.5 text-sm text-red-600 border border-red-300 rounded-md hover:bg-red-50 disabled:opacity-50"
+                    >
+                      {aiDisconnecting ? "Disconnecting..." : "Disconnect"}
+                    </button>
+                  </>
+                ) : (
+                  <form onSubmit={handleAiConnect} className="flex items-center gap-2">
+                    <input
+                      type="password"
+                      value={aiApiKey}
+                      onChange={(e) => setAiApiKey(e.target.value)}
+                      placeholder="Anthropic API Key (sk-ant-...)"
+                      className="border border-gray-300 rounded-md px-3 py-1.5 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                    <button
+                      type="submit"
+                      disabled={aiConnecting || !aiApiKey.trim()}
+                      className="px-4 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {aiConnecting ? "Verifying..." : "Connect"}
+                    </button>
+                  </form>
                 )}
               </div>
             </div>

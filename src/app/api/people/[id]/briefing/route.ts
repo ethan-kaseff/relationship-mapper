@@ -4,8 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth } from "@/lib/api-auth";
 import { getOfficeFilter } from "@/lib/office-filter";
 import { centsToDollars } from "@/lib/currency";
-
-const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+import { getAnthropicApiKey } from "@/lib/anthropic-keys";
 
 export async function GET(
   _request: Request,
@@ -13,6 +12,21 @@ export async function GET(
 ) {
   const authResult = await requireAuth();
   if (!authResult.success) return authResult.response;
+
+  // Offices are separate legal entities: each uses (and pays with) its own
+  // key, always billed to the requesting user's office.
+  const userOfficeId = (authResult.session.user as { officeId: string }).officeId;
+  const apiKey = await getAnthropicApiKey(userOfficeId);
+  if (!apiKey) {
+    return NextResponse.json(
+      {
+        error:
+          "AI briefings aren't set up for your office yet. An office admin can connect your office's Anthropic API key under Settings → Integrations.",
+      },
+      { status: 409 }
+    );
+  }
+  const anthropic = new Anthropic({ apiKey });
 
   const { id } = await params;
   const officeFilter = await getOfficeFilter();
