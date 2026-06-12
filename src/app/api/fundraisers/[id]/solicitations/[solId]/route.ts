@@ -38,6 +38,10 @@ export async function PATCH(
         person: { select: { id: true, firstName: true, lastName: true, email1: true, email2: true, listedAs: true } },
         partner: { select: { id: true, organizationName: true, email: true, listedAs: true } },
         solicitor: { select: { id: true, firstName: true, lastName: true } },
+        solicitationNotes: {
+          include: { author: { select: { firstName: true, lastName: true } } },
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
     return NextResponse.json(updated);

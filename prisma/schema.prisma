@@ -52,6 +52,7 @@ model User {
   office    Office  @relation(fields: [officeId], references: [id])
   events             Event[] @relation("EventCreator")
   personNotes        PersonNote[]
+  solicitationNotes  SolicitationNote[]
   assignedProspects  People[] @relation("ProspectAssignments")
   savedSearches      SavedSearch[]
   eventNotices       EventNotice[]
@@ -526,7 +527,7 @@ model FundraiserSolicitation {
   nfgUpdated   Boolean    @default(false) @map("nfg_updated")
   logoUrl      String?    @map("logo_url") // sponsor logo (Vercel Blob)
   formInDrive  Boolean    @default(false) @map("form_in_drive")
-  notes        String?
+  solicitationNotes SolicitationNote[]
 
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
@@ -632,6 +633,19 @@ model PersonNote {
 
   @@index([peopleId])
   @@map("person_note")
+}
+
+model SolicitationNote {
+  id             String                 @id @default(uuid())
+  content        String
+  createdAt      DateTime               @default(now()) @map("created_at")
+  solicitationId String                 @map("solicitation_id")
+  solicitation   FundraiserSolicitation @relation(fields: [solicitationId], references: [id], onDelete: Cascade)
+  authorId       String                 @map("author_id")
+  author         User                   @relation(fields: [authorId], references: [id])
+
+  @@index([solicitationId])
+  @@map("solicitation_note")
 }
 
 model EmailTemplate {
