@@ -17,6 +17,7 @@ interface Tag {
 interface PartnerData {
   orgPeopleFlag: string;
   organizationName: string | null;
+  listedAs: string | null;
   organizationTypeId: string | null;
   organizationType: { typeName: string } | null;
   address: string | null;
@@ -45,6 +46,7 @@ export default function EditPartnerInfo({ partnerId, partner, tagIds, allTags, r
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
     organizationName: partner.organizationName ?? "",
+    listedAs: partner.listedAs ?? "",
     organizationTypeId: partner.organizationTypeId ?? "",
     address: partner.address ?? "",
     city: partner.city ?? "",
@@ -77,6 +79,7 @@ export default function EditPartnerInfo({ partnerId, partner, tagIds, allTags, r
   function resetForm() {
     setForm({
       organizationName: partner.organizationName ?? "",
+      listedAs: partner.listedAs ?? "",
       organizationTypeId: partner.organizationTypeId ?? "",
       address: partner.address ?? "",
       city: partner.city ?? "",
@@ -103,6 +106,7 @@ export default function EditPartnerInfo({ partnerId, partner, tagIds, allTags, r
         body: JSON.stringify({
           orgPeopleFlag: partner.orgPeopleFlag,
           organizationName: form.organizationName || null,
+          listedAs: form.listedAs || null,
           organizationTypeId: form.organizationTypeId || null,
           address: form.address || null,
           city: form.city || null,
@@ -161,6 +165,12 @@ export default function EditPartnerInfo({ partnerId, partner, tagIds, allTags, r
             <div>
               <span className="font-medium text-gray-500">Organization Type:</span>{" "}
               <span className="text-gray-800">{partner.organizationType?.typeName ?? "—"}</span>
+            </div>
+          )}
+          {partner.listedAs && (
+            <div>
+              <span className="font-medium text-gray-500">Listed As:</span>{" "}
+              <span className="text-gray-800">{partner.listedAs}</span>
             </div>
           )}
           <div>
@@ -243,6 +253,18 @@ export default function EditPartnerInfo({ partnerId, partner, tagIds, allTags, r
             type="text"
             name="organizationName"
             value={form.organizationName}
+            onChange={handleChange}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Listed As (public recognition)</label>
+          <input
+            type="text"
+            name="listedAs"
+            placeholder="How this partner should appear publicly"
+            value={form.listedAs}
             onChange={handleChange}
             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           />

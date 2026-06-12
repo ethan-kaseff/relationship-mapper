@@ -35,8 +35,8 @@ export async function PATCH(
       where: { id: solId },
       data: updateData,
       include: {
-        person: { select: { id: true, firstName: true, lastName: true, email1: true, email2: true } },
-        partner: { select: { id: true, organizationName: true, email: true } },
+        person: { select: { id: true, firstName: true, lastName: true, email1: true, email2: true, listedAs: true } },
+        partner: { select: { id: true, organizationName: true, email: true, listedAs: true } },
         solicitor: { select: { id: true, firstName: true, lastName: true } },
       },
     });

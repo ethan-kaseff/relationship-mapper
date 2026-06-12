@@ -96,6 +96,7 @@ export async function POST(request: Request) {
         lastName: data.lastName,
         prefix: data.prefix || null,
         greeting: data.greeting || null,
+        listedAs: data.listedAs || null,
         address: data.address,
         city: data.city,
         state: data.state,

@@ -14,6 +14,7 @@ interface PersonData {
   lastName: string;
   prefix: string | null;
   greeting: string | null;
+  listedAs: string | null;
   address: string | null;
   city: string | null;
   state: string | null;
@@ -77,6 +78,7 @@ export default function EditPersonButton({ personId, person }: Props) {
           lastName: form.lastName,
           prefix: form.prefix || null,
           greeting: form.greeting || null,
+          listedAs: form.listedAs || null,
           address: form.address || null,
           city: form.city || null,
           state: form.state || null,
@@ -128,6 +130,12 @@ export default function EditPersonButton({ personId, person }: Props) {
             <div>
               <span className="font-medium text-gray-500">Greeting:</span>{" "}
               <span className="text-gray-800">{person.greeting}</span>
+            </div>
+          )}
+          {person.listedAs && (
+            <div>
+              <span className="font-medium text-gray-500">Listed As:</span>{" "}
+              <span className="text-gray-800">{person.listedAs}</span>
             </div>
           )}
           {person.phoneNumber && (
@@ -263,6 +271,11 @@ export default function EditPersonButton({ personId, person }: Props) {
             <label className="block text-sm font-medium text-gray-700 mb-1">Personalized Greeting</label>
             <input type="text" name="greeting" placeholder="e.g. Dear Rabbi Smith" value={form.greeting ?? ""} onChange={handleChange}
               className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2E75B6] focus:border-transparent" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Listed As (public recognition)</label>
+            <input type="text" name="listedAs" placeholder='e.g. The Smith Family' value={form.listedAs ?? ""} onChange={handleChange}
+              className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent" />
           </div>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Preferred Contact Method</label>

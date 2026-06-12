@@ -182,6 +182,7 @@ export default async function PersonDetailPage({
             lastName: person.lastName,
             prefix: person.prefix,
             greeting: person.greeting,
+            listedAs: person.listedAs,
             address: person.address,
             city: person.city,
             state: person.state,
@@ -209,6 +210,12 @@ export default async function PersonDetailPage({
               <div>
                 <span className="font-medium text-gray-500">Greeting:</span>{" "}
                 <span className="text-gray-800">{person.greeting}</span>
+              </div>
+            )}
+            {person.listedAs && (
+              <div>
+                <span className="font-medium text-gray-500">Listed As:</span>{" "}
+                <span className="text-gray-800">{person.listedAs}</span>
               </div>
             )}
             {person.phoneNumber && (

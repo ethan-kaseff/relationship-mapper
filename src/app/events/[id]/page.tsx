@@ -356,6 +356,19 @@ export default function EventDetailPage() {
             &larr; Back to Events
           </Link>
           <h1 className="text-2xl font-bold text-indigo-900 mt-1">{event.title}</h1>
+          {event.fundraisers.length > 0 && (
+            <div className="text-sm">
+              <span className="text-gray-500">Fundraiser:</span>{" "}
+              {event.fundraisers.map((f, i) => (
+                <span key={f.id}>
+                  {i > 0 && <span className="text-gray-400">, </span>}
+                  <Link href={`/fundraisers/${f.id}`} className="text-indigo-600 hover:underline">
+                    ↗ {f.title}
+                  </Link>
+                </span>
+              ))}
+            </div>
+          )}
         </div>
         <div className="flex gap-2 items-center">
           {activeTab === "invites" && (

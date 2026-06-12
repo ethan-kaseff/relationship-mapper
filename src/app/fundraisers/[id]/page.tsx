@@ -167,9 +167,12 @@ export default function FundraiserDetailPage() {
         <div>
           <h1 className="text-2xl font-bold text-indigo-900">{fundraiser.title}</h1>
           {fundraiser.event && (
-            <Link href={`/events/${fundraiser.event.id}`} className="text-sm text-indigo-600 hover:underline">
-              ↗ {fundraiser.event.title}
-            </Link>
+            <div className="text-sm">
+              <span className="text-gray-500">Event:</span>{" "}
+              <Link href={`/events/${fundraiser.event.id}`} className="text-indigo-600 hover:underline">
+                ↗ {fundraiser.event.title}
+              </Link>
+            </div>
           )}
         </div>
         <Link href="/fundraisers" className="text-indigo-600 hover:underline text-sm">
