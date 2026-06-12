@@ -15,6 +15,7 @@ export * from "./tag";
 export * from "./sponsorship-level";
 export * from "./event-notice";
 export * from "./pledge";
+export * from "./anthropic";
 
 import { z } from "zod";
 import { NextResponse } from "next/server";
