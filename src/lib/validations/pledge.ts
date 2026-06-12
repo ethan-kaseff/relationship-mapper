@@ -8,6 +8,7 @@ export const createPledgeSchema = z
     peopleId: z.string().uuid().optional().nullable(),
     partnerId: z.string().uuid().optional().nullable(),
     solicitorId: z.string().uuid().optional().nullable(),
+    sponsorshipLevelId: z.string().uuid().optional().nullable(),
     askAmount: z.number().int().min(0).optional().nullable(),
     pledgeAmount: z.number().int().min(0).optional().nullable(),
     pledgeDate: z.string().optional().nullable(),
@@ -21,6 +22,7 @@ export const createPledgeSchema = z
 export const updatePledgeSchema = z.object({
   status: z.enum(SOLICITATION_STATUSES).optional(),
   solicitorId: z.string().uuid().optional().nullable(),
+  sponsorshipLevelId: z.string().uuid().optional().nullable(),
   askAmount: z.number().int().min(0).optional().nullable(),
   pledgeAmount: z.number().int().min(0).optional().nullable(),
   pledgeDate: z.string().optional().nullable(),

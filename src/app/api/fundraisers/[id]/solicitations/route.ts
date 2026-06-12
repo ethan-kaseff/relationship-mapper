@@ -17,8 +17,9 @@ export async function GET(
       where: { fundraiserId },
       include: {
         person: { select: { id: true, firstName: true, lastName: true, email1: true, email2: true, listedAs: true } },
-        partner: { select: { id: true, organizationName: true, email: true, listedAs: true } },
+        partner: { select: { id: true, organizationName: true, email: true, listedAs: true, logoUrl: true } },
         solicitor: { select: { id: true, firstName: true, lastName: true } },
+        sponsorshipLevel: { select: { id: true, name: true, amount: true } },
         solicitationNotes: {
           include: { author: { select: { firstName: true, lastName: true } } },
           orderBy: { createdAt: "desc" },
@@ -88,6 +89,7 @@ export async function POST(
         partnerId: data.partnerId ?? null,
         channel: "PERSONAL",
         solicitorId: data.solicitorId ?? null,
+        sponsorshipLevelId: data.sponsorshipLevelId ?? null,
         askAmount: data.askAmount ?? null,
         pledgeAmount: data.pledgeAmount ?? null,
         pledgeDate: data.pledgeDate ? new Date(data.pledgeDate) : null,
@@ -98,8 +100,9 @@ export async function POST(
       },
       include: {
         person: { select: { id: true, firstName: true, lastName: true, email1: true, email2: true, listedAs: true } },
-        partner: { select: { id: true, organizationName: true, email: true, listedAs: true } },
+        partner: { select: { id: true, organizationName: true, email: true, listedAs: true, logoUrl: true } },
         solicitor: { select: { id: true, firstName: true, lastName: true } },
+        sponsorshipLevel: { select: { id: true, name: true, amount: true } },
         solicitationNotes: {
           include: { author: { select: { firstName: true, lastName: true } } },
           orderBy: { createdAt: "desc" },

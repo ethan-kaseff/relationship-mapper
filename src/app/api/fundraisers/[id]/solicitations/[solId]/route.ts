@@ -36,8 +36,9 @@ export async function PATCH(
       data: updateData,
       include: {
         person: { select: { id: true, firstName: true, lastName: true, email1: true, email2: true, listedAs: true } },
-        partner: { select: { id: true, organizationName: true, email: true, listedAs: true } },
+        partner: { select: { id: true, organizationName: true, email: true, listedAs: true, logoUrl: true } },
         solicitor: { select: { id: true, firstName: true, lastName: true } },
+        sponsorshipLevel: { select: { id: true, name: true, amount: true } },
         solicitationNotes: {
           include: { author: { select: { firstName: true, lastName: true } } },
           orderBy: { createdAt: "desc" },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { dollarsToCents } from "@/lib/currency";
+import { dollarsToCents, centsToDollars, formatCurrency } from "@/lib/currency";
 
 interface PersonOption {
   id: string;
@@ -22,9 +22,16 @@ interface TagOption {
   name: string;
 }
 
+interface LevelOption {
+  id: string;
+  name: string;
+  amount: number;
+}
+
 interface AddPledgeModalProps {
   fundraiserId: string;
   solicitorTagId: string | null;
+  sponsorshipLevels: LevelOption[];
   existingPeopleIds: string[];
   existingPartnerIds: string[];
   onClose: () => void;
@@ -34,6 +41,7 @@ interface AddPledgeModalProps {
 export default function AddPledgeModal({
   fundraiserId,
   solicitorTagId,
+  sponsorshipLevels,
   existingPeopleIds,
   existingPartnerIds,
   onClose,
@@ -51,6 +59,7 @@ export default function AddPledgeModal({
   const [selectedPersonId, setSelectedPersonId] = useState("");
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [solicitorId, setSolicitorId] = useState("");
+  const [levelId, setLevelId] = useState("");
   const [askAmount, setAskAmount] = useState("");
   const [pledgeAmount, setPledgeAmount] = useState("");
   const [pledgeDate, setPledgeDate] = useState("");
@@ -119,6 +128,7 @@ export default function AddPledgeModal({
       peopleId: whoType === "person" ? selectedPersonId : null,
       partnerId: whoType === "org" ? selectedPartnerId : null,
       solicitorId: solicitorId || null,
+      sponsorshipLevelId: levelId || null,
       askAmount: askAmount && !isNaN(askNumber) ? dollarsToCents(askNumber) : null,
       pledgeAmount: pledgeAmount && !isNaN(amountNumber) ? dollarsToCents(amountNumber) : null,
       pledgeDate: pledgeDate || null,
@@ -242,6 +252,28 @@ export default function AddPledgeModal({
               </p>
             )}
           </div>
+
+          {/* Sponsorship level */}
+          {sponsorshipLevels.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sponsorship Level (optional)</label>
+              <select
+                value={levelId}
+                onChange={(e) => {
+                  setLevelId(e.target.value);
+                  const level = sponsorshipLevels.find((l) => l.id === e.target.value);
+                  if (level) setAskAmount(String(centsToDollars(level.amount)));
+                }}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              >
+                <option value="">— Not a sponsorship ask —</option>
+                {sponsorshipLevels.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name} ({formatCurrency(l.amount)})</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-1">Picking a level fills in the Ask Amount — you can still adjust it.</p>
+            </div>
+          )}
 
           {/* Ask + pledge amounts */}
           <div className="grid grid-cols-3 gap-3">

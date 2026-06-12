@@ -3,21 +3,23 @@ import { put, del } from "@vercel/blob";
 import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
 import { handleApiError, notFound } from "@/lib/api-error";
+import { getOfficeFilter } from "@/lib/office-filter";
 
 const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/svg+xml", "image/webp", "image/gif"];
 const MAX_SIZE = 4 * 1024 * 1024; // 4MB
 
 export async function POST(
   request: Request,
-  { params }: { params: Promise<{ id: string; solId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
   try {
-    const { id: fundraiserId, solId } = await params;
-    const existing = await prisma.fundraiserSolicitation.findFirst({ where: { id: solId, fundraiserId } });
-    if (!existing) return notFound("Solicitation not found");
+    const { id } = await params;
+    const officeFilter = await getOfficeFilter();
+    const partner = await prisma.partner.findFirst({ where: { id, ...officeFilter } });
+    if (!partner) return notFound("Partner not found");
 
     const formData = await request.formData();
     const file = formData.get("file");
@@ -34,22 +36,22 @@ export async function POST(
       return NextResponse.json({ error: "File must be under 4MB" }, { status: 400 });
     }
 
-    const blob = await put(`sponsor-logos/${fundraiserId}/${solId}/${file.name}`, file, {
+    const blob = await put(`partner-logos/${id}/${file.name}`, file, {
       access: "public",
       addRandomSuffix: true,
     });
 
     // Replace any previous logo so old files don't pile up
-    if (existing.logoUrl) {
+    if (partner.logoUrl) {
       try {
-        await del(existing.logoUrl);
+        await del(partner.logoUrl);
       } catch {
         // Old blob may already be gone — not a problem
       }
     }
 
-    const updated = await prisma.fundraiserSolicitation.update({
-      where: { id: solId },
+    const updated = await prisma.partner.update({
+      where: { id },
       data: { logoUrl: blob.url },
     });
 
@@ -61,26 +63,24 @@ export async function POST(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: Promise<{ id: string; solId: string }> }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const authResult = await requireNonConnector();
   if (!authResult.success) return authResult.response;
 
   try {
-    const { id: fundraiserId, solId } = await params;
-    const existing = await prisma.fundraiserSolicitation.findFirst({ where: { id: solId, fundraiserId } });
-    if (!existing) return notFound("Solicitation not found");
+    const { id } = await params;
+    const officeFilter = await getOfficeFilter();
+    const partner = await prisma.partner.findFirst({ where: { id, ...officeFilter } });
+    if (!partner) return notFound("Partner not found");
 
-    if (existing.logoUrl) {
+    if (partner.logoUrl) {
       try {
-        await del(existing.logoUrl);
+        await del(partner.logoUrl);
       } catch {
         // Blob already gone — still clear the reference
       }
-      await prisma.fundraiserSolicitation.update({
-        where: { id: solId },
-        data: { logoUrl: null },
-      });
+      await prisma.partner.update({ where: { id }, data: { logoUrl: null } });
     }
 
     return NextResponse.json({ message: "Logo removed" });
