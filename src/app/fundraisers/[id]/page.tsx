@@ -51,6 +51,8 @@ interface Donation {
   partner: PartnerOption | null;
   sponsoredSeats: number | null;
   seatsUsed: number | null;
+  seatsReleased: number | null;
+  attendancePlan: string;
   seatsChangeNote: string | null;
   isAnonymous: boolean;
   paymentMethod: string;
@@ -158,7 +160,7 @@ export default function FundraiserDetailPage() {
     ...(!fundraiser.event ? [{ key: "solicitations" as Tab, label: "Ask List", badge: askList.length || undefined }] : []),
     { key: "pledges", label: "Pledges", badge: pledges.length || undefined },
     { key: "donations", label: "Donations" },
-    { key: "approvals", label: "Approvals", badge: pendingDonations.length || undefined },
+    { key: "approvals", label: "Name Approval", badge: pendingDonations.length || undefined },
     { key: "notices", label: "Notices", badge: totalNoticeCount || undefined },
     ...(isAdmin ? [{ key: "settings" as Tab, label: "Settings" }] : []),
   ];
@@ -206,7 +208,7 @@ export default function FundraiserDetailPage() {
 
       {tab === "overview" && <OverviewTab fundraiser={fundraiser} pct={pct} onRefresh={load} />}
       {tab === "levels" && <LevelsTab fundraiser={fundraiser} onRefresh={load} />}
-      {tab === "donations" && <DonationsTab fundraiser={fundraiser} onRefresh={load} />}
+      {tab === "donations" && <DonationsTab fundraiser={fundraiser} solicitations={solicitations} onRefresh={() => { load(); loadSolicitations(); }} />}
       {tab === "solicitations" && !fundraiser.event && (
         <SolicitationsTab
           fundraiserId={fundraiser.id}
@@ -227,7 +229,7 @@ export default function FundraiserDetailPage() {
           onRefresh={loadSolicitations}
         />
       )}
-      {tab === "approvals" && <ApprovalsTab fundraiser={fundraiser} pending={pendingDonations} onRefresh={load} />}
+      {tab === "approvals" && <ApprovalsTab fundraiser={fundraiser} pending={pendingDonations} onRefresh={() => { load(); loadSolicitations(); }} />}
       {tab === "notices" && (
         <NoticesTab
           fundraiserId={fundraiser.id}
@@ -524,7 +526,14 @@ function LevelsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefres
   );
 }
 
-function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefresh: () => void }) {
+const ATTENDANCE_PLAN_LABELS: Record<string, string> = {
+  UNKNOWN: "Unknown",
+  USING_SEATS: "Using their seats",
+  OTHER_TABLE: "Coming — other table",
+  NOT_ATTENDING: "Not attending",
+};
+
+function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fundraiser; solicitations: Pledge[]; onRefresh: () => void }) {
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [syncingAll, setSyncingAll] = useState(false);
@@ -548,6 +557,11 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
   );
   const [notesSavedId, setNotesSavedId] = useState<string | null>(null);
   const [savingNoteId, setSavingNoteId] = useState<string | null>(null);
+  const [invitedPeopleIds, setInvitedPeopleIds] = useState<Set<string>>(new Set());
+  const [releasedValues, setReleasedValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsReleased != null ? String(d.seatsReleased) : ""]))
+  );
+  const [seatPlanError, setSeatPlanError] = useState<string | null>(null);
 
   const selectedLevel = fundraiser.sponsorshipLevels.find((l) => l.id === form.sponsorshipLevelId);
 
@@ -557,6 +571,9 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
     );
     setSeatsNoteValues(
       Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsChangeNote ?? ""]))
+    );
+    setReleasedValues(
+      Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsReleased != null ? String(d.seatsReleased) : ""]))
     );
   }, [fundraiser.donations]);
 
@@ -568,9 +585,10 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
       if (eventId) {
         fetch(`/api/events/${eventId}/invites`)
           .then((r) => r.json())
-          .then((invites: { group?: string | null }[]) => {
+          .then((invites: { group?: string | null; peopleId?: string | null }[]) => {
             const groups = [...new Set(invites.map((i) => i.group).filter((g): g is string => !!g))].sort();
             setEventGroups(groups);
+            setInvitedPeopleIds(new Set(invites.map((i) => i.peopleId).filter((x): x is string => !!x)));
           })
           .catch(() => {});
       }
@@ -597,6 +615,34 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
     : [];
 
   const hasEvent = !!fundraiser.event;
+
+  // Flag donors with no connection to this event/fundraiser (likely a wrong pick)
+  const solicitedPeopleIds = new Set(solicitations.flatMap((s) => (s.person ? [s.person.id] : [])));
+  const solicitedPartnerIds = new Set(solicitations.flatMap((s) => (s.partner ? [s.partner.id] : [])));
+  const selectedPartnerOrg = partners.find((p) => p.id === form.partnerId);
+  const donorNotConnected =
+    hasEvent &&
+    (form.partnerId
+      ? !solicitedPartnerIds.has(form.partnerId) &&
+        !(selectedPartnerOrg?.organizationName &&
+          eventGroups.some((g) => g.toLowerCase() === (selectedPartnerOrg.organizationName ?? "").toLowerCase()))
+      : selectedPerson
+      ? !invitedPeopleIds.has(selectedPerson.id) && !solicitedPeopleIds.has(selectedPerson.id)
+      : false);
+
+  async function saveSeatPlan(donationId: string, body: { seatsReleased?: number | null; attendancePlan?: string }) {
+    setSeatPlanError(null);
+    const res = await fetch(`/api/fundraisers/${fundraiser.id}/donations/${donationId}/seat-plan`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => null);
+      setSeatPlanError(data?.error ?? "Failed to save seat plan");
+    }
+    onRefresh();
+  }
 
   async function saveCal(donationId: string, field: "calWrittenAt" | "calSentAt", value: string) {
     await fetch(`/api/fundraisers/${fundraiser.id}/donations/${donationId}/cal`, {
@@ -876,6 +922,11 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
               </div>
             )}
           </div>
+          {donorNotConnected && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-1.5">
+              ⚠️ This donor isn&apos;t on the event&apos;s invite list or this fundraiser&apos;s pledge list — double-check it&apos;s the right person or organization.
+            </p>
+          )}
           <div className={`grid gap-3 ${!form.partnerId ? "grid-cols-2" : ""}`}>
             <input
               placeholder="Email (optional)"
@@ -984,6 +1035,28 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
         <p className="p-4 text-sm text-gray-500">No donations yet.</p>
       ) : (
         <div className="overflow-x-auto">
+          {hasEvent && (() => {
+            const sponsors = fundraiser.donations.filter((d) => (d.sponsoredSeats ?? 0) > 0);
+            if (sponsors.length === 0) return null;
+            const given = sponsors.reduce((n, d) => n + (d.sponsoredSeats ?? 0), 0);
+            const using = sponsors.reduce((n, d) => n + (d.seatsUsed ?? 0), 0);
+            const released = sponsors.reduce((n, d) => n + (d.seatsReleased ?? 0), 0);
+            const unconfirmed = Math.max(0, given - using - released);
+            return (
+              <div className="mb-3 text-sm text-gray-600">
+                Sponsored seats: <span className="font-medium text-gray-900">{given}</span>
+                <span className="text-gray-400"> · </span>in use by sponsors: <span className="font-medium text-gray-900">{using}</span>
+                <span className="text-gray-400"> · </span>released to us: <span className="font-medium text-gray-900">{released}</span>
+                <span className="text-gray-400"> · </span>unconfirmed: <span className={`font-medium ${unconfirmed > 0 ? "text-amber-700" : "text-gray-900"}`}>{unconfirmed}</span>
+              </div>
+            );
+          })()}
+          {seatPlanError && (
+            <div className="mb-3 p-2 bg-red-50 border border-red-200 rounded-md text-sm text-red-700">
+              {seatPlanError}
+              <button onClick={() => setSeatPlanError(null)} className="float-right text-xs underline">Dismiss</button>
+            </div>
+          )}
           <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left text-gray-500">
               <tr>
@@ -991,8 +1064,10 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
                 <th className="px-4 py-2">Amount</th>
                 <th className="px-4 py-2">Tax-Deductible</th>
                 <th className="px-4 py-2">Method</th>
-                {hasEvent && <th className="px-4 py-2">Sponsored</th>}
-                {hasEvent && <th className="px-4 py-2">Used</th>}
+                {hasEvent && <th className="px-4 py-2" title="Seats included with their sponsorship">Sponsored</th>}
+                {hasEvent && <th className="px-4 py-2" title="Seats we expect them to fill themselves">Using</th>}
+                {hasEvent && <th className="px-4 py-2" title="Seats they're letting us give away">Released</th>}
+                {hasEvent && <th className="px-4 py-2" title="Is the donor attending?">Plan</th>}
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">QB</th>
                 <th className="px-4 py-2">Date</th>
@@ -1090,7 +1165,8 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
                               rows={2}
                               value={seatsNoteValues[d.id] ?? ""}
                               onChange={(e) => { setNotesSavedId(null); setSeatsNoteValues((prev) => ({ ...prev, [d.id]: e.target.value })); }}
-                              placeholder="Reason for change (optional)"
+                              placeholder="Reason (optional)"
+                              title="Reason for changing how many seats they're using — e.g. two guests canceled (optional)"
                               className="w-full text-xs border border-gray-200 rounded px-2 py-1 resize-none focus:ring-1 focus:ring-indigo-400 focus:border-transparent"
                             />
                             {(seatsNoteValues[d.id] ?? "") !== (d.seatsChangeNote ?? "") && (
@@ -1114,6 +1190,46 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
                             )}
                           </div>
                         </div>
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+                  )}
+                  {hasEvent && (
+                    <td className="px-4 py-2">
+                      {d.sponsoredSeats != null && d.sponsoredSeats > 0 ? (
+                        <input
+                          type="number"
+                          min={0}
+                          max={d.sponsoredSeats}
+                          value={releasedValues[d.id] ?? ""}
+                          placeholder="0"
+                          onChange={(e) => setReleasedValues((prev) => ({ ...prev, [d.id]: e.target.value }))}
+                          onBlur={(e) => {
+                            const parsed = e.target.value === "" ? null : parseInt(e.target.value);
+                            if (parsed !== null && isNaN(parsed)) return;
+                            if ((parsed ?? null) !== (d.seatsReleased ?? null)) saveSeatPlan(d.id, { seatsReleased: parsed });
+                          }}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                          className="w-16 border border-gray-300 rounded px-2 py-0.5 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
+                    </td>
+                  )}
+                  {hasEvent && (
+                    <td className="px-4 py-2">
+                      {d.sponsoredSeats != null && d.sponsoredSeats > 0 ? (
+                        <select
+                          value={d.attendancePlan}
+                          onChange={(e) => saveSeatPlan(d.id, { attendancePlan: e.target.value })}
+                          className="border border-gray-300 rounded px-1.5 py-0.5 text-xs text-gray-700"
+                        >
+                          {Object.entries(ATTENDANCE_PLAN_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
                       ) : (
                         <span className="text-xs text-gray-400">—</span>
                       )}
@@ -1198,10 +1314,10 @@ function ApprovalsTab({
   return (
     <div className="bg-white rounded-lg shadow p-5">
       <h3 className="text-sm font-medium text-gray-900 mb-4">
-        Pending Approvals ({pending.length})
+        Donor Names to Confirm ({pending.length})
       </h3>
       {pending.length === 0 ? (
-        <p className="text-sm text-gray-500">No donations pending approval.</p>
+        <p className="text-sm text-gray-500">No donor names waiting to be confirmed.</p>
       ) : (
         <div className="space-y-3">
           {pending.map((d) => (

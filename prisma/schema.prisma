@@ -555,7 +555,9 @@ model Donation {
   sponsorshipLevel      SponsorshipLevel? @relation(fields: [sponsorshipLevelId], references: [id], onDelete: SetNull)
   partnerId             String?          @map("partner_id")
   sponsoredSeats        Int?             @map("sponsored_seats")
-  seatsUsed             Int?             @map("seats_used")
+  seatsUsed             Int?             @map("seats_used") // seats they fill themselves
+  seatsReleased         Int?             @map("seats_released") // seats returned for us to give away
+  attendancePlan        String           @default("UNKNOWN") @map("attendance_plan") // UNKNOWN, USING_SEATS, OTHER_TABLE, NOT_ATTENDING
   partner               Partner?         @relation(fields: [partnerId], references: [id], onDelete: SetNull)
   isAnonymous           Boolean          @default(false) @map("is_anonymous")
   paymentMethod     String     @default("stripe") @map("payment_method")

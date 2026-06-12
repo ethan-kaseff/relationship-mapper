@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
 import { validateBody, updateDonationApprovalSchema } from "@/lib/validations";
 import { handleApiError, notFound, badRequest } from "@/lib/api-error";
+import { matchDonationToPledge } from "@/lib/pledge-matching";
 
 export async function POST(
   request: Request,
@@ -53,6 +54,16 @@ export async function POST(
         person: { select: { id: true, firstName: true, lastName: true } },
       },
     });
+
+    if (updated.approvalStatus === "APPROVED") {
+      await matchDonationToPledge({
+        fundraiserId: updated.fundraiserId,
+        donationAmount: updated.amount,
+        peopleId: updated.peopleId,
+        partnerId: updated.partnerId,
+        authorId: authResult.session.user.id,
+      });
+    }
 
     return NextResponse.json(updated);
   } catch (error) {

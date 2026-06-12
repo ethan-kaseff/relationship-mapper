@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
 import { validateBody, createDonationSchema } from "@/lib/validations";
 import { handleApiError, notFound } from "@/lib/api-error";
+import { matchDonationToPledge } from "@/lib/pledge-matching";
 
 export async function GET(
   request: Request,
@@ -81,7 +82,9 @@ export async function POST(
           isTaxDeductible: data.isTaxDeductible ?? true,
           taxDeductibleAmount: data.taxDeductibleAmount ?? null,
           notes: data.notes,
-          approvalStatus: data.peopleId ? "AUTO_APPROVED" : "PENDING",
+          // Staff picking a known person or org already answers the identity
+          // question — only unlinked names need the approval queue
+          approvalStatus: data.peopleId || data.partnerId ? "AUTO_APPROVED" : "PENDING",
           donatedAt: data.donatedAt ? new Date(data.donatedAt) : new Date(),
         },
       });
@@ -93,6 +96,18 @@ export async function POST(
 
       return { donation: newDonation, eventId: fundraiser.eventId };
     });
+
+    // Close the loop on a matching open pledge (auto-approved entries only;
+    // pending ones match at approval time)
+    if (donation.approvalStatus === "AUTO_APPROVED") {
+      await matchDonationToPledge({
+        fundraiserId,
+        donationAmount: donation.amount,
+        peopleId: donation.peopleId,
+        partnerId: donation.partnerId,
+        authorId: authResult.session.user.id,
+      });
+    }
 
     // Determine the group name for this donation
     let group: string | null = null;
