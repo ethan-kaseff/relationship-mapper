@@ -475,7 +475,7 @@ function PledgeEditor({
           )}
         </div>
         <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Sponsorship Level</label>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Sponsorship Level Ask</label>
           <select
             value={levelId}
             onChange={(e) => {

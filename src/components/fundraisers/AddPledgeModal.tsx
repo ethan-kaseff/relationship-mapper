@@ -256,7 +256,7 @@ export default function AddPledgeModal({
           {/* Sponsorship level */}
           {sponsorshipLevels.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Sponsorship Level (optional)</label>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sponsorship Level Ask (optional)</label>
               <select
                 value={levelId}
                 onChange={(e) => {
