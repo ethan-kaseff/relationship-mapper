@@ -4,7 +4,7 @@ import { requireNonConnector } from "@/lib/api-auth";
 import { handleApiError, notFound } from "@/lib/api-error";
 import { validateBody, updatePledgeSchema } from "@/lib/validations";
 
-const DATE_FIELDS = ["pledgeDate", "palWrittenAt", "palSentAt", "calWrittenAt", "calSentAt"] as const;
+const DATE_FIELDS = ["pledgeDate", "palWrittenAt", "palSentAt"] as const;
 
 export async function PATCH(
   request: Request,

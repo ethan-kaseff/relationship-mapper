@@ -523,8 +523,6 @@ model FundraiserSolicitation {
   pledgeDate   DateTime?  @map("pledge_date")
   palWrittenAt DateTime?  @map("pal_written_at") // pledge acknowledgment letter
   palSentAt    DateTime?  @map("pal_sent_at")
-  calWrittenAt DateTime?  @map("cal_written_at") // contribution acknowledgment letter
-  calSentAt    DateTime?  @map("cal_sent_at")
   nfgEntered   Boolean    @default(false) @map("nfg_entered") // Network for Good
   nfgUpdated   Boolean    @default(false) @map("nfg_updated")
   formInDrive  Boolean    @default(false) @map("form_in_drive")
@@ -572,6 +570,8 @@ model Donation {
   taxDeductibleAmount Int?     @map("tax_deductible_amount")
   notes             String?
   seatsChangeNote   String?    @map("seats_change_note")
+  calWrittenAt      DateTime?  @map("cal_written_at") // contribution acknowledgment letter
+  calSentAt         DateTime?  @map("cal_sent_at")
   approvalStatus    String     @default("AUTO_APPROVED") @map("approval_status")
   qbSyncStatus      String     @default("NOT_SYNCED") @map("qb_sync_status")
   qbReceiptId       String?    @map("qb_receipt_id")

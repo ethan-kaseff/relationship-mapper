@@ -62,6 +62,8 @@ interface Donation {
   donatedAt: string;
   isRecurring: boolean;
   notes: string | null;
+  calWrittenAt: string | null;
+  calSentAt: string | null;
 }
 
 interface Fundraiser {
@@ -219,6 +221,7 @@ export default function FundraiserDetailPage() {
           pledges={pledges}
           solicitorTagId={fundraiser.solicitorTagId}
           sponsorshipLevels={fundraiser.sponsorshipLevels}
+          donations={fundraiser.donations}
           existingPeopleIds={allPeopleIds}
           existingPartnerIds={allPartnerIds}
           onRefresh={loadSolicitations}
@@ -594,6 +597,15 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
     : [];
 
   const hasEvent = !!fundraiser.event;
+
+  async function saveCal(donationId: string, field: "calWrittenAt" | "calSentAt", value: string) {
+    await fetch(`/api/fundraisers/${fundraiser.id}/donations/${donationId}/cal`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value || null }),
+    });
+    onRefresh();
+  }
 
   async function updateSeatsUsed(donationId: string, value: string) {
     const parsed = value === "" ? null : parseInt(value);
@@ -984,6 +996,7 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">QB</th>
                 <th className="px-4 py-2">Date</th>
+                <th className="px-4 py-2" title="Contribution Acknowledgment Letter">CAL</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -1118,6 +1131,28 @@ function DonationsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRef
                   </td>
                   <td className="px-4 py-2 text-gray-500">
                     {new Date(d.donatedAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-2">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-400 w-12">Written</span>
+                        <input
+                          type="date"
+                          value={d.calWrittenAt ? d.calWrittenAt.slice(0, 10) : ""}
+                          onChange={(e) => saveCal(d.id, "calWrittenAt", e.target.value)}
+                          className="border border-gray-200 rounded px-1 py-0.5 text-xs text-gray-600"
+                        />
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-400 w-12">Sent</span>
+                        <input
+                          type="date"
+                          value={d.calSentAt ? d.calSentAt.slice(0, 10) : ""}
+                          onChange={(e) => saveCal(d.id, "calSentAt", e.target.value)}
+                          className="border border-gray-200 rounded px-1 py-0.5 text-xs text-gray-600"
+                        />
+                      </div>
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -28,8 +28,6 @@ export const updatePledgeSchema = z.object({
   pledgeDate: z.string().optional().nullable(),
   palWrittenAt: z.string().optional().nullable(),
   palSentAt: z.string().optional().nullable(),
-  calWrittenAt: z.string().optional().nullable(),
-  calSentAt: z.string().optional().nullable(),
   nfgEntered: z.boolean().optional(),
   nfgUpdated: z.boolean().optional(),
   formInDrive: z.boolean().optional(),
