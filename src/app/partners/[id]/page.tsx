@@ -10,6 +10,7 @@ import AssignRolePersonButton from "@/components/AssignRolePersonButton";
 import DeleteRoleButton from "@/components/DeleteRoleButton";
 import TagToggle from "@/components/TagToggle";
 import { isCrossOfficeView } from "@/lib/office-filter";
+import PartnerLogoSection from "@/components/PartnerLogoSection";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -107,6 +108,12 @@ export default async function PartnerDetailPage({
         tagIds={partner.orgPeopleFlag === "P" ? partnerTagIds : undefined}
         allTags={allTags}
         readOnly={!canEdit}
+      />
+
+      <PartnerLogoSection
+        partnerId={partner.id}
+        logoUrl={partner.logoUrl}
+        canEdit={canEdit}
       />
 
       {/* Roles & Relationships — only for Organizations */}

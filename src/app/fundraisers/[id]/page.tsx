@@ -218,6 +218,7 @@ export default function FundraiserDetailPage() {
           fundraiserId={fundraiser.id}
           pledges={pledges}
           solicitorTagId={fundraiser.solicitorTagId}
+          sponsorshipLevels={fundraiser.sponsorshipLevels}
           existingPeopleIds={allPeopleIds}
           existingPartnerIds={allPartnerIds}
           onRefresh={loadSolicitations}

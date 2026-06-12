@@ -11,8 +11,9 @@ export interface Pledge {
   status: string;
   channel: string;
   person: { id: string; firstName: string; lastName: string; email1: string | null; email2: string | null; listedAs: string | null } | null;
-  partner: { id: string; organizationName: string | null; email: string | null; listedAs: string | null } | null;
+  partner: { id: string; organizationName: string | null; email: string | null; listedAs: string | null; logoUrl: string | null } | null;
   solicitor: { id: string; firstName: string; lastName: string } | null;
+  sponsorshipLevel: { id: string; name: string; amount: number } | null;
   askAmount: number | null;
   pledgeAmount: number | null;
   pledgeDate: string | null;
@@ -22,9 +23,14 @@ export interface Pledge {
   calSentAt: string | null;
   nfgEntered: boolean;
   nfgUpdated: boolean;
-  logoUrl: string | null;
   formInDrive: boolean;
   solicitationNotes: SolicitationNoteEntry[];
+}
+
+export interface LevelOption {
+  id: string;
+  name: string;
+  amount: number;
 }
 
 export interface SolicitationNoteEntry {
@@ -71,6 +77,7 @@ export default function PledgesTab({
   fundraiserId,
   pledges,
   solicitorTagId,
+  sponsorshipLevels,
   existingPeopleIds,
   existingPartnerIds,
   onRefresh,
@@ -78,6 +85,7 @@ export default function PledgesTab({
   fundraiserId: string;
   pledges: Pledge[];
   solicitorTagId: string | null;
+  sponsorshipLevels: LevelOption[];
   existingPeopleIds: string[];
   existingPartnerIds: string[];
   onRefresh: () => void;
@@ -196,6 +204,7 @@ export default function PledgesTab({
                   expanded={expandedId === pledge.id}
                   onToggle={() => setExpandedId(expandedId === pledge.id ? null : pledge.id)}
                   solicitorOptions={solicitorOptions}
+                  sponsorshipLevels={sponsorshipLevels}
                   onRefresh={onRefresh}
                 />
               ))}
@@ -208,6 +217,7 @@ export default function PledgesTab({
         <AddPledgeModal
           fundraiserId={fundraiserId}
           solicitorTagId={solicitorTagId}
+          sponsorshipLevels={sponsorshipLevels}
           existingPeopleIds={existingPeopleIds}
           existingPartnerIds={existingPartnerIds}
           onClose={() => setShowAdd(false)}
@@ -234,6 +244,7 @@ function PledgeRow({
   expanded,
   onToggle,
   solicitorOptions,
+  sponsorshipLevels,
   onRefresh,
 }: {
   fundraiserId: string;
@@ -241,6 +252,7 @@ function PledgeRow({
   expanded: boolean;
   onToggle: () => void;
   solicitorOptions: PersonOption[];
+  sponsorshipLevels: LevelOption[];
   onRefresh: () => void;
 }) {
   const displayName = pledge.partner
@@ -282,8 +294,15 @@ function PledgeRow({
           </span>
         </td>
         <td className="px-3 py-2 text-right">
-          {pledge.askAmount != null ? (
-            <span className="text-gray-600">{formatCurrency(pledge.askAmount)}</span>
+          {pledge.askAmount != null || pledge.sponsorshipLevel ? (
+            <div>
+              {pledge.askAmount != null && (
+                <span className="text-gray-600">{formatCurrency(pledge.askAmount)}</span>
+              )}
+              {pledge.sponsorshipLevel && (
+                <div className="text-xs text-gray-400">{pledge.sponsorshipLevel.name}</div>
+              )}
+            </div>
           ) : (
             <span className="text-gray-300">—</span>
           )}
@@ -310,8 +329,8 @@ function PledgeRow({
           )}
         </td>
         <td className="px-3 py-2 text-center">
-          {pledge.logoUrl ? (
-            <Image src={pledge.logoUrl} alt="Sponsor logo" width={32} height={32} className="inline-block h-8 w-8 object-contain" unoptimized />
+          {pledge.partner?.logoUrl ? (
+            <Image src={pledge.partner.logoUrl} alt="Sponsor logo" width={32} height={32} className="inline-block h-8 w-8 object-contain" unoptimized />
           ) : (
             <span className="text-gray-300 text-xs">—</span>
           )}
@@ -325,6 +344,7 @@ function PledgeRow({
               fundraiserId={fundraiserId}
               pledge={pledge}
               solicitorOptions={solicitorOptions}
+              sponsorshipLevels={sponsorshipLevels}
               onSaved={onRefresh}
             />
           </td>
@@ -338,15 +358,18 @@ function PledgeEditor({
   fundraiserId,
   pledge,
   solicitorOptions,
+  sponsorshipLevels,
   onSaved,
 }: {
   fundraiserId: string;
   pledge: Pledge;
   solicitorOptions: PersonOption[];
+  sponsorshipLevels: LevelOption[];
   onSaved: () => void;
 }) {
   const [status, setStatus] = useState(pledge.status);
   const [solicitorId, setSolicitorId] = useState(pledge.solicitor?.id ?? "");
+  const [levelId, setLevelId] = useState(pledge.sponsorshipLevel?.id ?? "");
   const [askAmount, setAskAmount] = useState(
     pledge.askAmount != null ? String(centsToDollars(pledge.askAmount)) : ""
   );
@@ -362,7 +385,6 @@ function PledgeEditor({
   const [nfgUpdated, setNfgUpdated] = useState(pledge.nfgUpdated);
   const [formInDrive, setFormInDrive] = useState(pledge.formInDrive);
   const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
 
   const save = useCallback(async () => {
@@ -376,6 +398,7 @@ function PledgeEditor({
       body: JSON.stringify({
         status,
         solicitorId: solicitorId || null,
+        sponsorshipLevelId: levelId || null,
         askAmount: askAmount && !isNaN(askNumber) ? dollarsToCents(askNumber) : null,
         pledgeAmount: pledgeAmount && !isNaN(amountNumber) ? dollarsToCents(amountNumber) : null,
         pledgeDate: pledgeDate || null,
@@ -395,32 +418,7 @@ function PledgeEditor({
       return;
     }
     onSaved();
-  }, [fundraiserId, pledge.id, status, solicitorId, askAmount, pledgeAmount, pledgeDate, palWrittenAt, palSentAt, calWrittenAt, calSentAt, nfgEntered, nfgUpdated, formInDrive, onSaved]);
-
-  async function uploadLogo(file: File) {
-    setUploading(true);
-    setError("");
-    const formData = new FormData();
-    formData.append("file", file);
-    const res = await fetch(`/api/fundraisers/${fundraiserId}/solicitations/${pledge.id}/logo`, {
-      method: "POST",
-      body: formData,
-    });
-    setUploading(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => null);
-      setError(data?.error ?? "Failed to upload logo");
-      return;
-    }
-    onSaved();
-  }
-
-  async function removeLogo() {
-    setUploading(true);
-    await fetch(`/api/fundraisers/${fundraiserId}/solicitations/${pledge.id}/logo`, { method: "DELETE" });
-    setUploading(false);
-    onSaved();
-  }
+  }, [fundraiserId, pledge.id, status, solicitorId, levelId, askAmount, pledgeAmount, pledgeDate, palWrittenAt, palSentAt, calWrittenAt, calSentAt, nfgEntered, nfgUpdated, formInDrive, onSaved]);
 
   async function remove() {
     if (!confirm("Remove this pledge from the list? This cannot be undone.")) return;
@@ -430,7 +428,7 @@ function PledgeEditor({
 
   return (
     <div className="space-y-4 text-sm" onClick={(e) => e.stopPropagation()}>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Status</label>
           <select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm">
@@ -457,6 +455,23 @@ function PledgeEditor({
               No solicitors found — tag people as solicitors, or set a Solicitor Tag in Settings.
             </p>
           )}
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">Sponsorship Level</label>
+          <select
+            value={levelId}
+            onChange={(e) => {
+              setLevelId(e.target.value);
+              const level = sponsorshipLevels.find((l) => l.id === e.target.value);
+              if (level) setAskAmount(String(centsToDollars(level.amount)));
+            }}
+            className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+          >
+            <option value="">— None —</option>
+            {sponsorshipLevels.map((l) => (
+              <option key={l.id} value={l.id}>{l.name} ({formatCurrency(l.amount)})</option>
+            ))}
+          </select>
         </div>
         <div>
           <label className="block text-xs font-medium text-gray-500 mb-1">Ask Amount ($)</label>
@@ -505,36 +520,6 @@ function PledgeEditor({
             <input type="checkbox" checked={formInDrive} onChange={(e) => setFormInDrive(e.target.checked)} className="rounded accent-indigo-600" />
             <span className="text-xs font-medium text-gray-600">Form in Drive</span>
           </label>
-        </div>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div>
-          <label className="block text-xs font-medium text-gray-500 mb-1">Sponsor Logo</label>
-          <div className="flex items-center gap-3">
-            {pledge.logoUrl && (
-              <Image src={pledge.logoUrl} alt="Sponsor logo" width={48} height={48} className="h-12 w-12 object-contain border border-gray-200 rounded bg-white" unoptimized />
-            )}
-            <label className="px-3 py-1.5 border border-gray-300 rounded-md text-xs text-gray-700 hover:bg-gray-100 cursor-pointer">
-              {uploading ? "Uploading..." : pledge.logoUrl ? "Replace" : "Upload Logo"}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/svg+xml,image/webp,image/gif"
-                className="hidden"
-                disabled={uploading}
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) uploadLogo(file);
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            {pledge.logoUrl && (
-              <button onClick={removeLogo} disabled={uploading} className="text-xs text-red-500 hover:text-red-700 underline">
-                Remove
-              </button>
-            )}
-          </div>
         </div>
       </div>
 

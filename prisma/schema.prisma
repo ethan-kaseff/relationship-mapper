@@ -187,6 +187,7 @@ model Partner {
   orgPeopleFlag      String            @map("org_people_flag") // "O" or "P"
   organizationName   String?           @map("organization_name")
   listedAs           String?           @map("listed_as") // public recognition name
+  logoUrl            String?           @map("logo_url") // sponsor logo (Vercel Blob)
   organizationTypeId String?           @map("organization_type_id")
   organizationType   OrganizationType? @relation(fields: [organizationTypeId], references: [id])
   address            String?
@@ -495,6 +496,7 @@ model SponsorshipLevel {
   description  String?
   displayOrder Int        @default(0) @map("display_order")
   donations    Donation[]
+  solicitations FundraiserSolicitation[]
   createdAt    DateTime   @default(now()) @map("created_at")
   updatedAt    DateTime   @updatedAt @map("updated_at")
 
@@ -525,8 +527,9 @@ model FundraiserSolicitation {
   calSentAt    DateTime?  @map("cal_sent_at")
   nfgEntered   Boolean    @default(false) @map("nfg_entered") // Network for Good
   nfgUpdated   Boolean    @default(false) @map("nfg_updated")
-  logoUrl      String?    @map("logo_url") // sponsor logo (Vercel Blob)
   formInDrive  Boolean    @default(false) @map("form_in_drive")
+  sponsorshipLevelId String? @map("sponsorship_level_id") // level we are asking them to take
+  sponsorshipLevel   SponsorshipLevel? @relation(fields: [sponsorshipLevelId], references: [id], onDelete: SetNull)
   solicitationNotes SolicitationNote[]
 
   createdAt    DateTime   @default(now()) @map("created_at")
