@@ -24,7 +24,14 @@ export interface Pledge {
   nfgUpdated: boolean;
   logoUrl: string | null;
   formInDrive: boolean;
-  notes: string | null;
+  solicitationNotes: SolicitationNoteEntry[];
+}
+
+export interface SolicitationNoteEntry {
+  id: string;
+  content: string;
+  createdAt: string;
+  author: { firstName: string; lastName: string } | null;
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -354,7 +361,6 @@ function PledgeEditor({
   const [nfgEntered, setNfgEntered] = useState(pledge.nfgEntered);
   const [nfgUpdated, setNfgUpdated] = useState(pledge.nfgUpdated);
   const [formInDrive, setFormInDrive] = useState(pledge.formInDrive);
-  const [notes, setNotes] = useState(pledge.notes ?? "");
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
@@ -380,7 +386,6 @@ function PledgeEditor({
         nfgEntered,
         nfgUpdated,
         formInDrive,
-        notes: notes.trim() || null,
       }),
     });
     setSaving(false);
@@ -390,7 +395,7 @@ function PledgeEditor({
       return;
     }
     onSaved();
-  }, [fundraiserId, pledge.id, status, solicitorId, askAmount, pledgeAmount, pledgeDate, palWrittenAt, palSentAt, calWrittenAt, calSentAt, nfgEntered, nfgUpdated, formInDrive, notes, onSaved]);
+  }, [fundraiserId, pledge.id, status, solicitorId, askAmount, pledgeAmount, pledgeDate, palWrittenAt, palSentAt, calWrittenAt, calSentAt, nfgEntered, nfgUpdated, formInDrive, onSaved]);
 
   async function uploadLogo(file: File) {
     setUploading(true);
@@ -533,10 +538,12 @@ function PledgeEditor({
         </div>
       </div>
 
-      <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
-        <textarea rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-md text-sm" />
-      </div>
+      <SolicitationNotesLog
+        fundraiserId={fundraiserId}
+        solicitationId={pledge.id}
+        notes={pledge.solicitationNotes}
+        onChanged={onSaved}
+      />
 
       {error && <p className="text-red-600 text-xs">{error}</p>}
 
@@ -552,6 +559,95 @@ function PledgeEditor({
           {saving ? "Saving..." : "Save Changes"}
         </button>
       </div>
+    </div>
+  );
+}
+
+function SolicitationNotesLog({
+  fundraiserId,
+  solicitationId,
+  notes,
+  onChanged,
+}: {
+  fundraiserId: string;
+  solicitationId: string;
+  notes: SolicitationNoteEntry[];
+  onChanged: () => void;
+}) {
+  const [newNote, setNewNote] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function addNote() {
+    if (!newNote.trim() || adding) return;
+    setAdding(true);
+    const res = await fetch(`/api/fundraisers/${fundraiserId}/solicitations/${solicitationId}/notes`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: newNote.trim() }),
+    });
+    setAdding(false);
+    if (res.ok) {
+      setNewNote("");
+      onChanged();
+    }
+  }
+
+  async function deleteNote(noteId: string) {
+    if (!confirm("Delete this note?")) return;
+    setDeletingId(noteId);
+    await fetch(`/api/fundraisers/${fundraiserId}/solicitations/${solicitationId}/notes/${noteId}`, {
+      method: "DELETE",
+    });
+    setDeletingId(null);
+    onChanged();
+  }
+
+  return (
+    <div>
+      <label className="block text-xs font-medium text-gray-500 mb-1">Notes</label>
+      <div className="flex gap-2 mb-2">
+        <input
+          type="text"
+          value={newNote}
+          onChange={(e) => setNewNote(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNote(); } }}
+          placeholder="Add a note — date and your name are recorded automatically"
+          className="flex-1 px-2 py-1.5 border border-gray-300 rounded-md text-sm"
+        />
+        <button
+          onClick={addNote}
+          disabled={adding || !newNote.trim()}
+          className="px-3 py-1.5 text-sm bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+        >
+          {adding ? "Adding..." : "Add Note"}
+        </button>
+      </div>
+      {notes.length === 0 ? (
+        <p className="text-xs text-gray-400">No notes yet.</p>
+      ) : (
+        <ul className="space-y-1.5">
+          {notes.map((n) => (
+            <li key={n.id} className="text-sm bg-white border border-gray-200 rounded-md px-3 py-1.5 flex items-start justify-between gap-3">
+              <div>
+                <span className="text-xs text-gray-400">
+                  {new Date(n.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
+                  {n.author ? ` — ${n.author.firstName} ${n.author.lastName}` : ""}:
+                </span>{" "}
+                <span className="text-gray-800">{n.content}</span>
+              </div>
+              <button
+                onClick={() => deleteNote(n.id)}
+                disabled={deletingId === n.id}
+                className="text-gray-300 hover:text-red-500 text-xs shrink-0 mt-0.5"
+                aria-label="Delete note"
+              >
+                ✕
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

@@ -31,5 +31,8 @@ export const updatePledgeSchema = z.object({
   nfgEntered: z.boolean().optional(),
   nfgUpdated: z.boolean().optional(),
   formInDrive: z.boolean().optional(),
-  notes: z.string().max(5000).optional().nullable(),
+});
+
+export const createSolicitationNoteSchema = z.object({
+  content: z.string().min(1, "Note can't be empty").max(5000),
 });

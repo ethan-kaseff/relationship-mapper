@@ -19,6 +19,10 @@ export async function GET(
         person: { select: { id: true, firstName: true, lastName: true, email1: true, email2: true, listedAs: true } },
         partner: { select: { id: true, organizationName: true, email: true, listedAs: true } },
         solicitor: { select: { id: true, firstName: true, lastName: true } },
+        solicitationNotes: {
+          include: { author: { select: { firstName: true, lastName: true } } },
+          orderBy: { createdAt: "desc" },
+        },
       },
       orderBy: { createdAt: "asc" },
     });
@@ -87,13 +91,19 @@ export async function POST(
         askAmount: data.askAmount ?? null,
         pledgeAmount: data.pledgeAmount ?? null,
         pledgeDate: data.pledgeDate ? new Date(data.pledgeDate) : null,
-        notes: data.notes ?? null,
+        ...(data.notes
+          ? { solicitationNotes: { create: { content: data.notes, authorId: authResult.session.user.id } } }
+          : {}),
         ...(data.pledgeAmount && data.pledgeDate ? { status: "PLEDGED" } : {}),
       },
       include: {
         person: { select: { id: true, firstName: true, lastName: true, email1: true, email2: true, listedAs: true } },
         partner: { select: { id: true, organizationName: true, email: true, listedAs: true } },
         solicitor: { select: { id: true, firstName: true, lastName: true } },
+        solicitationNotes: {
+          include: { author: { select: { firstName: true, lastName: true } } },
+          orderBy: { createdAt: "desc" },
+        },
       },
     });
 

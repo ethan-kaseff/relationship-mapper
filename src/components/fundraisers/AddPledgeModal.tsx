@@ -283,13 +283,14 @@ export default function AddPledgeModal({
             Ask Amount is what you hope to request. Leave the pledge fields blank until they commit — you can fill them in later.
           </p>
 
-          {/* Notes */}
+          {/* First note */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Note (optional)</label>
             <textarea
               rows={2}
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
+              placeholder="Becomes the first entry in this solicitation's note log"
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
