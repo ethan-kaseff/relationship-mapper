@@ -93,6 +93,7 @@ export async function PUT(
         lastName: data.lastName,
         prefix: data.prefix !== undefined ? (data.prefix || null) : undefined,
         greeting: data.greeting !== undefined ? (data.greeting || null) : undefined,
+        listedAs: data.listedAs !== undefined ? (data.listedAs || null) : undefined,
         address: data.address,
         city: data.city,
         state: data.state,

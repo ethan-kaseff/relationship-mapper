@@ -62,6 +62,7 @@ export async function POST(request: Request) {
       data: {
         orgPeopleFlag: data.orgPeopleFlag,
         organizationName: data.organizationName,
+        listedAs: data.listedAs || null,
         organizationTypeId: data.organizationTypeId,
         address: data.address,
         city: data.city,

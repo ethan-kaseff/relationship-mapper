@@ -5,6 +5,7 @@ export const createPartnerSchema = z.object({
     message: "orgPeopleFlag must be 'O' (Organization) or 'P' (Person)",
   }),
   organizationName: z.string().min(1, "Organization name is required").max(255),
+  listedAs: z.string().max(300).optional().nullable(),
   organizationTypeId: z.string().uuid().optional().nullable(),
   address: z.string().max(255).optional().nullable(),
   city: z.string().max(100).optional().nullable(),

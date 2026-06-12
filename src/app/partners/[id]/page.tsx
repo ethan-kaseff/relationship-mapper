@@ -91,6 +91,7 @@ export default async function PartnerDetailPage({
         partner={{
           orgPeopleFlag: partner.orgPeopleFlag,
           organizationName: partner.organizationName,
+          listedAs: partner.listedAs,
           organizationTypeId: partner.organizationTypeId,
           organizationType: partner.organizationType,
           address: partner.address,

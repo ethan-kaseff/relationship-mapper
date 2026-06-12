@@ -59,6 +59,7 @@ export async function PUT(
       data: {
         orgPeopleFlag: data.orgPeopleFlag,
         organizationName: data.organizationName,
+        listedAs: data.listedAs !== undefined ? (data.listedAs || null) : undefined,
         organizationType: data.organizationTypeId
           ? { connect: { id: data.organizationTypeId } }
           : { disconnect: true },

@@ -135,6 +135,7 @@ model People {
   lastName       String   @map("last_name")
   prefix         String?  @map("prefix")
   greeting       String?  @map("greeting")
+  listedAs       String?  @map("listed_as") // public recognition name, e.g. "The Smith Family"
   address       String?
   city          String?
   state         String?
@@ -184,6 +185,7 @@ model Partner {
   id                 String            @id @default(uuid())
   orgPeopleFlag      String            @map("org_people_flag") // "O" or "P"
   organizationName   String?           @map("organization_name")
+  listedAs           String?           @map("listed_as") // public recognition name
   organizationTypeId String?           @map("organization_type_id")
   organizationType   OrganizationType? @relation(fields: [organizationTypeId], references: [id])
   address            String?
@@ -513,9 +515,9 @@ model FundraiserSolicitation {
   // Personal-solicitation (pledge) pipeline fields
   solicitorId  String?    @map("solicitor_id")
   solicitor    People?    @relation("SolicitorAssignments", fields: [solicitorId], references: [id], onDelete: SetNull)
-  pledgeAmount Int?       @map("pledge_amount") // cents
+  askAmount    Int?       @map("ask_amount") // cents — what we hope to ask for
+  pledgeAmount Int?       @map("pledge_amount") // cents — what they committed
   pledgeDate   DateTime?  @map("pledge_date")
-  listedAs     String?    @map("listed_as") // public recognition name
   palWrittenAt DateTime?  @map("pal_written_at") // pledge acknowledgment letter
   palSentAt    DateTime?  @map("pal_sent_at")
   calWrittenAt DateTime?  @map("cal_written_at") // contribution acknowledgment letter

@@ -51,9 +51,9 @@ export default function AddPledgeModal({
   const [selectedPersonId, setSelectedPersonId] = useState("");
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
   const [solicitorId, setSolicitorId] = useState("");
+  const [askAmount, setAskAmount] = useState("");
   const [pledgeAmount, setPledgeAmount] = useState("");
   const [pledgeDate, setPledgeDate] = useState("");
-  const [listedAs, setListedAs] = useState("");
   const [notes, setNotes] = useState("");
 
   useEffect(() => {
@@ -113,14 +113,15 @@ export default function AddPledgeModal({
     setSubmitting(true);
     setError("");
 
+    const askNumber = parseFloat(askAmount);
     const amountNumber = parseFloat(pledgeAmount);
     const body = {
       peopleId: whoType === "person" ? selectedPersonId : null,
       partnerId: whoType === "org" ? selectedPartnerId : null,
       solicitorId: solicitorId || null,
+      askAmount: askAmount && !isNaN(askNumber) ? dollarsToCents(askNumber) : null,
       pledgeAmount: pledgeAmount && !isNaN(amountNumber) ? dollarsToCents(amountNumber) : null,
       pledgeDate: pledgeDate || null,
-      listedAs: listedAs.trim() || null,
       notes: notes.trim() || null,
     };
 
@@ -242,8 +243,20 @@ export default function AddPledgeModal({
             )}
           </div>
 
-          {/* Pledge amount + date */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Ask + pledge amounts */}
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ask Amount ($)</label>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder="0.00"
+                value={askAmount}
+                onChange={(e) => setAskAmount(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Pledge Amount ($)</label>
               <input
@@ -267,20 +280,8 @@ export default function AddPledgeModal({
             </div>
           </div>
           <p className="text-xs text-gray-400 -mt-2">
-            Leave blank if they haven&apos;t pledged yet — you can fill these in later.
+            Ask Amount is what you hope to request. Leave the pledge fields blank until they commit — you can fill them in later.
           </p>
-
-          {/* Listed as */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Listed As</label>
-            <input
-              type="text"
-              placeholder='How they should appear publicly, e.g. "The Smith Family"'
-              value={listedAs}
-              onChange={(e) => setListedAs(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-            />
-          </div>
 
           {/* Notes */}
           <div>
@@ -308,7 +309,7 @@ export default function AddPledgeModal({
             disabled={!canSubmit || submitting}
             className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm disabled:opacity-50"
           >
-            {submitting ? "Adding..." : "Add Pledge"}
+            {submitting ? "Adding..." : "Add Solicitation"}
           </button>
         </div>
       </div>
