@@ -6,6 +6,11 @@ body {
   @apply bg-gray-50 text-gray-900;
 }
 
+/* Shown only when printing (hidden on screen) */
+.print-only {
+  display: none;
+}
+
 /* Print styles: only show the floor plan when printing from the seating chart */
 @media print {
   body, html {
@@ -16,6 +21,10 @@ body {
   /* Hide elements marked with print-hide */
   .print-hide {
     display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
   }
 
   /* Remove max-width and padding from main wrapper */

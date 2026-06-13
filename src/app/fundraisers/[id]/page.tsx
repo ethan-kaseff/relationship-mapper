@@ -9,6 +9,7 @@ import AddSolicitationsModal from "@/components/fundraisers/AddSolicitationsModa
 import FundraiserEventSection from "@/components/fundraisers/FundraiserEventSection";
 import FundraiserNoticeManager, { type DonationForEval } from "@/components/fundraisers/FundraiserNoticeManager";
 import PledgesTab, { type Pledge } from "@/components/fundraisers/PledgesTab";
+import CommitteeReportTab from "@/components/fundraisers/CommitteeReportTab";
 
 interface Person {
   id: string;
@@ -98,7 +99,7 @@ interface Fundraiser {
 // Ask-list rows are always person-backed (the bulk-add flow requires a person)
 type AskListSolicitation = Pledge & { person: NonNullable<Pledge["person"]> };
 
-type Tab = "overview" | "levels" | "donations" | "solicitations" | "pledges" | "approvals" | "notices" | "settings";
+type Tab = "overview" | "levels" | "donations" | "solicitations" | "pledges" | "report" | "approvals" | "notices" | "settings";
 
 export default function FundraiserDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -159,6 +160,7 @@ export default function FundraiserDetailPage() {
     { key: "levels", label: "Sponsorship Levels", badge: fundraiser.sponsorshipLevels.length || undefined },
     ...(!fundraiser.event ? [{ key: "solicitations" as Tab, label: "Ask List", badge: askList.length || undefined }] : []),
     { key: "pledges", label: "Pledges", badge: pledges.length || undefined },
+    ...(pledges.length ? [{ key: "report" as Tab, label: "Committee Report" }] : []),
     { key: "donations", label: "Donations" },
     { key: "approvals", label: "Name Approval", badge: pendingDonations.length || undefined },
     { key: "notices", label: "Notices", badge: totalNoticeCount || undefined },
@@ -167,7 +169,7 @@ export default function FundraiserDetailPage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-6 print-hide">
         <div>
           <h1 className="text-2xl font-bold text-indigo-900">{fundraiser.title}</h1>
           {fundraiser.event && (
@@ -185,7 +187,7 @@ export default function FundraiserDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-gray-200">
+      <div className="flex gap-1 mb-6 border-b border-gray-200 print-hide">
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -229,6 +231,7 @@ export default function FundraiserDetailPage() {
           onRefresh={loadSolicitations}
         />
       )}
+      {tab === "report" && <CommitteeReportTab fundraiserId={fundraiser.id} />}
       {tab === "approvals" && <ApprovalsTab fundraiser={fundraiser} pending={pendingDonations} onRefresh={() => { load(); loadSolicitations(); }} />}
       {tab === "notices" && (
         <NoticesTab
