@@ -58,6 +58,7 @@ export default function AddPledgeModal({
   const [search, setSearch] = useState("");
   const [selectedPersonId, setSelectedPersonId] = useState("");
   const [selectedPartnerId, setSelectedPartnerId] = useState("");
+  const [highlightIndex, setHighlightIndex] = useState(-1);
   const [solicitorId, setSolicitorId] = useState("");
   const [levelId, setLevelId] = useState("");
   const [askAmount, setAskAmount] = useState("");
@@ -167,7 +168,7 @@ export default function AddPledgeModal({
                 <input
                   type="radio"
                   checked={whoType === "person"}
-                  onChange={() => { setWhoType("person"); setSelectedPartnerId(""); setSearch(""); }}
+                  onChange={() => { setWhoType("person"); setSelectedPartnerId(""); setSearch(""); setHighlightIndex(-1); }}
                   className="accent-indigo-600"
                 />
                 <span className="text-sm font-medium text-gray-700">Person</span>
@@ -176,7 +177,7 @@ export default function AddPledgeModal({
                 <input
                   type="radio"
                   checked={whoType === "org"}
-                  onChange={() => { setWhoType("org"); setSelectedPersonId(""); setSearch(""); }}
+                  onChange={() => { setWhoType("org"); setSelectedPersonId(""); setSearch(""); setHighlightIndex(-1); }}
                   className="accent-indigo-600"
                 />
                 <span className="text-sm font-medium text-gray-700">Organization</span>
@@ -187,7 +188,21 @@ export default function AddPledgeModal({
               type="text"
               placeholder={whoType === "person" ? "Search people..." : "Search organizations..."}
               value={search}
-              onChange={(e) => setSearch(e.target.value)}
+              onChange={(e) => { setSearch(e.target.value); setHighlightIndex(-1); }}
+              onKeyDown={(e) => {
+                const list = whoType === "person" ? filteredPeople : filteredPartners;
+                if (e.key === "ArrowDown") {
+                  e.preventDefault();
+                  setHighlightIndex((i) => Math.min(i + 1, list.length - 1));
+                } else if (e.key === "ArrowUp") {
+                  e.preventDefault();
+                  setHighlightIndex((i) => Math.max(i - 1, -1));
+                } else if (e.key === "Enter" && highlightIndex >= 0 && highlightIndex < list.length) {
+                  e.preventDefault();
+                  if (whoType === "person") setSelectedPersonId(list[highlightIndex].id);
+                  else setSelectedPartnerId(list[highlightIndex].id);
+                }
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
 
@@ -198,8 +213,8 @@ export default function AddPledgeModal({
                 filteredPeople.length === 0 ? (
                   <p className="text-gray-500 text-sm text-center py-4">No matching people.</p>
                 ) : (
-                  filteredPeople.map((p) => (
-                    <label key={p.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                  filteredPeople.map((p, idx) => (
+                    <label key={p.id} className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer ${idx === highlightIndex ? "bg-indigo-100" : "hover:bg-gray-50"}`}>
                       <input
                         type="radio"
                         checked={selectedPersonId === p.id}
@@ -213,8 +228,8 @@ export default function AddPledgeModal({
               ) : filteredPartners.length === 0 ? (
                 <p className="text-gray-500 text-sm text-center py-4">No matching organizations.</p>
               ) : (
-                filteredPartners.map((p) => (
-                  <label key={p.id} className="flex items-center gap-2 px-3 py-1.5 hover:bg-gray-50 cursor-pointer">
+                filteredPartners.map((p, idx) => (
+                  <label key={p.id} className={`flex items-center gap-2 px-3 py-1.5 cursor-pointer ${idx === highlightIndex ? "bg-indigo-100" : "hover:bg-gray-50"}`}>
                     <input
                       type="radio"
                       checked={selectedPartnerId === p.id}

@@ -50,6 +50,7 @@ export default function PeopleTable({
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortOption>("name");
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   useEffect(() => {
     setSearch(sessionStorage.getItem("people-search") ?? "");
@@ -81,6 +82,9 @@ export default function PeopleTable({
     usePagination(filtered.length);
 
   const paginated = filtered.slice(startIndex, endIndex);
+
+  // Clear the keyboard highlight whenever the visible rows change
+  useEffect(() => { setHighlightedIndex(-1); }, [search, sort, currentPage]);
 
   function handleExport() {
     const rows = [
@@ -114,8 +118,18 @@ export default function PeopleTable({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && filtered.length === 1) {
-              router.push(`/people/${filtered[0].id}`);
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setHighlightedIndex((i) => Math.min(i + 1, paginated.length - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setHighlightedIndex((i) => Math.max(i - 1, -1));
+            } else if (e.key === "Enter") {
+              if (highlightedIndex >= 0 && highlightedIndex < paginated.length) {
+                router.push(`/people/${paginated[highlightedIndex].id}`);
+              } else if (filtered.length === 1) {
+                router.push(`/people/${filtered[0].id}`);
+              }
             }
           }}
           placeholder="Search people..."
@@ -170,8 +184,8 @@ export default function PeopleTable({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {paginated.map((person) => (
-              <tr key={person.id} className="hover:bg-gray-50">
+            {paginated.map((person, idx) => (
+              <tr key={person.id} className={idx === highlightedIndex ? "bg-indigo-100" : "hover:bg-gray-50"}>
                 <td className="px-4 py-3">
                   <Link
                     href={`/people/${person.id}`}
