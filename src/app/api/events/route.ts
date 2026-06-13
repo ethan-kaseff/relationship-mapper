@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { requireNonConnector } from "@/lib/api-auth";
 import { validateBody, createEventSchema } from "@/lib/validations";
 import { handleApiError } from "@/lib/api-error";
@@ -53,14 +54,23 @@ export async function POST(request: Request) {
     const data = validation.data;
 
     // Copy seating layout from template event if specified
-    let seatingLayout = undefined;
+    let seatingLayout: Prisma.InputJsonValue | undefined = undefined;
     if (data.templateEventId) {
       const templateEvent = await prisma.event.findUnique({
         where: { id: data.templateEventId },
         select: { seatingLayout: true },
       });
       if (templateEvent?.seatingLayout) {
-        seatingLayout = templateEvent.seatingLayout;
+        // Copy the room/tables/objects but strip any guests embedded in the
+        // template's seats — the new event starts with an empty layout.
+        const tpl = templateEvent.seatingLayout as { tables?: { seats?: unknown[] }[] };
+        if (tpl && Array.isArray(tpl.tables)) {
+          tpl.tables = tpl.tables.map((t) => ({
+            ...t,
+            seats: Array.isArray(t.seats) ? t.seats.map(() => ({ guestId: null })) : t.seats,
+          }));
+        }
+        seatingLayout = tpl as unknown as Prisma.InputJsonValue;
       }
     }
 
