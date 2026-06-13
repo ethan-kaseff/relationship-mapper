@@ -52,6 +52,7 @@ export default function MergePersonModal({ person, onClose }: { person: Person; 
   const [results, setResults] = useState<Person[]>([]);
   const [searching, setSearching] = useState(false);
   const [selected, setSelected] = useState<Person | null>(null);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
   const [choices, setChoices] = useState<Record<string, FieldChoice>>({});
   const [merging, setMerging] = useState(false);
   const [error, setError] = useState("");
@@ -72,6 +73,8 @@ export default function MergePersonModal({ person, onClose }: { person: Person; 
     }, 300);
     return () => clearTimeout(timer);
   }, [search, person.id]);
+
+  useEffect(() => { setHighlightIndex(-1); }, [results]);
 
   function selectDuplicate(dup: Person) {
     setSelected(dup);
@@ -125,6 +128,18 @@ export default function MergePersonModal({ person, onClose }: { person: Person; 
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "ArrowDown") {
+                    e.preventDefault();
+                    setHighlightIndex((i) => Math.min(i + 1, results.length - 1));
+                  } else if (e.key === "ArrowUp") {
+                    e.preventDefault();
+                    setHighlightIndex((i) => Math.max(i - 1, -1));
+                  } else if (e.key === "Enter" && highlightIndex >= 0 && highlightIndex < results.length) {
+                    e.preventDefault();
+                    selectDuplicate(results[highlightIndex]);
+                  }
+                }}
                 placeholder="Search by name or email..."
                 autoFocus
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -132,11 +147,11 @@ export default function MergePersonModal({ person, onClose }: { person: Person; 
               {searching && <p className="text-xs text-gray-400 mt-2">Searching...</p>}
               {results.length > 0 && (
                 <ul className="mt-2 border border-gray-200 rounded-md divide-y">
-                  {results.map((p) => (
+                  {results.map((p, idx) => (
                     <li key={p.id}>
                       <button
                         onClick={() => selectDuplicate(p)}
-                        className="w-full text-left px-3 py-2 text-sm hover:bg-indigo-50"
+                        className={`w-full text-left px-3 py-2 text-sm ${idx === highlightIndex ? "bg-indigo-100" : "hover:bg-indigo-50"}`}
                       >
                         <span className="font-medium">{p.lastName}, {p.firstName}</span>
                         {p.email1 && <span className="text-gray-500 ml-2 text-xs">{p.email1}</span>}

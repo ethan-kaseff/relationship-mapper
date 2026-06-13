@@ -20,6 +20,7 @@ export default function FillPlaceholderModal({ eventId, inviteId, existingPeople
   const [people, setPeople] = useState<Person[]>([]);
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Person | null>(null);
+  const [highlightIndex, setHighlightIndex] = useState(-1);
   const [guestFirst, setGuestFirst] = useState("");
   const [guestLast, setGuestLast] = useState("");
   const [loading, setLoading] = useState(true);
@@ -127,7 +128,19 @@ export default function FillPlaceholderModal({ eventId, inviteId, existingPeople
                   type="text"
                   placeholder="Search people..."
                   value={search}
-                  onChange={(e) => { setSearch(e.target.value); setSelected(null); }}
+                  onChange={(e) => { setSearch(e.target.value); setSelected(null); setHighlightIndex(-1); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setHighlightIndex((i) => Math.min(i + 1, filtered.length - 1));
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setHighlightIndex((i) => Math.max(i - 1, -1));
+                    } else if (e.key === "Enter" && highlightIndex >= 0 && highlightIndex < filtered.length) {
+                      e.preventDefault();
+                      setSelected(filtered[highlightIndex]);
+                    }
+                  }}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   autoFocus
                 />
@@ -138,11 +151,11 @@ export default function FillPlaceholderModal({ eventId, inviteId, existingPeople
                 ) : filtered.length === 0 ? (
                   <p className="text-gray-500 text-sm text-center py-6">No matching people.</p>
                 ) : (
-                  filtered.map((p) => (
+                  filtered.map((p, idx) => (
                     <button
                       key={p.id}
                       onClick={() => setSelected(p)}
-                      className={`w-full text-left px-3 py-2 rounded text-sm hover:bg-gray-50 ${selected?.id === p.id ? "bg-indigo-50 text-indigo-700 font-medium" : "text-gray-900"}`}
+                      className={`w-full text-left px-3 py-2 rounded text-sm ${selected?.id === p.id ? "bg-indigo-50 text-indigo-700 font-medium" : idx === highlightIndex ? "bg-indigo-100" : "hover:bg-gray-50 text-gray-900"}`}
                     >
                       {p.lastName}, {p.firstName}
                     </button>

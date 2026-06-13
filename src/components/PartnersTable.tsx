@@ -23,6 +23,7 @@ export default function PartnersTable({ partners }: { partners: Partner[] }) {
     typeof window !== "undefined" ? (sessionStorage.getItem("partners-search") ?? "") : ""
   );
   const [showInactive, setShowInactive] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   useEffect(() => {
     sessionStorage.setItem("partners-search", search);
@@ -45,6 +46,9 @@ export default function PartnersTable({ partners }: { partners: Partner[] }) {
 
   const paginated = filtered.slice(startIndex, endIndex);
 
+  // Clear the keyboard highlight whenever the visible rows change
+  useEffect(() => { setHighlightedIndex(-1); }, [search, showInactive, currentPage]);
+
   return (
     <>
       <div className="mb-4 flex items-center gap-3">
@@ -53,8 +57,18 @@ export default function PartnersTable({ partners }: { partners: Partner[] }) {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter" && filtered.length === 1) {
-              router.push(`/partners/${filtered[0].id}`);
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setHighlightedIndex((i) => Math.min(i + 1, paginated.length - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setHighlightedIndex((i) => Math.max(i - 1, -1));
+            } else if (e.key === "Enter") {
+              if (highlightedIndex >= 0 && highlightedIndex < paginated.length) {
+                router.push(`/partners/${paginated[highlightedIndex].id}`);
+              } else if (filtered.length === 1) {
+                router.push(`/partners/${filtered[0].id}`);
+              }
             }
           }}
           placeholder="Search partners..."
@@ -86,8 +100,8 @@ export default function PartnersTable({ partners }: { partners: Partner[] }) {
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {paginated.map((partner) => (
-              <tr key={partner.id} className="hover:bg-gray-50">
+            {paginated.map((partner, idx) => (
+              <tr key={partner.id} className={idx === highlightedIndex ? "bg-indigo-100" : "hover:bg-gray-50"}>
                 <td className="px-4 py-3">
                   <Link
                     href={`/partners/${partner.id}`}
