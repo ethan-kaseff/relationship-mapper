@@ -8,6 +8,7 @@ import { validateBody } from "@/lib/validations";
 const createRelationshipTypeSchema = z.object({
   relationshipDesc: z.string().min(1, "Description is required").max(255),
   notes: z.string().max(500).optional().nullable(),
+  highlightOnProfile: z.boolean().optional(),
 });
 
 export async function GET() {
@@ -37,6 +38,7 @@ export async function POST(request: Request) {
       data: {
         relationshipDesc: data.relationshipDesc,
         notes: data.notes || null,
+        highlightOnProfile: data.highlightOnProfile ?? false,
       },
     });
     return NextResponse.json(relType, { status: 201 });

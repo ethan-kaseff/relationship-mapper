@@ -8,6 +8,7 @@ import { validateBody } from "@/lib/validations";
 const updateRelationshipTypeSchema = z.object({
   relationshipDesc: z.string().min(1).max(255).optional(),
   notes: z.string().max(500).optional().nullable(),
+  highlightOnProfile: z.boolean().optional(),
 });
 
 export async function DELETE(
@@ -73,6 +74,7 @@ export async function PUT(
       data: {
         relationshipDesc: data.relationshipDesc,
         notes: data.notes,
+        highlightOnProfile: data.highlightOnProfile,
       },
     });
     return NextResponse.json(relType);

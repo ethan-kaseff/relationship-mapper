@@ -106,6 +106,7 @@ model RelationshipType {
   id               String                @id @default(uuid())
   relationshipDesc String                @map("relationship_desc")
   notes            String?
+  highlightOnProfile Boolean             @default(false) @map("highlight_on_profile")
   relationshipToTypes RelationshipToType[]
 
   @@map("relationship_type")
