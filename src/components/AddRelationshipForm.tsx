@@ -12,6 +12,12 @@ interface PartnerRole {
   person: { id: string; firstName: string; lastName: string } | null;
 }
 
+interface Person {
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
 interface RelationshipType {
   id: string;
   relationshipDesc: string;
@@ -23,19 +29,25 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [partnerRoles, setPartnerRoles] = useState<PartnerRole[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [relationshipTypes, setRelationshipTypes] = useState<RelationshipType[]>([]);
 
+  const [targetPersonId, setTargetPersonId] = useState("");
   const [partnerRoleId, setPartnerRoleId] = useState("");
   const [selectedTypeIds, setSelectedTypeIds] = useState<string[]>([]);
 
   const fetchData = useCallback(() => {
     fetch("/api/partner-roles")
       .then((res) => res.json())
-      .then((data) => setPartnerRoles(data))
+      .then((data) => setPartnerRoles(Array.isArray(data) ? data : []))
+      .catch(() => { /* fetch failed */ });
+    fetch("/api/people")
+      .then((res) => res.json())
+      .then((data) => setPeople(Array.isArray(data) ? data : []))
       .catch(() => { /* fetch failed */ });
     fetch("/api/lookup/relationship-types")
       .then((res) => res.json())
-      .then((data) => setRelationshipTypes(data))
+      .then((data) => setRelationshipTypes(Array.isArray(data) ? data : []))
       .catch(() => { /* fetch failed */ });
   }, []);
 
@@ -51,6 +63,10 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!targetPersonId) {
+      setError("Please choose a person to connect to.");
+      return;
+    }
     if (selectedTypeIds.length === 0) {
       setError("Please select at least one relationship type.");
       return;
@@ -64,7 +80,8 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           peopleId: personId,
-          partnerRoleId,
+          targetPersonId,
+          partnerRoleId: partnerRoleId || null,
           relationshipTypeIds: selectedTypeIds,
         }),
       });
@@ -74,6 +91,7 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
         throw new Error(data.error || "Failed to create relationship");
       }
 
+      setTargetPersonId("");
       setPartnerRoleId("");
       setSelectedTypeIds([]);
       setOpen(false);
@@ -96,12 +114,18 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
     );
   }
 
-  const filledRoles = partnerRoles.filter((pr) => pr.person !== null);
+  const personOptions = people
+    .filter((p) => p.id !== personId)
+    .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName))
+    .map((p) => ({ value: p.id, label: `${p.lastName}, ${p.firstName}` }));
 
-  const partnerRoleOptions = filledRoles.map((pr) => ({
-    value: pr.id,
-    label: `${pr.person!.lastName}, ${pr.person!.firstName} — ${pr.roleDescription} at ${pr.partner.organizationName ?? "Unknown"}`,
-  }));
+  // Optional org-role context — limited to roles held by the chosen target person
+  const roleOptions = partnerRoles
+    .filter((pr) => pr.person !== null && (!targetPersonId || pr.person!.id === targetPersonId))
+    .map((pr) => ({
+      value: pr.id,
+      label: `${pr.roleDescription} at ${pr.partner.organizationName ?? "Unknown"}`,
+    }));
 
   return (
     <div className="border border-gray-200 rounded-md p-4 bg-gray-50 mt-4">
@@ -115,17 +139,28 @@ export default function AddRelationshipForm({ personId }: { personId: string }) 
         </div>
       )}
       <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-start">
-        <div className="w-80">
+        <div className="w-72">
           <label className="block text-xs font-medium text-gray-700 mb-1">
             Person <span className="text-red-500">*</span>
           </label>
           <SearchableSelect
-            options={partnerRoleOptions}
-            value={partnerRoleId}
-            onChange={setPartnerRoleId}
+            options={personOptions}
+            value={targetPersonId}
+            onChange={(v) => { setTargetPersonId(v); setPartnerRoleId(""); }}
             placeholder="Search people..."
             required
             autoFocus
+          />
+        </div>
+        <div className="w-64">
+          <label className="block text-xs font-medium text-gray-700 mb-1">
+            Through role <span className="text-gray-400">(optional)</span>
+          </label>
+          <SearchableSelect
+            options={roleOptions}
+            value={partnerRoleId}
+            onChange={setPartnerRoleId}
+            placeholder={roleOptions.length ? "Org role (optional)…" : "No org roles"}
           />
         </div>
         <div className="w-48">

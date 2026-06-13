@@ -64,6 +64,7 @@ interface RelationshipType {
   id: string;
   relationshipDesc: string;
   notes: string | null;
+  highlightOnProfile?: boolean;
   _count?: { relationshipToTypes: number };
 }
 
@@ -112,6 +113,7 @@ export default function SettingsPage() {
   const [showForm, setShowForm] = useState(false);
   const [newDesc, setNewDesc] = useState("");
   const [newNotes, setNewNotes] = useState("");
+  const [newHighlight, setNewHighlight] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
 
@@ -119,6 +121,7 @@ export default function SettingsPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDesc, setEditDesc] = useState("");
   const [editNotes, setEditNotes] = useState("");
+  const [editHighlight, setEditHighlight] = useState(false);
 
   // Delete state
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -690,7 +693,7 @@ export default function SettingsPage() {
       const res = await fetch("/api/lookup/relationship-types", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ relationshipDesc: newDesc, notes: newNotes }),
+        body: JSON.stringify({ relationshipDesc: newDesc, notes: newNotes, highlightOnProfile: newHighlight }),
       });
 
       if (!res.ok) {
@@ -700,6 +703,7 @@ export default function SettingsPage() {
 
       setNewDesc("");
       setNewNotes("");
+      setNewHighlight(false);
       setShowForm(false);
       fetchTypes();
     } catch (err: unknown) {
@@ -717,7 +721,7 @@ export default function SettingsPage() {
       const res = await fetch(`/api/lookup/relationship-types/${id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ relationshipDesc: editDesc, notes: editNotes }),
+        body: JSON.stringify({ relationshipDesc: editDesc, notes: editNotes, highlightOnProfile: editHighlight }),
       });
 
       if (!res.ok) {
@@ -790,6 +794,7 @@ export default function SettingsPage() {
     setEditingId(rt.id);
     setEditDesc(rt.relationshipDesc);
     setEditNotes(rt.notes ?? "");
+    setEditHighlight(rt.highlightOnProfile ?? false);
     setDeletingId(null);
   }
 
@@ -1921,6 +1926,15 @@ export default function SettingsPage() {
                   className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 />
               </div>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={newHighlight}
+                  onChange={(e) => setNewHighlight(e.target.checked)}
+                  className="rounded accent-indigo-600"
+                />
+                <span className="text-xs font-medium text-gray-700">Show prominently at the top of a person&apos;s profile (e.g. Spouse)</span>
+              </label>
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -1951,6 +1965,7 @@ export default function SettingsPage() {
                 <th className="text-left px-4 py-3 font-semibold text-indigo-900">Description</th>
                 <th className="text-left px-4 py-3 font-semibold text-indigo-900">Notes</th>
                 <th className="text-left px-4 py-3 font-semibold text-indigo-900">In Use</th>
+                <th className="text-left px-4 py-3 font-semibold text-indigo-900">On Profile</th>
                 <th className="text-right px-4 py-3 font-semibold text-indigo-900">Actions</th>
               </tr>
             </thead>
@@ -1978,6 +1993,14 @@ export default function SettingsPage() {
                       <td className="px-4 py-2 text-gray-600">
                         {rt._count?.relationshipToTypes ?? 0}
                       </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="checkbox"
+                          checked={editHighlight}
+                          onChange={(e) => setEditHighlight(e.target.checked)}
+                          className="rounded accent-indigo-600"
+                        />
+                      </td>
                       <td className="px-4 py-2 text-right">
                         <div className="flex gap-2 justify-end">
                           <button
@@ -2004,6 +2027,11 @@ export default function SettingsPage() {
                         <span className="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-2 py-0.5 rounded-full">
                           {rt._count?.relationshipToTypes ?? 0}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {rt.highlightOnProfile
+                          ? <span className="inline-block bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded-full">Featured</span>
+                          : <span className="text-gray-300 text-xs">—</span>}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex gap-3 justify-end">

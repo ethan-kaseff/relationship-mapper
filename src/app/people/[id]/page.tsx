@@ -135,6 +135,32 @@ export default async function PersonDetailPage({
     }))
   );
 
+  // Relationships whose type is flagged "show prominently" (e.g. Spouse),
+  // surfaced at the top of the profile. Deduped by the other person, since a
+  // couple may be linked in both directions.
+  const featuredMap = new Map<string, { id: string; name: string; types: Set<string> }>();
+  const addFeatured = (id: string, name: string, types: string[]) => {
+    if (types.length === 0) return;
+    const existing = featuredMap.get(id);
+    if (existing) types.forEach((t) => existing.types.add(t));
+    else featuredMap.set(id, { id, name, types: new Set(types) });
+  };
+  for (const rel of person.relationships) {
+    addFeatured(
+      rel.targetPerson.id,
+      `${rel.targetPerson.firstName} ${rel.targetPerson.lastName}`,
+      rel.relationshipTypes.filter((rt) => rt.relationshipType.highlightOnProfile).map((rt) => rt.relationshipType.relationshipDesc)
+    );
+  }
+  for (const rel of person.targetOfRelationships) {
+    addFeatured(
+      rel.person.id,
+      `${rel.person.firstName} ${rel.person.lastName}`,
+      rel.relationshipTypes.filter((rt) => rt.relationshipType.highlightOnProfile).map((rt) => rt.relationshipType.relationshipDesc)
+    );
+  }
+  const featuredRelationships = Array.from(featuredMap.values());
+
   return (
     <div>
       <div className="flex items-start justify-between mb-0">
@@ -152,6 +178,17 @@ export default async function PersonDetailPage({
           </Link>
         </div>
       </div>
+
+      {featuredRelationships.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+          {featuredRelationships.map((r) => (
+            <span key={r.id}>
+              <span className="font-medium text-gray-500">{Array.from(r.types).join(" / ")}:</span>{" "}
+              <Link href={`/people/${r.id}`} className="text-indigo-600 hover:underline font-medium">{r.name}</Link>
+            </span>
+          ))}
+        </div>
+      )}
 
       <PeopleStatusSection
         personId={person.id}
