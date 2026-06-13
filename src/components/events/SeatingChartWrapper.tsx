@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import SeatingChart from "@/components/seating/SeatingChart";
+import ReuseLayoutButton from "@/components/events/ReuseLayoutButton";
 import { SeatingGuest, SeatingLayout } from "@/types/seating";
 import { SeatingState } from "@/hooks/useSeatingChart";
 
@@ -48,7 +49,7 @@ interface SeatingChartWrapperProps {
   onRefresh: () => void;
 }
 
-export default function SeatingChartWrapper({ event }: SeatingChartWrapperProps) {
+export default function SeatingChartWrapper({ event, onRefresh }: SeatingChartWrapperProps) {
   // Only confirmed (YES) guests appear in the seating chart
   const confirmedInvites = event.invites.filter((inv) => inv.rsvpStatus === "YES");
 
@@ -106,5 +107,18 @@ export default function SeatingChartWrapper({ event }: SeatingChartWrapperProps)
     });
   }, [event.id]);
 
-  return <SeatingChart layout={layout} guests={guests} onSave={handleSave} />;
+  // Only offer the layout import while the room is still empty — once tables
+  // exist, importing is hidden so it can never wipe out seating work.
+  const hasTables = !!(layout && Array.isArray(layout.tables) && layout.tables.length > 0);
+
+  return (
+    <div>
+      {!hasTables && (
+        <div className="mb-2 flex justify-end print-hide">
+          <ReuseLayoutButton eventId={event.id} onImported={onRefresh} />
+        </div>
+      )}
+      <SeatingChart layout={layout} guests={guests} onSave={handleSave} />
+    </div>
+  );
 }
