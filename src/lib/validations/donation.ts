@@ -37,6 +37,21 @@ export const updateDonationSeatPlanSchema = z.object({
   attendancePlan: z.enum(["UNKNOWN", "USING_SEATS", "OTHER_TABLE", "NOT_ATTENDING"]).optional(),
 });
 
+export const editDonationSchema = z.object({
+  amount: z.number().int().min(1, "Amount must be at least 1 cent").optional(),
+  donorName: z.string().max(200).optional().nullable(),
+  donorEmail: z.string().email().max(300).optional().nullable().or(z.literal("")),
+  paymentMethod: z.enum(["stripe", "cash", "check", "ach", "online", "pledge", "other"]).optional(),
+  donatedAt: z.string().optional().nullable(),
+  isTaxDeductible: z.boolean().optional(),
+  taxDeductibleAmount: z.number().int().min(0).optional().nullable(),
+  sponsorshipLevelId: z.string().uuid().optional().nullable(),
+  tributeType: z.enum(["in_honor_of", "in_memory_of"]).optional().nullable().or(z.literal("")),
+  tributeName: z.string().max(200).optional().nullable(),
+  isAnonymous: z.boolean().optional(),
+  notes: z.string().max(2000).optional().nullable(),
+});
+
 export const updateDonationApprovalSchema = z.object({
   approvalStatus: z.enum(["APPROVED", "REJECTED"]),
   peopleId: z.string().uuid().optional().nullable(),

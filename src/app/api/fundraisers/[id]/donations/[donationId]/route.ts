@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
-import { validateBody, updateDonationSeatsSchema } from "@/lib/validations";
+import { validateBody, updateDonationSeatsSchema, editDonationSchema } from "@/lib/validations";
 import { handleApiError, notFound } from "@/lib/api-error";
 
 export async function GET(
@@ -99,6 +99,75 @@ export async function PATCH(
     }
 
     return NextResponse.json({ ...updated, fundraiserId });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+// Edit a donation's core fields. Adjusts the fundraiser's running total when
+// the amount changes, and re-syncs sponsored seats when the level changes.
+export async function PUT(
+  request: Request,
+  { params }: { params: Promise<{ id: string; donationId: string }> }
+) {
+  const authResult = await requireNonConnector();
+  if (!authResult.success) return authResult.response;
+
+  const validation = await validateBody(request, editDonationSchema);
+  if (!validation.success) return validation.response;
+
+  try {
+    const { id: fundraiserId, donationId } = await params;
+    const data = validation.data;
+
+    const existing = await prisma.donation.findFirst({ where: { id: donationId, fundraiserId } });
+    if (!existing) return notFound("Donation not found");
+
+    const updateData: Record<string, unknown> = {};
+    if (data.amount !== undefined) updateData.amount = data.amount;
+    if (data.donorName !== undefined) updateData.donorName = data.donorName || null;
+    if (data.donorEmail !== undefined) updateData.donorEmail = data.donorEmail || null;
+    if (data.paymentMethod !== undefined) updateData.paymentMethod = data.paymentMethod;
+    if (data.donatedAt !== undefined && data.donatedAt) updateData.donatedAt = new Date(data.donatedAt);
+    if (data.isTaxDeductible !== undefined) updateData.isTaxDeductible = data.isTaxDeductible;
+    if (data.taxDeductibleAmount !== undefined) updateData.taxDeductibleAmount = data.taxDeductibleAmount;
+    if (data.tributeType !== undefined) updateData.tributeType = data.tributeType || null;
+    if (data.tributeName !== undefined) updateData.tributeName = data.tributeName || null;
+    if (data.isAnonymous !== undefined) updateData.isAnonymous = data.isAnonymous;
+    if (data.notes !== undefined) updateData.notes = data.notes || null;
+
+    // Changing the sponsorship level resets the included seat count (and the
+    // assumed estimate, if it was still tracking the sponsored number).
+    if (data.sponsorshipLevelId !== undefined) {
+      updateData.sponsorshipLevelId = data.sponsorshipLevelId || null;
+      if (data.sponsorshipLevelId) {
+        const level = await prisma.sponsorshipLevel.findUnique({
+          where: { id: data.sponsorshipLevelId },
+          select: { seats: true },
+        });
+        if (level?.seats != null) {
+          updateData.sponsoredSeats = level.seats;
+          if (existing.assumedSeats == null || existing.assumedSeats === existing.sponsoredSeats) {
+            updateData.assumedSeats = level.seats;
+          }
+        }
+      }
+    }
+
+    const amountDelta = data.amount !== undefined ? data.amount - existing.amount : 0;
+
+    const updated = await prisma.$transaction(async (tx) => {
+      const d = await tx.donation.update({ where: { id: donationId }, data: updateData });
+      if (amountDelta !== 0) {
+        await tx.fundraiser.update({
+          where: { id: fundraiserId },
+          data: { currentAmount: { increment: amountDelta } },
+        });
+      }
+      return d;
+    });
+
+    return NextResponse.json(updated);
   } catch (error) {
     return handleApiError(error);
   }
