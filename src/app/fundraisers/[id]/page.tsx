@@ -52,6 +52,7 @@ interface Donation {
   partnerId: string | null;
   partner: PartnerOption | null;
   sponsoredSeats: number | null;
+  assumedSeats: number | null;
   seatsUsed: number | null;
   seatsReleased: number | null;
   attendancePlan: string;
@@ -158,7 +159,6 @@ export default function FundraiserDetailPage() {
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: "overview", label: "Overview" },
-    { key: "levels", label: "Sponsorship Levels", badge: fundraiser.sponsorshipLevels.length || undefined },
     ...(!fundraiser.event ? [{ key: "solicitations" as Tab, label: "Ask List", badge: askList.length || undefined }] : []),
     { key: "pledges", label: "Pledges", badge: pledges.length || undefined },
     ...(pledges.length ? [{ key: "report" as Tab, label: "Committee Report" }] : []),
@@ -210,7 +210,6 @@ export default function FundraiserDetailPage() {
       </div>
 
       {tab === "overview" && <OverviewTab fundraiser={fundraiser} pct={pct} onRefresh={load} />}
-      {tab === "levels" && <LevelsTab fundraiser={fundraiser} onRefresh={load} />}
       {tab === "donations" && <DonationsTab fundraiser={fundraiser} solicitations={solicitations} onRefresh={() => { load(); loadSolicitations(); }} />}
       {tab === "solicitations" && !fundraiser.event && (
         <SolicitationsTab
@@ -243,7 +242,12 @@ export default function FundraiserDetailPage() {
           isAdmin={isAdmin}
         />
       )}
-      {tab === "settings" && isAdmin && <SettingsTab fundraiser={fundraiser} onRefresh={load} onDelete={() => router.push("/fundraisers")} />}
+      {tab === "settings" && isAdmin && (
+        <div className="space-y-4">
+          <LevelsTab fundraiser={fundraiser} onRefresh={load} />
+          <SettingsTab fundraiser={fundraiser} onRefresh={load} onDelete={() => router.push("/fundraisers")} />
+        </div>
+      )}
     </div>
   );
 }
@@ -497,7 +501,7 @@ function LevelsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefres
           <p className="p-4 text-sm text-gray-500">No sponsorship levels defined yet.</p>
         ) : levels.length > 0 ? (
           <div className="overflow-x-auto">
-          <table className="w-max text-sm">
+          <table className="w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left px-4 py-2 font-medium text-gray-500">Level</th>
@@ -582,6 +586,9 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
   const [releasedValues, setReleasedValues] = useState<Record<string, string>>(() =>
     Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsReleased != null ? String(d.seatsReleased) : ""]))
   );
+  const [assumedValues, setAssumedValues] = useState<Record<string, string>>(() =>
+    Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.assumedSeats != null ? String(d.assumedSeats) : ""]))
+  );
   const [seatPlanError, setSeatPlanError] = useState<string | null>(null);
   const [seatReducePending, setSeatReducePending] = useState<{
     donationId: string;
@@ -604,6 +611,9 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
     );
     setReleasedValues(
       Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.seatsReleased != null ? String(d.seatsReleased) : ""]))
+    );
+    setAssumedValues(
+      Object.fromEntries(fundraiser.donations.map((d) => [d.id, d.assumedSeats != null ? String(d.assumedSeats) : ""]))
     );
   }, [fundraiser.donations]);
 
@@ -676,7 +686,7 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
       ? !invitedPeopleIds.has(selectedPerson.id) && !solicitedPeopleIds.has(selectedPerson.id)
       : false);
 
-  async function saveSeatPlan(donationId: string, body: { seatsReleased?: number | null; attendancePlan?: string }) {
+  async function saveSeatPlan(donationId: string, body: { assumedSeats?: number | null; seatsReleased?: number | null; attendancePlan?: string }) {
     setSeatPlanError(null);
     const res = await fetch(`/api/fundraisers/${fundraiser.id}/donations/${donationId}/seat-plan`, {
       method: "PATCH",
@@ -1142,11 +1152,13 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
             if (sponsors.length === 0) return null;
             const given = sponsors.reduce((n, d) => n + (d.sponsoredSeats ?? 0), 0);
             const using = sponsors.reduce((n, d) => n + (d.seatsUsed ?? 0), 0);
+            const assumed = sponsors.reduce((n, d) => n + (d.assumedSeats ?? 0), 0);
             const released = sponsors.reduce((n, d) => n + (d.seatsReleased ?? 0), 0);
             const unconfirmed = Math.max(0, given - using - released);
             return (
               <div className="mb-3 text-sm text-gray-600">
                 Sponsored seats: <span className="font-medium text-gray-900">{given}</span>
+                <span className="text-gray-400"> · </span>assumed (planning): <span className="font-medium text-gray-900">{assumed}</span>
                 <span className="text-gray-400"> · </span>in use by sponsors: <span className="font-medium text-gray-900">{using}</span>
                 <span className="text-gray-400"> · </span>released to us: <span className="font-medium text-gray-900">{released}</span>
                 <span className="text-gray-400"> · </span>unconfirmed: <span className={`font-medium ${unconfirmed > 0 ? "text-amber-700" : "text-gray-900"}`}>{unconfirmed}</span>
@@ -1168,6 +1180,7 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
                 <th className="px-4 py-2">Tax-Deductible</th>
                 <th className="px-4 py-2">Method</th>
                 {hasEvent && <th className="px-4 py-2" title="Seats included with their sponsorship">Sponsored</th>}
+                {hasEvent && <th className="px-4 py-2" title="Your planning estimate of how many seats they'll use">Assumed</th>}
                 {hasEvent && <th className="px-4 py-2" title="Seats we expect them to fill themselves">Using</th>}
                 {hasEvent && <th className="px-4 py-2" title="Seats they're letting us give away">Released</th>}
                 {hasEvent && <th className="px-4 py-2" title="Is the donor attending?">Seat Usage Plan</th>}
@@ -1210,6 +1223,28 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
                   {hasEvent && (
                     <td className="px-4 py-2 text-gray-500 text-center">
                       {d.sponsoredSeats ?? "—"}
+                    </td>
+                  )}
+                  {hasEvent && (
+                    <td className="px-4 py-2">
+                      {d.sponsoredSeats != null && d.sponsoredSeats > 0 ? (
+                        <input
+                          type="number"
+                          min={0}
+                          value={assumedValues[d.id] ?? ""}
+                          placeholder="0"
+                          onChange={(e) => setAssumedValues((prev) => ({ ...prev, [d.id]: e.target.value }))}
+                          onBlur={(e) => {
+                            const parsed = e.target.value === "" ? null : parseInt(e.target.value);
+                            if (parsed !== null && isNaN(parsed)) return;
+                            if ((parsed ?? null) !== (d.assumedSeats ?? null)) saveSeatPlan(d.id, { assumedSeats: parsed });
+                          }}
+                          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+                          className="w-16 border border-gray-300 rounded px-2 py-0.5 text-sm focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
+                        />
+                      ) : (
+                        <span className="text-xs text-gray-400">—</span>
+                      )}
                     </td>
                   )}
                   {hasEvent && (
@@ -1609,21 +1644,6 @@ function SettingsTab({
   return (
     <div className="space-y-4 max-w-2xl">
       <div className="bg-white rounded-lg shadow p-5">
-        <h3 className="text-sm font-medium text-gray-900 mb-3">Fundraiser Status</h3>
-        <button
-          onClick={toggleActive}
-          disabled={saving}
-          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
-            fundraiser.isActive
-              ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-              : "bg-green-600 text-white hover:bg-green-700"
-          }`}
-        >
-          {saving ? "Updating..." : fundraiser.isActive ? "Deactivate Fundraiser" : "Activate Fundraiser"}
-        </button>
-      </div>
-
-      <div className="bg-white rounded-lg shadow p-5">
         <h3 className="text-sm font-medium text-gray-900 mb-1">Solicitor Tag</h3>
         <p className="text-sm text-gray-600 mb-3">
           People with this tag appear in the Solicitor dropdown on the Pledges tab.
@@ -1652,6 +1672,21 @@ function SettingsTab({
           </code>
         </div>
       )}
+
+      <div className="bg-white rounded-lg shadow p-5">
+        <h3 className="text-sm font-medium text-gray-900 mb-3">Fundraiser Status</h3>
+        <button
+          onClick={toggleActive}
+          disabled={saving}
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors disabled:opacity-50 ${
+            fundraiser.isActive
+              ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+              : "bg-green-600 text-white hover:bg-green-700"
+          }`}
+        >
+          {saving ? "Updating..." : fundraiser.isActive ? "Deactivate Fundraiser" : "Activate Fundraiser"}
+        </button>
+      </div>
 
       <div className="bg-red-50 border border-red-200 rounded-lg p-5">
         <h3 className="text-sm font-medium text-red-800 mb-2">Danger Zone</h3>
