@@ -10,6 +10,7 @@ import FundraiserEventSection from "@/components/fundraisers/FundraiserEventSect
 import FundraiserNoticeManager, { type DonationForEval } from "@/components/fundraisers/FundraiserNoticeManager";
 import PledgesTab, { type Pledge } from "@/components/fundraisers/PledgesTab";
 import CommitteeReportTab from "@/components/fundraisers/CommitteeReportTab";
+import EditDonationModal from "@/components/fundraisers/EditDonationModal";
 
 interface Person {
   id: string;
@@ -562,6 +563,7 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [syncingAll, setSyncingAll] = useState(false);
+  const [editingDonation, setEditingDonation] = useState<Donation | null>(null);
   const [partners, setPartners] = useState<PartnerOption[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
@@ -1188,6 +1190,7 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
                 <th className="px-4 py-2">QB</th>
                 <th className="px-4 py-2">Date</th>
                 <th className="px-4 py-2" title="Contribution Acknowledgment Letter">CAL</th>
+                <th className="px-4 py-2"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -1408,12 +1411,24 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
                       </div>
                     </div>
                   </td>
+                  <td className="px-4 py-2 text-right">
+                    <button onClick={() => setEditingDonation(d)} className="text-xs text-indigo-600 hover:underline">Edit</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
           </div>
         </div>
+      )}
+      {editingDonation && (
+        <EditDonationModal
+          donation={editingDonation}
+          fundraiserId={fundraiser.id}
+          sponsorshipLevels={fundraiser.sponsorshipLevels}
+          onClose={() => setEditingDonation(null)}
+          onSaved={onRefresh}
+        />
       )}
       {seatReducePending && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
