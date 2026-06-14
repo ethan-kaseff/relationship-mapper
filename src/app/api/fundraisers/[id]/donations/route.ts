@@ -74,6 +74,7 @@ export async function POST(
           sponsorshipLevelId: data.sponsorshipLevelId ?? null,
           partnerId: data.partnerId ?? null,
           sponsoredSeats,
+          assumedSeats: sponsoredSeats,
           seatsUsed,
           isAnonymous: data.isAnonymous ?? false,
           paymentMethod: data.paymentMethod ?? "other",

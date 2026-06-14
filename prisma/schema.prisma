@@ -557,6 +557,7 @@ model Donation {
   sponsorshipLevel      SponsorshipLevel? @relation(fields: [sponsorshipLevelId], references: [id], onDelete: SetNull)
   partnerId             String?          @map("partner_id")
   sponsoredSeats        Int?             @map("sponsored_seats")
+  assumedSeats          Int?             @map("assumed_seats") // planning estimate of seats they'll use
   seatsUsed             Int?             @map("seats_used") // seats they fill themselves
   seatsReleased         Int?             @map("seats_released") // seats returned for us to give away
   attendancePlan        String           @default("UNKNOWN") @map("attendance_plan") // UNKNOWN, USING_SEATS, OTHER_TABLE, NOT_ATTENDING

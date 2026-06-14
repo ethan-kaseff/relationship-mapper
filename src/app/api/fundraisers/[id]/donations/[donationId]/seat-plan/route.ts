@@ -35,6 +35,7 @@ export async function PATCH(
     const updated = await prisma.donation.update({
       where: { id: donationId },
       data: {
+        ...(data.assumedSeats !== undefined ? { assumedSeats: data.assumedSeats } : {}),
         ...(data.seatsReleased !== undefined ? { seatsReleased: data.seatsReleased } : {}),
         ...(data.attendancePlan !== undefined ? { attendancePlan: data.attendancePlan } : {}),
       },

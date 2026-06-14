@@ -32,6 +32,7 @@ export const updateDonationSeatsSchema = z.object({
 });
 
 export const updateDonationSeatPlanSchema = z.object({
+  assumedSeats: z.number().int().min(0).optional().nullable(),
   seatsReleased: z.number().int().min(0).optional().nullable(),
   attendancePlan: z.enum(["UNKNOWN", "USING_SEATS", "OTHER_TABLE", "NOT_ATTENDING"]).optional(),
 });
