@@ -196,7 +196,8 @@ export default function PledgesTab({
               : "No pledges match this filter."}
           </p>
         ) : (
-          <table className="w-full text-sm mt-3">
+          <div className="overflow-x-auto">
+          <table className="w-max text-sm mt-3">
             <thead className="bg-gray-50 border-b">
               <tr>
                 <th className="text-left px-3 py-2 font-semibold text-indigo-900">Name</th>
@@ -227,6 +228,7 @@ export default function PledgesTab({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </div>
 
