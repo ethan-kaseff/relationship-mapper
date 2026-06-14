@@ -11,6 +11,7 @@ import FundraiserNoticeManager, { type DonationForEval } from "@/components/fund
 import PledgesTab, { type Pledge } from "@/components/fundraisers/PledgesTab";
 import CommitteeReportTab from "@/components/fundraisers/CommitteeReportTab";
 import EditDonationModal from "@/components/fundraisers/EditDonationModal";
+import SeatReducePicker from "@/components/fundraisers/SeatReducePicker";
 
 interface Person {
   id: string;
@@ -600,7 +601,6 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
     namedInvites: { id: string; name: string; tableId: string | null }[];
   } | null>(null);
   const [selectedToRemove, setSelectedToRemove] = useState<Set<string>>(new Set());
-  const [copiedNames, setCopiedNames] = useState(false);
 
   const selectedLevel = fundraiser.sponsorshipLevels.find((l) => l.id === form.sponsorshipLevelId);
 
@@ -904,22 +904,6 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
 
   return (
     <div className="space-y-4">
-      {valetSponsors.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-4">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium text-gray-900">Valet Parking — {totalValet} pass{totalValet !== 1 ? "es" : ""} across {valetSponsors.length} sponsor{valetSponsors.length !== 1 ? "s" : ""}</h3>
-            <button onClick={exportValetCSV} className="text-xs border border-indigo-300 text-indigo-600 px-2 py-1 rounded-md hover:bg-indigo-50">Export CSV</button>
-          </div>
-          <ul className="text-sm divide-y divide-gray-100">
-            {valetSponsors.map((v, i) => (
-              <li key={i} className="flex justify-between py-1">
-                <span className="text-gray-800">{v.name} <span className="text-gray-400 text-xs">({v.level})</span></span>
-                <span className="font-medium text-gray-700">{v.passes}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
       <div className="bg-white rounded-lg shadow">
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <h3 className="text-sm font-medium text-gray-900">
@@ -1426,77 +1410,44 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
           donation={editingDonation}
           fundraiserId={fundraiser.id}
           sponsorshipLevels={fundraiser.sponsorshipLevels}
+          eventId={fundraiser.event?.id ?? null}
           onClose={() => setEditingDonation(null)}
           onSaved={onRefresh}
         />
       )}
       {seatReducePending && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 max-h-[85vh] flex flex-col">
-            <div className="p-4 border-b">
-              <div className="flex items-start justify-between gap-3">
-                <h2 className="text-lg font-semibold text-gray-900">Reduce seats for {seatReducePending.group}</h2>
-                <button
-                  onClick={async () => {
-                    const text = seatReducePending.namedInvites.map((i) => i.name).join("\n");
-                    try {
-                      await navigator.clipboard.writeText(text);
-                      setCopiedNames(true);
-                      setTimeout(() => setCopiedNames(false), 2000);
-                    } catch { /* clipboard unavailable */ }
-                  }}
-                  className="shrink-0 text-xs text-indigo-600 hover:text-indigo-800 border border-indigo-200 rounded-md px-2 py-1 hover:bg-indigo-50"
-                  title="Copy the current guest list to paste into an email or text"
-                >
-                  {copiedNames ? "Copied!" : "Copy names"}
-                </button>
-              </div>
-              <p className="text-sm text-gray-600 mt-1">
-                This group has {seatReducePending.namedInvites.length} named guest{seatReducePending.namedInvites.length !== 1 ? "s" : ""}, but you&apos;re setting {seatReducePending.value} seat{seatReducePending.value !== "1" ? "s" : ""}. Choose {seatReducePending.removeCount} to remove from the invite list.
-              </p>
-            </div>
-            <div className="flex-1 overflow-y-auto p-2">
-              {seatReducePending.namedInvites.map((inv) => {
-                const checked = selectedToRemove.has(inv.id);
-                const atCap = selectedToRemove.size >= seatReducePending.removeCount;
-                return (
-                  <label key={inv.id} className={`flex items-center gap-3 px-3 py-2 rounded cursor-pointer ${checked ? "bg-red-50" : "hover:bg-gray-50"}`}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      disabled={!checked && atCap}
-                      onChange={() => setSelectedToRemove((prev) => {
-                        const next = new Set(prev);
-                        if (next.has(inv.id)) next.delete(inv.id); else next.add(inv.id);
-                        return next;
-                      })}
-                      className="accent-red-600 disabled:opacity-40"
-                    />
-                    <span className="text-sm text-gray-800 flex-1">{inv.name}</span>
-                    {inv.tableId && <span className="text-xs text-amber-600">seated at a table</span>}
-                  </label>
-                );
-              })}
-            </div>
-            <div className="p-4 border-t">
-              <p className="text-xs text-gray-500 mb-2">
-                {selectedToRemove.size} of {seatReducePending.removeCount} selected. Any remaining TBD seats for this group will also be cleared.
-              </p>
-              <div className="flex gap-3">
-                <button onClick={cancelSeatReduce} className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm">Cancel</button>
-                <button
-                  onClick={confirmSeatReduce}
-                  disabled={selectedToRemove.size !== seatReducePending.removeCount}
-                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700 text-sm disabled:opacity-50"
-                >
-                  Remove {seatReducePending.removeCount} & save
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <SeatReducePicker
+          group={seatReducePending.group}
+          namedInvites={seatReducePending.namedInvites}
+          removeCount={seatReducePending.removeCount}
+          targetSeats={Number(seatReducePending.value)}
+          selected={selectedToRemove}
+          onToggle={(id) => setSelectedToRemove((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+          })}
+          onCancel={cancelSeatReduce}
+          onConfirm={confirmSeatReduce}
+        />
       )}
     </div>
+      {valetSponsors.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-900">Valet Parking — {totalValet} pass{totalValet !== 1 ? "es" : ""} across {valetSponsors.length} sponsor{valetSponsors.length !== 1 ? "s" : ""}</h3>
+            <button onClick={exportValetCSV} className="text-xs border border-indigo-300 text-indigo-600 px-2 py-1 rounded-md hover:bg-indigo-50">Export CSV</button>
+          </div>
+          <ul className="text-sm divide-y divide-gray-100">
+            {valetSponsors.map((v, i) => (
+              <li key={i} className="flex justify-between py-1">
+                <span className="text-gray-800">{v.name} <span className="text-gray-400 text-xs">({v.level})</span></span>
+                <span className="font-medium text-gray-700">{v.passes}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
