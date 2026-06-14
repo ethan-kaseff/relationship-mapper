@@ -45,7 +45,7 @@ export async function GET(
                 },
               },
             },
-            sponsorshipLevel: { select: { id: true, name: true, amount: true, seats: true } },
+            sponsorshipLevel: { select: { id: true, name: true, amount: true, seats: true, valetPasses: true } },
             partner: { select: { id: true, organizationName: true } },
           },
         },

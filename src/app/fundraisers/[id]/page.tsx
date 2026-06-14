@@ -35,6 +35,7 @@ interface SponsorshipLevel {
   name: string;
   amount: number;
   seats: number | null;
+  valetPasses: number | null;
   description: string | null;
   displayOrder: number;
 }
@@ -47,7 +48,7 @@ interface Donation {
   peopleId: string | null;
   person: Person | null;
   sponsorshipLevelId: string | null;
-  sponsorshipLevel: Pick<SponsorshipLevel, "id" | "name" | "amount" | "seats"> | null;
+  sponsorshipLevel: Pick<SponsorshipLevel, "id" | "name" | "amount" | "seats" | "valetPasses"> | null;
   partnerId: string | null;
   partner: PartnerOption | null;
   sponsoredSeats: number | null;
@@ -341,10 +342,10 @@ function LevelsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefres
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ name: "", amountDollars: "", seats: "", description: "" });
+  const [form, setForm] = useState({ name: "", amountDollars: "", seats: "", valet: "", description: "" });
 
   function resetForm() {
-    setForm({ name: "", amountDollars: "", seats: "", description: "" });
+    setForm({ name: "", amountDollars: "", seats: "", valet: "", description: "" });
     setEditingId(null);
     setShowForm(false);
   }
@@ -354,6 +355,7 @@ function LevelsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefres
       name: level.name,
       amountDollars: centsToDollars(level.amount).toString(),
       seats: level.seats != null ? String(level.seats) : "",
+      valet: level.valetPasses != null ? String(level.valetPasses) : "",
       description: level.description ?? "",
     });
     setEditingId(level.id);
@@ -366,7 +368,8 @@ function LevelsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefres
     try {
       const amount = dollarsToCents(parseFloat(form.amountDollars));
       const seats = form.seats !== "" ? parseInt(form.seats) : null;
-      const body = { name: form.name, amount, seats, description: form.description || null };
+      const valetPasses = form.valet !== "" ? parseInt(form.valet) : null;
+      const body = { name: form.name, amount, seats, valetPasses, description: form.description || null };
       const url = editingId
         ? `/api/fundraisers/${fundraiser.id}/sponsorship-levels/${editingId}`
         : `/api/fundraisers/${fundraiser.id}/sponsorship-levels`;
@@ -456,6 +459,17 @@ function LevelsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefres
               </div>
             )}
             <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Valet passes (optional)</label>
+              <input
+                type="number"
+                min="0"
+                placeholder="e.g. 4 — leave blank for levels without valet"
+                value={form.valet}
+                onChange={(e) => setForm((p) => ({ ...p, valet: e.target.value }))}
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              />
+            </div>
+            <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Description (optional)</label>
               <input
                 placeholder="e.g. Includes VIP reception, logo on materials"
@@ -482,12 +496,14 @@ function LevelsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefres
         {levels.length === 0 && !showForm ? (
           <p className="p-4 text-sm text-gray-500">No sponsorship levels defined yet.</p>
         ) : levels.length > 0 ? (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-max text-sm">
             <thead className="bg-gray-50">
               <tr>
                 <th className="text-left px-4 py-2 font-medium text-gray-500">Level</th>
                 <th className="text-left px-4 py-2 font-medium text-gray-500">Amount</th>
                 {hasEvent && <th className="text-left px-4 py-2 font-medium text-gray-500">Seats</th>}
+                <th className="text-left px-4 py-2 font-medium text-gray-500">Valet</th>
                 <th className="text-left px-4 py-2 font-medium text-gray-500">Description</th>
                 <th className="px-4 py-2" />
               </tr>
@@ -506,6 +522,7 @@ function LevelsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefres
                           : <span className="text-gray-400">—</span>}
                     </td>
                   )}
+                  <td className="px-4 py-3 text-gray-600">{level.valetPasses != null && level.valetPasses > 0 ? level.valetPasses : <span className="text-gray-400">—</span>}</td>
                   <td className="px-4 py-3 text-gray-500 text-xs">{level.description || "—"}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex gap-3 justify-end">
@@ -523,6 +540,7 @@ function LevelsTab({ fundraiser, onRefresh }: { fundraiser: Fundraiser; onRefres
               ))}
             </tbody>
           </table>
+          </div>
         ) : null}
       </div>
     </div>
@@ -627,6 +645,22 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
     : [];
 
   const hasEvent = !!fundraiser.event;
+
+  const valetSponsors = fundraiser.donations
+    .filter((d) => (d.sponsorshipLevel?.valetPasses ?? 0) > 0)
+    .map((d) => ({ name: donorRowName(d), level: d.sponsorshipLevel?.name ?? "", passes: d.sponsorshipLevel?.valetPasses ?? 0 }));
+  const totalValet = valetSponsors.reduce((sum, v) => sum + v.passes, 0);
+  function exportValetCSV() {
+    const rows = [["Sponsor", "Level", "Valet Passes"], ...valetSponsors.map((v) => [v.name, v.level, String(v.passes)])];
+    const csv = rows.map((r) => r.map((x) => `"${String(x).replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "valet-list.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   // Flag donors with no connection to this event/fundraiser (likely a wrong pick)
   const solicitedPeopleIds = new Set(solicitations.flatMap((s) => (s.person ? [s.person.id] : [])));
@@ -857,7 +891,24 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
   }
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div className="space-y-4">
+      {valetSponsors.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm font-medium text-gray-900">Valet Parking — {totalValet} pass{totalValet !== 1 ? "es" : ""} across {valetSponsors.length} sponsor{valetSponsors.length !== 1 ? "s" : ""}</h3>
+            <button onClick={exportValetCSV} className="text-xs border border-indigo-300 text-indigo-600 px-2 py-1 rounded-md hover:bg-indigo-50">Export CSV</button>
+          </div>
+          <ul className="text-sm divide-y divide-gray-100">
+            {valetSponsors.map((v, i) => (
+              <li key={i} className="flex justify-between py-1">
+                <span className="text-gray-800">{v.name} <span className="text-gray-400 text-xs">({v.level})</span></span>
+                <span className="font-medium text-gray-700">{v.passes}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <div className="bg-white rounded-lg shadow">
       <div className="flex items-center justify-between p-4 border-b border-gray-200">
         <h3 className="text-sm font-medium text-gray-900">
           All Donations ({fundraiser.donations.length})
@@ -1108,7 +1159,8 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
               <button onClick={() => setSeatPlanError(null)} className="float-right text-xs underline">Dismiss</button>
             </div>
           )}
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-max text-sm">
             <thead className="bg-gray-50 text-left text-gray-500">
               <tr>
                 <th className="px-4 py-2">Donor</th>
@@ -1118,7 +1170,7 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
                 {hasEvent && <th className="px-4 py-2" title="Seats included with their sponsorship">Sponsored</th>}
                 {hasEvent && <th className="px-4 py-2" title="Seats we expect them to fill themselves">Using</th>}
                 {hasEvent && <th className="px-4 py-2" title="Seats they're letting us give away">Released</th>}
-                {hasEvent && <th className="px-4 py-2" title="Is the donor attending?">Plan</th>}
+                {hasEvent && <th className="px-4 py-2" title="Is the donor attending?">Seat Usage Plan</th>}
                 <th className="px-4 py-2">Status</th>
                 <th className="px-4 py-2">QB</th>
                 <th className="px-4 py-2">Date</th>
@@ -1325,6 +1377,7 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
       {seatReducePending && (
@@ -1393,6 +1446,7 @@ function DonationsTab({ fundraiser, solicitations, onRefresh }: { fundraiser: Fu
           </div>
         </div>
       )}
+    </div>
     </div>
   );
 }
@@ -1907,7 +1961,8 @@ function SolicitationsTab({
           {solicitations.length === 0 ? "No one on the ask list yet. Add people above." : "No matching people."}
         </p>
       ) : (
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-max text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">Name</th>
@@ -1955,6 +2010,7 @@ function SolicitationsTab({
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       {showModal && (

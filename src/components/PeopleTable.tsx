@@ -170,7 +170,8 @@ export default function PeopleTable({
         </button>
       </div>
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <table className="w-full text-sm">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-max text-sm">
           <thead className="bg-gray-50 border-b">
             <tr>
               <th className="text-left px-4 py-3 font-semibold text-indigo-900">Name</th>
@@ -224,6 +225,7 @@ export default function PeopleTable({
             )}
           </tbody>
         </table>
+        </div>
         <Pagination
           currentPage={currentPage}
           totalItems={filtered.length}
