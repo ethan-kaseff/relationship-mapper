@@ -766,18 +766,14 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  {inv.group && (
-                    <span className="text-xs text-gray-600">{inv.group}</span>
-                  ) || (
-                    <BlurInput
-                      type="text"
-                      list="group-suggestions"
-                      value={inv.group}
-                      onCommit={(val) => updateGroup(inv.id, val)}
-                      placeholder="Group"
-                      className="w-full min-w-[8rem] px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
-                    />
-                  )}
+                  <BlurInput
+                    type="text"
+                    list="group-suggestions"
+                    value={inv.group}
+                    onCommit={(val) => updateGroup(inv.id, val)}
+                    placeholder="Group"
+                    className="w-full min-w-[8rem] px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
+                  />
                 </td>
                 {trackMeals && (
                   <td className="px-4 py-3">

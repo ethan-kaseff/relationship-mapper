@@ -43,8 +43,8 @@ export default function GuestModal({ guest, isOpen, onClose, onSave, existingGro
       setNotes(guest.notes || '');
       setTableId(guest.tableId);
       setTicketType(guest.ticketType || 'Regular');
-      setSeatingRequest('');
-      setTableRequest('');
+      setSeatingRequest(guest.seatingRequest || '');
+      setTableRequest(guest.tableRequest || '');
     }
   }, [guest, isOpen]);
 

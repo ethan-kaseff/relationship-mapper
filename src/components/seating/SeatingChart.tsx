@@ -89,13 +89,25 @@ function renameTablesByGroup(tables: Table[], guests: SeatingGuest[]): Table[] |
   });
 }
 
+export interface GuestDetailUpdates {
+  group: string;
+  meal: string;
+  dietary: string[];
+  notes: string;
+  ticketType: string;
+  seatingRequest: string;
+  tableRequest: string;
+}
+
 interface SeatingChartProps {
   layout: SeatingLayout | null;
   guests: SeatingGuest[];
   onSave: (state: SeatingState) => Promise<void>;
+  // Persists a guest's editable details (from the popup) to the invite record.
+  onGuestSave?: (inviteId: string, updates: GuestDetailUpdates) => void | Promise<void>;
 }
 
-export default function SeatingChart({ layout, guests, onSave }: SeatingChartProps) {
+export default function SeatingChart({ layout, guests, onSave, onGuestSave }: SeatingChartProps) {
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [selectedSeatInfo, setSelectedSeatInfo] = useState<{ tableId: string; seatIndex: number } | null>(null);
   const [guestModalOpen, setGuestModalOpen] = useState(false);
@@ -521,37 +533,21 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
   };
 
   const handleSeatClick = (tableId: string, seatIndex: number, guestId: string | null) => {
-    if (selectedGuestId && !guestId) {
-      triggerGroupSeating(selectedGuestId, tableId, seatIndex);
-      return;
-    }
-    if (selectedGuestId && guestId && selectedGuestId !== guestId) {
-      // Swap: find where the selected guest is seated, then swap them
-      const selectedGuest = state.guests.find((g) => g.id === selectedGuestId);
-      const targetGuest = state.guests.find((g) => g.id === guestId);
-      if (!confirm(`Swap ${selectedGuest?.name || 'selected guest'} with ${targetGuest?.name || 'this guest'}?`)) return;
-      if (selectedGuest?.tableId != null && selectedGuest?.seatIndex != null) {
-        const fromTable = selectedGuest.tableId;
-        const fromSeat = selectedGuest.seatIndex;
-        batchDispatch([
-          { type: 'UNASSIGN_GUEST', payload: selectedGuestId },
-          { type: 'UNASSIGN_GUEST', payload: guestId },
-          { type: 'ASSIGN_GUEST', payload: { guestId, tableId: fromTable, seatIndex: fromSeat } },
-          { type: 'ASSIGN_GUEST', payload: { guestId: selectedGuestId, tableId, seatIndex } },
-        ]);
-      }
-      setSelectedGuestId(null);
-      setSelectedSeatInfo(null);
-      return;
-    }
+    // Clicking a seated person always opens their details. Moving and swapping
+    // are done by dragging the person to another seat (see onGuestDrop).
     if (guestId) {
       const guest = state.guests.find((g) => g.id === guestId);
       if (guest) {
         setEditingGuest(guest);
         setGuestModalOpen(true);
-        setSelectedGuestId(guestId);
-        setSelectedSeatInfo(null);
       }
+      setSelectedGuestId(null);
+      setSelectedSeatInfo(null);
+      return;
+    }
+    // Empty seat: drop in a guest picked from the sidebar, otherwise select it.
+    if (selectedGuestId) {
+      triggerGroupSeating(selectedGuestId, tableId, seatIndex);
       return;
     }
     if (selectedSeatInfo?.tableId === tableId && selectedSeatInfo?.seatIndex === seatIndex) {
@@ -604,27 +600,52 @@ export default function SeatingChart({ layout, guests, onSave }: SeatingChartPro
 
   const handleGuestSave = (data: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null; ticketType: string; seatingRequest: string; tableRequest: string }) => {
     updateGuest(data.id, { group: data.group, meal: data.meal, dietary: data.dietary, notes: data.notes, ticketType: data.ticketType });
+    // Persist these details to the invite record — the local update above doesn't
+    // cover table/seating requests, and the seating save only writes seat positions.
+    onGuestSave?.(data.id, {
+      group: data.group,
+      meal: data.meal,
+      dietary: data.dietary,
+      notes: data.notes,
+      ticketType: data.ticketType,
+      seatingRequest: data.seatingRequest,
+      tableRequest: data.tableRequest,
+    });
     const guest = state.guests.find((g) => g.id === data.id);
-    if (guest?.tableId !== data.tableId) {
-      if (guest?.tableId && !data.tableId && guest.group) {
-        // Unassigning — check for group members at the same table
-        const groupAtTable = state.guests.filter(
-          (g) => g.group === guest.group && g.tableId === guest.tableId && g.id !== data.id
-        );
-        if (groupAtTable.length > 0) {
-          const names = groupAtTable.map((g) => g.name).join(', ');
-          if (confirm(`Also remove ${groupAtTable.length} other "${guest.group}" member${groupAtTable.length > 1 ? 's' : ''} from ${state.tables.find((t) => t.id === guest.tableId)?.name || 'this table'}?\n\n${names}`)) {
-            groupAtTable.forEach((g) => unassignGuest(g.id));
+    if (guest && guest.tableId !== data.tableId) {
+      if (data.tableId) {
+        // Moving to a different table. If the person has group (or table-request)
+        // members seated elsewhere, route through the group-aware mover so it
+        // offers to bring them along — the same prompt as dragging. Solo guests
+        // just move into an open seat.
+        const table = state.tables.find((t) => t.id === data.tableId);
+        const openSeat = table ? table.seats.findIndex((s) => !s.guestId) : -1;
+        if (openSeat >= 0) {
+          const grp = guest.group;
+          const hasGroupToMove = !!grp && state.guests.some(
+            (g) => (g.group === grp || g.tableRequest === grp) && g.id !== data.id && g.tableId !== data.tableId
+          );
+          if (hasGroupToMove) {
+            triggerGroupSeating(data.id, data.tableId, openSeat);
+          } else {
+            if (guest.tableId) unassignGuest(data.id);
+            assignGuest(data.id, data.tableId, openSeat);
           }
         }
-      }
-      if (guest?.tableId) unassignGuest(data.id);
-      if (data.tableId) {
-        const table = state.tables.find((t) => t.id === data.tableId);
-        if (table) {
-          const openSeat = table.seats.findIndex((s) => !s.guestId);
-          if (openSeat >= 0) assignGuest(data.id, data.tableId, openSeat);
+      } else if (guest.tableId) {
+        // Unassigning — offer to remove the rest of the group from that table too.
+        if (guest.group) {
+          const groupAtTable = state.guests.filter(
+            (g) => g.group === guest.group && g.tableId === guest.tableId && g.id !== data.id
+          );
+          if (groupAtTable.length > 0) {
+            const names = groupAtTable.map((g) => g.name).join(', ');
+            if (confirm(`Also remove ${groupAtTable.length} other "${guest.group}" member${groupAtTable.length > 1 ? 's' : ''} from ${state.tables.find((t) => t.id === guest.tableId)?.name || 'this table'}?\n\n${names}`)) {
+              groupAtTable.forEach((g) => unassignGuest(g.id));
+            }
+          }
         }
+        unassignGuest(data.id);
       }
     }
     setEditingGuest(null);

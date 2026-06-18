@@ -21,6 +21,7 @@ interface EventInvite {
   guestName: string | null;
   ticketType: string;
   tableRequest: string | null;
+  seatingRequest: string | null;
   person: {
     id: string;
     firstName: string;
@@ -72,6 +73,7 @@ export default function SeatingChartWrapper({ event, onRefresh }: SeatingChartWr
     isPlaceholder: inv.isPlaceholder,
     ticketType: inv.ticketType,
     tableRequest: inv.tableRequest,
+    seatingRequest: inv.seatingRequest,
     partnerOrgColor: inv.person?.partnerRoles
       ?.map((r) => r.partner?.organizationType?.officeColors.find((c) => c.officeId === event.officeId)?.color)
       .find(Boolean) ?? undefined,
@@ -123,6 +125,29 @@ export default function SeatingChartWrapper({ event, onRefresh }: SeatingChartWr
     }
   }, [event.id, onRefresh]);
 
+  // Persist a guest's editable details from the seating popup to the invite
+  // record. The seating save above only writes table/seat positions, so without
+  // this those detail edits (incl. table/seating requests) would be lost.
+  const handleGuestDetailsSave = useCallback(async (inviteId: string, updates: {
+    group: string; meal: string; dietary: string[]; notes: string;
+    ticketType: string; seatingRequest: string; tableRequest: string;
+  }) => {
+    const res = await fetch(`/api/events/${event.id}/invites/${inviteId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        group: updates.group,
+        meal: updates.meal,
+        dietary: updates.dietary,
+        notes: updates.notes || null,
+        ticketType: updates.ticketType,
+        seatingRequest: updates.seatingRequest || null,
+        tableRequest: updates.tableRequest || null,
+      }),
+    });
+    if (res.ok) onRefresh();
+  }, [event.id, onRefresh]);
+
   // Only offer the layout import while the room is still empty — once tables
   // exist, importing is hidden so it can never wipe out seating work.
   const hasTables = !!(layout && Array.isArray(layout.tables) && layout.tables.length > 0);
@@ -134,7 +159,7 @@ export default function SeatingChartWrapper({ event, onRefresh }: SeatingChartWr
           <ReuseLayoutButton eventId={event.id} onImported={onRefresh} />
         </div>
       )}
-      <SeatingChart layout={layout} guests={guests} onSave={handleSave} />
+      <SeatingChart layout={layout} guests={guests} onSave={handleSave} onGuestSave={handleGuestDetailsSave} />
     </div>
   );
 }
