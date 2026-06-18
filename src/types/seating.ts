@@ -15,6 +15,7 @@ export interface SeatingGuest {
   partnerOrgColor?: string;
   partnerOrgName?: string;
   tableRequest?: string | null;
+  seatingRequest?: string | null;
 }
 
 export interface Seat {
