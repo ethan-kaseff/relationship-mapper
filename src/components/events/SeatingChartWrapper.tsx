@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import SeatingChart from "@/components/seating/SeatingChart";
 import ReuseLayoutButton from "@/components/events/ReuseLayoutButton";
 import { SeatingGuest, SeatingLayout } from "@/types/seating";
@@ -85,6 +85,10 @@ export default function SeatingChartWrapper({ event, onRefresh }: SeatingChartWr
 
   const layout = event.seatingLayout as SeatingLayout | null;
 
+  // Tracks the last payload we refreshed the page for, so the chart's own
+  // re-saves (after a refresh re-syncs it) don't trigger an endless refresh loop.
+  const lastSavedKeyRef = useRef<string>("");
+
   const handleSave = useCallback(async (state: SeatingState) => {
     const seatingLayout: SeatingLayout = {
       tables: state.tables,
@@ -100,12 +104,24 @@ export default function SeatingChartWrapper({ event, onRefresh }: SeatingChartWr
       seatIndex: g.seatIndex,
     }));
 
-    await fetch(`/api/events/${event.id}/seating`, {
+    const body = JSON.stringify({ seatingLayout, seatAssignments });
+    const res = await fetch(`/api/events/${event.id}/seating`, {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ seatingLayout, seatAssignments }),
+      body,
     });
-  }, [event.id]);
+    if (!res.ok) return;
+
+    // Keep the rest of the page in sync — the Invite tab reads seat assignments
+    // and table names from the event, so without this it shows a stale snapshot
+    // until a manual reload. Only refresh when the saved data actually changed.
+    // The chart preserves its own assignments across a refresh (SYNC_GUESTS), so
+    // this never disturbs in-progress seating.
+    if (body !== lastSavedKeyRef.current) {
+      lastSavedKeyRef.current = body;
+      onRefresh();
+    }
+  }, [event.id, onRefresh]);
 
   // Only offer the layout import while the room is still empty — once tables
   // exist, importing is hidden so it can never wipe out seating work.
