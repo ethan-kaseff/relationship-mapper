@@ -148,6 +148,20 @@ export default function SeatingChartWrapper({ event, onRefresh }: SeatingChartWr
     if (res.ok) onRefresh();
   }, [event.id, onRefresh]);
 
+  // Top up missing TBD seats for each sponsor (to their "Using" count) on the
+  // server, then refresh so the new seats appear in the chart. Returns how many
+  // placeholders were created so the chart knows whether to wait for a sync.
+  const handleReconcileSeats = useCallback(async (): Promise<number> => {
+    const res = await fetch(`/api/events/${event.id}/reconcile-seats`, { method: "POST" });
+    if (!res.ok) return 0;
+    const data = await res.json().catch(() => null);
+    const created = data?.created ?? 0;
+    // Only refetch when we actually added seats. Refetching otherwise can pull
+    // stale server seating back over a just-cleared chart before Auto-Seat runs.
+    if (created > 0) onRefresh();
+    return created;
+  }, [event.id, onRefresh]);
+
   // Only offer the layout import while the room is still empty — once tables
   // exist, importing is hidden so it can never wipe out seating work.
   const hasTables = !!(layout && Array.isArray(layout.tables) && layout.tables.length > 0);
@@ -159,7 +173,7 @@ export default function SeatingChartWrapper({ event, onRefresh }: SeatingChartWr
           <ReuseLayoutButton eventId={event.id} onImported={onRefresh} />
         </div>
       )}
-      <SeatingChart layout={layout} guests={guests} onSave={handleSave} onGuestSave={handleGuestDetailsSave} />
+      <SeatingChart layout={layout} guests={guests} onSave={handleSave} onGuestSave={handleGuestDetailsSave} onReconcileSeats={handleReconcileSeats} />
     </div>
   );
 }

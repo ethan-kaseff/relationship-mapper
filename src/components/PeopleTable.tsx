@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Pagination, { usePagination } from "./Pagination";
+import { usePersistedState } from "@/hooks/usePersistedState";
 
 interface Person {
   id: string;
@@ -49,7 +50,7 @@ export default function PeopleTable({
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortOption>("name");
+  const [sort, setSort] = usePersistedState<SortOption>("people-sort", "name");
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
   useEffect(() => {
