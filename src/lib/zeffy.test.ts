@@ -23,6 +23,7 @@ vi.mock("@/lib/prisma", () => ({
     donation: {
       findUnique: vi.fn(),
       create: vi.fn(),
+      aggregate: vi.fn(),
     },
     people: {
       findFirst: vi.fn(),
@@ -38,7 +39,7 @@ type MockFn = ReturnType<typeof vi.fn>;
 const mp = prisma as unknown as {
   integrationToken: { findUnique: MockFn };
   fundraiser: { findUnique: MockFn; create: MockFn; update: MockFn };
-  donation: { findUnique: MockFn; create: MockFn };
+  donation: { findUnique: MockFn; create: MockFn; aggregate: MockFn };
   people: { findFirst: MockFn; create: MockFn };
   $transaction: MockFn;
 };
@@ -71,6 +72,9 @@ function mockTransaction() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // recalcFundraiserTotal aggregates donations then writes currentAmount; default
+  // the aggregate so any donation-creating path has a safe total to write.
+  mp.donation.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
 });
 
 // ─── validateZeffyApiKey ──────────────────────────────────────────────────────
@@ -391,6 +395,7 @@ describe("processZeffyWebhookPayment", () => {
     mp.donation.findUnique.mockResolvedValue(null);
     mp.fundraiser.findUnique.mockResolvedValue({ id: "fundraiser-1" });
     mp.people.findFirst.mockResolvedValue({ id: "person-1" });
+    mp.donation.aggregate.mockResolvedValue({ _sum: { amount: 20000 } });
     mockTransaction();
 
     await processZeffyWebhookPayment(basePayment, OFFICE_ID);
@@ -405,9 +410,11 @@ describe("processZeffyWebhookPayment", () => {
         }),
       })
     );
+    // currentAmount is recomputed from SUM(donations) (recalcFundraiserTotal),
+    // not incremented by a delta.
     expect(mp.fundraiser.update).toHaveBeenCalledWith(
       expect.objectContaining({
-        data: { currentAmount: { increment: 20000 } },
+        data: { currentAmount: 20000 },
       })
     );
   });

@@ -112,8 +112,9 @@ async function getAccessToken(officeId: string): Promise<string> {
 
   if (!token) throw new Error("Constant Contact not connected");
 
-  // If token is still valid, return it
-  if (token.expiresAt > new Date()) {
+  // If the token is still valid for at least another minute, use it. The 60s
+  // margin avoids handing back a token that expires mid-request (→ a 401).
+  if (token.expiresAt.getTime() > Date.now() + 60_000) {
     return token.accessToken;
   }
 
