@@ -5,6 +5,7 @@ import AddPeopleModal from "./AddPeopleModal";
 import AddFromPartnerModal from "./AddFromPartnerModal";
 import FillPlaceholderModal from "./FillPlaceholderModal";
 import Pagination, { usePagination } from "../Pagination";
+import { usePersistedState } from "@/hooks/usePersistedState";
 import { DIETARY_OPTIONS } from "@/lib/seating-constants";
 import InviteOptionsPanel from "./InviteOptionsPanel";
 
@@ -418,8 +419,8 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
   const [fillPlaceholderId, setFillPlaceholderId] = useState<string | null>(null);
   const [filter, setFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [sortKey, setSortKey] = usePersistedState<SortKey>("invite-sort-key", "name");
+  const [sortDir, setSortDir] = usePersistedState<SortDir>("invite-sort-dir", "asc");
   const [tableRequestOverrides, setTableRequestOverrides] = useState<Record<string, string | null>>({});
   const [compPromptInviteId, setCompPromptInviteId] = useState<string | null>(null);
 
@@ -766,14 +767,20 @@ export default function InviteManager({ eventId, invites, trackMeals, trackSeati
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <BlurInput
-                    type="text"
-                    list="group-suggestions"
-                    value={inv.group}
-                    onCommit={(val) => updateGroup(inv.id, val)}
-                    placeholder="Group"
-                    className="w-full min-w-[8rem] px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
-                  />
+                  {inv.isPlaceholder ? (
+                    // A TBD seat belongs to its sponsor's group — its group is
+                    // fixed (the seat top-up manages the count), so it's read-only.
+                    <span className="text-xs text-gray-600">{inv.group}</span>
+                  ) : (
+                    <BlurInput
+                      type="text"
+                      list="group-suggestions"
+                      value={inv.group}
+                      onCommit={(val) => updateGroup(inv.id, val)}
+                      placeholder="Group"
+                      className="w-full min-w-[8rem] px-2 py-1 text-xs border border-gray-200 rounded focus:ring-1 focus:ring-indigo-500 focus:border-transparent"
+                    />
+                  )}
                 </td>
                 {trackMeals && (
                   <td className="px-4 py-3">

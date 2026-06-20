@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { SeatingGuest, Table, VenueObject, SeatingLayout } from '@/types/seating';
 import { PIXELS_PER_FOOT, DEFAULT_TABLE_WIDTH } from '@/lib/seating-constants';
 import { useSeatingChart, SeatingState } from '@/hooks/useSeatingChart';
@@ -105,9 +105,12 @@ interface SeatingChartProps {
   onSave: (state: SeatingState) => Promise<void>;
   // Persists a guest's editable details (from the popup) to the invite record.
   onGuestSave?: (inviteId: string, updates: GuestDetailUpdates) => void | Promise<void>;
+  // Tops up missing sponsor seats (creates TBD placeholders) and refreshes;
+  // returns how many were created. Used by Auto-Seat to fill all expected seats.
+  onReconcileSeats?: () => Promise<number>;
 }
 
-export default function SeatingChart({ layout, guests, onSave, onGuestSave }: SeatingChartProps) {
+export default function SeatingChart({ layout, guests, onSave, onGuestSave, onReconcileSeats }: SeatingChartProps) {
   const [selectedGuestId, setSelectedGuestId] = useState<string | null>(null);
   const [selectedSeatInfo, setSelectedSeatInfo] = useState<{ tableId: string; seatIndex: number } | null>(null);
   const [guestModalOpen, setGuestModalOpen] = useState(false);
@@ -404,7 +407,7 @@ export default function SeatingChart({ layout, guests, onSave, onGuestSave }: Se
         const taken = new Set(state.guests.filter((g) => g.tableId === t.id && g.seatIndex !== null).map((g) => g.seatIndex!));
         const available: number[] = [];
         for (let i = 0; i < t.seats.length; i++) { if (!taken.has(i)) available.push(i); }
-        return { tableId: t.id, available };
+        return { tableId: t.id, available, seatCount: t.seats.length };
       });
 
     // Collect all assignments before dispatching so we can project the final state
@@ -413,9 +416,13 @@ export default function SeatingChart({ layout, guests, onSave, onGuestSave }: Se
     for (const groupGuests of sortedGroups) {
       let bestTable = tableAvail.find((t) => t.available.length >= groupGuests.length);
       if (!bestTable) {
-        let remaining = [...groupGuests];
+        // Group is too big for any one existing table. Keep it together: fill
+        // only WHOLE-EMPTY tables (never scatter it into other groups' partial
+        // gaps). Any remainder is seated on freshly-added tables below.
+        const remaining = [...groupGuests];
         for (const ta of tableAvail) {
           if (remaining.length === 0) break;
+          if (ta.available.length !== ta.seatCount) continue;
           while (ta.available.length > 0 && remaining.length > 0) {
             pendingAssignments.push({ guestId: remaining.shift()!.id, tableId: ta.tableId, seatIndex: ta.available.shift()! });
           }
@@ -427,22 +434,84 @@ export default function SeatingChart({ layout, guests, onSave, onGuestSave }: Se
       }
     }
 
+    // Anyone who didn't fit into existing seats — offer to add tables, keeping
+    // each group together on its own new table(s) (solo guests are pooled).
+    const placedIds = new Set(pendingAssignments.map((a) => a.guestId));
+    const leftover = unassigned.filter((g) => !placedIds.has(g.id));
+    const newTables: Table[] = [];
+    if (leftover.length > 0) {
+      const seatsPer = state.tables[0]?.seats.length || 8;
+      const leftoverByGroup = new Map<string, SeatingGuest[]>();
+      for (const g of leftover) {
+        const key = g.group || "__solo";
+        if (!leftoverByGroup.has(key)) leftoverByGroup.set(key, []);
+        leftoverByGroup.get(key)!.push(g);
+      }
+      const tablesNeeded = [...leftoverByGroup.values()].reduce((n, m) => n + Math.ceil(m.length / seatsPer), 0);
+      if (confirm(`Not enough seats for ${leftover.length} guest${leftover.length !== 1 ? 's' : ''}. Add ${tablesNeeded} table${tablesNeeded !== 1 ? 's' : ''} to seat ${leftover.length === 1 ? 'them' : 'everyone'} (groups kept together)?`)) {
+        let idx = state.tables.length;
+        for (const members of leftoverByGroup.values()) {
+          let mi = 0;
+          while (mi < members.length) {
+            const t: Table = {
+              id: `table-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 7)}`,
+              name: `Table ${String(idx + 1).padStart(2, '0')}`,
+              x: 120 + (idx % 4) * 180,
+              y: 120 + Math.floor(idx / 4) * 180,
+              shape: 'round',
+              seats: Array(seatsPer).fill(null).map(() => ({ guestId: null })),
+              width: DEFAULT_TABLE_WIDTH,
+              height: DEFAULT_TABLE_WIDTH,
+              rotation: 0,
+            };
+            newTables.push(t);
+            idx++;
+            for (let s = 0; s < t.seats.length && mi < members.length; s++) {
+              pendingAssignments.push({ guestId: members[mi].id, tableId: t.id, seatIndex: s });
+              mi++;
+            }
+          }
+        }
+      }
+    }
+
     // Project final guest state and rename fully-filled single-group tables
+    const allTables = newTables.length ? [...state.tables, ...newTables] : state.tables;
     const assignmentMap = new Map(pendingAssignments.map((a) => [a.guestId, a]));
     const projectedGuests = state.guests.map((g) => {
       const a = assignmentMap.get(g.id);
       return a ? { ...g, tableId: a.tableId, seatIndex: a.seatIndex } : g;
     });
-    const renamedTables = renameTablesByGroup(state.tables, projectedGuests);
+    const renamedTables = renameTablesByGroup(allTables, projectedGuests);
 
     const actions: Parameters<typeof batchDispatch>[0] = pendingAssignments.map(({ guestId, tableId, seatIndex }) => ({
       type: 'ASSIGN_GUEST' as const, payload: { guestId, tableId, seatIndex },
     }));
     if (renamedTables) actions.push({ type: 'SET_TABLES', payload: renamedTables });
+    else if (newTables.length) actions.push({ type: 'ADD_TABLES', payload: newTables });
     batchDispatch(actions);
 
     setPendingAutoAction('Auto-seat applied');
   }, [state.guests, state.tables, batchDispatch]);
+
+  // Auto-Seat: first top up any missing sponsor seats (TBD placeholders) so every
+  // expected seat is represented, then seat everyone. The reconcile creates the
+  // placeholders on the server and refreshes; we wait for them to sync into the
+  // chart before seating (or seat immediately if nothing needed adding).
+  const autoSeatPendingRef = useRef(false);
+  const handleAutoSeat = useCallback(async () => {
+    if (!onReconcileSeats) { autoSeatByGroup(); return; }
+    const created = await onReconcileSeats();
+    if (created > 0) autoSeatPendingRef.current = true;
+    else autoSeatByGroup();
+  }, [onReconcileSeats, autoSeatByGroup]);
+
+  useEffect(() => {
+    if (autoSeatPendingRef.current) {
+      autoSeatPendingRef.current = false;
+      autoSeatByGroup();
+    }
+  }, [state.guests, autoSeatByGroup]);
 
   const triggerGroupSeating = (primaryGuestId: string, targetTableId: string, targetSeatIndex: number) => {
     const primary = state.guests.find((g) => g.id === primaryGuestId);
@@ -591,12 +660,15 @@ export default function SeatingChart({ layout, guests, onSave, onGuestSave }: Se
 
   const handleDeleteSelected = useCallback(() => {
     if (selectedTableIds.size === 0 && selectedObjectIds.size === 0) return;
-    if (!confirm(`Delete ${selectedTableIds.size + selectedObjectIds.size} selected item(s)?`)) return;
+    const seatsAfter = state.tables.filter((t) => !selectedTableIds.has(t.id)).reduce((n, t) => n + t.seats.length, 0);
+    const shortWarning = selectedTableIds.size > 0 && seatsAfter < state.guests.length
+      ? `\n\nThis leaves only ${seatsAfter} seats for ${state.guests.length} guests.` : "";
+    if (!confirm(`Delete ${selectedTableIds.size + selectedObjectIds.size} selected item(s)?${shortWarning}`)) return;
     selectedTableIds.forEach((id) => deleteTable(id));
     selectedObjectIds.forEach((id) => deleteObject(id));
     setSelectedTableIds(new Set());
     setSelectedObjectIds(new Set());
-  }, [selectedTableIds, selectedObjectIds, deleteTable, deleteObject]);
+  }, [selectedTableIds, selectedObjectIds, deleteTable, deleteObject, state.tables, state.guests.length]);
 
   const handleGuestSave = (data: { id: string; group: string; meal: string; dietary: string[]; notes: string; tableId: string | null; ticketType: string; seatingRequest: string; tableRequest: string }) => {
     updateGuest(data.id, { group: data.group, meal: data.meal, dietary: data.dietary, notes: data.notes, ticketType: data.ticketType });
@@ -844,7 +916,7 @@ export default function SeatingChart({ layout, guests, onSave, onGuestSave }: Se
             floorWidth={state.floorSize.width} floorHeight={state.floorSize.height}
             zoom={state.zoom} isFullscreen={isFullscreen}
             onFloorSizeChange={setFloorSize} onArrangeTables={arrangeTables}
-            onAutoSeat={autoSeatByGroup} snapToGrid={snapToGrid}
+            onAutoSeat={handleAutoSeat} snapToGrid={snapToGrid}
             onToggleSnap={() => setSnapToGrid(!snapToGrid)}
             showCenterLines={showCenterLines} onToggleCenterLines={() => setShowCenterLines(!showCenterLines)}
             onZoomChange={setZoom}
@@ -1086,7 +1158,11 @@ export default function SeatingChart({ layout, guests, onSave, onGuestSave }: Se
       <SeatingTableModal table={editingTable} isOpen={tableModalOpen}
         onClose={() => { setTableModalOpen(false); setEditingTable(null); }}
         onSave={handleTableSave}
-        onDelete={editingTable ? () => deleteTable(editingTable.id) : undefined}
+        onDelete={editingTable ? () => {
+          const seatsAfter = state.tables.filter((t) => t.id !== editingTable.id).reduce((n, t) => n + t.seats.length, 0);
+          if (seatsAfter < state.guests.length && !confirm(`Deleting this table leaves only ${seatsAfter} seats for ${state.guests.length} guests. Delete anyway?`)) return;
+          deleteTable(editingTable.id);
+        } : undefined}
         onDuplicate={editingTable ? () => { addTable(editingTable.seats.length, `${editingTable.name} (copy)`, editingTable.shape || 'round', editingTable.width || DEFAULT_TABLE_WIDTH, editingTable.height || DEFAULT_TABLE_WIDTH); setEditingTable(null); } : undefined}
         unassignedGuests={state.guests.filter((g) => !g.tableId)}
       />

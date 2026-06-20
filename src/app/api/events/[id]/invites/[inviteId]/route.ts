@@ -23,6 +23,12 @@ export async function PUT(
     });
     if (!invite) return notFound("Invite not found");
 
+    // A TBD placeholder must keep its group (it's a sponsor's reserved seat) —
+    // never let an update blank it out, which would orphan the seat.
+    if (invite.isPlaceholder && data.group !== undefined && !data.group.trim()) {
+      delete data.group;
+    }
+
     // When filling a placeholder with an existing person, check for duplicate
     if (data.peopleId) {
       const existing = await prisma.eventInvite.findFirst({
