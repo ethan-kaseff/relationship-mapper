@@ -6,7 +6,9 @@ export async function POST(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const secret = process.env.ZEFFY_WEBHOOK_SECRET;
-    if (secret && searchParams.get("token") !== secret) {
+    // Fail closed: if no secret is configured, reject rather than accept anonymous
+    // webhooks (which could create donations).
+    if (!secret || searchParams.get("token") !== secret) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

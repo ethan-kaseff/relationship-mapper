@@ -42,16 +42,17 @@ export async function POST(
       currentByGroup.set(i.group, (currentByGroup.get(i.group) ?? 0) + 1);
     }
 
-    // rsvpStatus YES so the new placeholders appear in the seating chart (which
-    // only shows confirmed guests) and can be auto-seated.
+    // Placeholders default to PENDING (consistent with the donation/invite flows);
+    // the seating chart shows them via its isPlaceholder filter, and leaving them
+    // non-YES keeps them out of confirmed-attendee ("Yes") counts.
     const toCreate: {
       eventId: string; peopleId: null; isPlaceholder: true; group: string;
-      ticketType: string; rsvpStatus: string;
+      ticketType: string;
     }[] = [];
     for (const [group, expected] of expectedByGroup) {
       const missing = expected - (currentByGroup.get(group) ?? 0);
       for (let i = 0; i < missing; i++) {
-        toCreate.push({ eventId, peopleId: null, isPlaceholder: true, group, ticketType: "Regular", rsvpStatus: "YES" });
+        toCreate.push({ eventId, peopleId: null, isPlaceholder: true, group, ticketType: "Regular" });
       }
     }
 
