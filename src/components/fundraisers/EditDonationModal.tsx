@@ -98,7 +98,10 @@ export default function EditDonationModal({
   const qbSynced = donation.qbSyncStatus && donation.qbSyncStatus !== "NOT_SYNCED";
 
   async function handleDelete() {
-    if (!confirm("Delete this donation? This permanently removes the record and lowers the fundraiser total by this amount. This cannot be undone.")) {
+    const qbNote = qbSynced
+      ? "\n\n⚠️ This donation is synced to QuickBooks. Deleting it here will NOT remove it from QuickBooks — you'll need to adjust that there separately."
+      : "";
+    if (!confirm(`Delete this donation? This permanently removes the record and lowers the fundraiser total by this amount. This cannot be undone.${qbNote}`)) {
       return;
     }
     setDeleting(true);

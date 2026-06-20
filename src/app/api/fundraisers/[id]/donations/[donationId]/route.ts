@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireNonConnector } from "@/lib/api-auth";
 import { validateBody, updateDonationSeatsSchema, editDonationSchema } from "@/lib/validations";
 import { handleApiError, notFound } from "@/lib/api-error";
+import { recalcFundraiserTotal } from "@/lib/fundraiser-total";
 
 export async function GET(
   request: Request,
@@ -187,10 +188,7 @@ export async function PUT(
     const updated = await prisma.$transaction(async (tx) => {
       const d = await tx.donation.update({ where: { id: donationId }, data: updateData });
       if (amountDelta !== 0) {
-        await tx.fundraiser.update({
-          where: { id: fundraiserId },
-          data: { currentAmount: { increment: amountDelta } },
-        });
+        await recalcFundraiserTotal(tx, fundraiserId);
       }
       return d;
     });
@@ -253,13 +251,11 @@ export async function DELETE(
     });
     if (!donation) return notFound("Donation not found");
 
-    // Transaction: delete donation and decrement currentAmount
+    // Transaction: delete donation, then recompute the fundraiser total from the
+    // remaining donations so the stored total can't drift.
     await prisma.$transaction(async (tx) => {
       await tx.donation.delete({ where: { id: donationId } });
-      await tx.fundraiser.update({
-        where: { id },
-        data: { currentAmount: { decrement: donation.amount } },
-      });
+      await recalcFundraiserTotal(tx, id);
     });
 
     return NextResponse.json({ message: "Donation deleted" });

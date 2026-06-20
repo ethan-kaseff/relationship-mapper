@@ -4,6 +4,7 @@ import { requireNonConnector } from "@/lib/api-auth";
 import { validateBody, createDonationSchema } from "@/lib/validations";
 import { handleApiError, notFound } from "@/lib/api-error";
 import { matchDonationToPledge } from "@/lib/pledge-matching";
+import { recalcFundraiserTotal } from "@/lib/fundraiser-total";
 
 export async function GET(
   request: Request,
@@ -90,10 +91,7 @@ export async function POST(
         },
       });
 
-      await tx.fundraiser.update({
-        where: { id: fundraiserId },
-        data: { currentAmount: { increment: data.amount } },
-      });
+      await recalcFundraiserTotal(tx, fundraiserId);
 
       return { donation: newDonation, eventId: fundraiser.eventId };
     });

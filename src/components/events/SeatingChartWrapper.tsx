@@ -51,8 +51,10 @@ interface SeatingChartWrapperProps {
 }
 
 export default function SeatingChartWrapper({ event, onRefresh }: SeatingChartWrapperProps) {
-  // Only confirmed (YES) guests appear in the seating chart
-  const confirmedInvites = event.invites.filter((inv) => inv.rsvpStatus === "YES");
+  // Confirmed (YES) guests and TBD placeholder seats appear in the seating chart.
+  // Placeholders are shown regardless of RSVP so a sponsor's reserved seats are
+  // always seatable, however they were created.
+  const confirmedInvites = event.invites.filter((inv) => inv.rsvpStatus === "YES" || inv.isPlaceholder);
 
   const guests: SeatingGuest[] = confirmedInvites.map((inv) => ({
     id: inv.id, // Use invite ID as the seating guest ID
