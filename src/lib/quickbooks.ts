@@ -59,8 +59,9 @@ export async function refreshQBToken(officeId: string): Promise<string> {
 
   if (!token) throw new Error("QuickBooks not connected");
 
-  // If token is still valid, return it
-  if (token.expiresAt > new Date()) {
+  // If the token is still valid for at least another minute, use it. The 60s
+  // margin avoids handing back a token that expires mid-request (→ a 401).
+  if (token.expiresAt.getTime() > Date.now() + 60_000) {
     return token.accessToken;
   }
 
@@ -217,8 +218,13 @@ export async function syncDonationsByDay(
   const fundraiserTitle = donations[0].fundraiser.title;
 
   for (const [date, dayDonations] of byDate) {
+    const ids = dayDonations.map((d) => d.id);
+
+    // Phase 1 — create the receipt in QuickBooks. A failure here is safe to retry
+    // later (no receipt was created), so mark ERROR and move on.
+    let receiptId: string;
     try {
-      const receiptId = await createDailySalesReceipt(
+      receiptId = await createDailySalesReceipt(
         officeId,
         date,
         dayDonations.map((d) => ({
@@ -228,28 +234,46 @@ export async function syncDonationsByDay(
         })),
         fundraiserTitle
       );
-
-      // Mark all donations in this day as synced with the same receipt ID
-      await prisma.donation.updateMany({
-        where: { id: { in: dayDonations.map((d) => d.id) } },
-        data: {
-          qbSyncStatus: "SYNCED",
-          qbReceiptId: receiptId,
-        },
-      });
-
-      synced += dayDonations.length;
-      receiptCount++;
     } catch (error) {
-      console.error(`QB sync error for ${date}:`, error);
-
+      console.error(`QB sync error creating receipt for ${date}:`, error);
       await prisma.donation.updateMany({
-        where: { id: { in: dayDonations.map((d) => d.id) } },
+        where: { id: { in: ids } },
         data: { qbSyncStatus: "ERROR" },
       });
-
       errors += dayDonations.length;
+      continue;
     }
+
+    // Phase 2 — record the receipt id. The receipt now EXISTS in QuickBooks, so we
+    // must NOT mark these ERROR on failure: a re-sync would then create a DUPLICATE
+    // receipt. Retry once; if it still fails, log loudly for manual reconciliation.
+    try {
+      await prisma.donation.updateMany({
+        where: { id: { in: ids } },
+        data: { qbSyncStatus: "SYNCED", qbReceiptId: receiptId },
+      });
+    } catch (markError) {
+      console.error(
+        `QB sync: receipt ${receiptId} created for ${date} but marking synced failed; retrying`,
+        markError
+      );
+      try {
+        await prisma.donation.updateMany({
+          where: { id: { in: ids } },
+          data: { qbSyncStatus: "SYNCED", qbReceiptId: receiptId },
+        });
+      } catch (retryError) {
+        console.error(
+          `QB sync CRITICAL: receipt ${receiptId} exists in QuickBooks for ${date} but donations [${ids.join(", ")}] could not be marked synced. Reconcile manually before re-syncing to avoid a duplicate receipt.`,
+          retryError
+        );
+        errors += dayDonations.length;
+        continue;
+      }
+    }
+
+    synced += dayDonations.length;
+    receiptCount++;
   }
 
   return { synced, errors, receiptCount };

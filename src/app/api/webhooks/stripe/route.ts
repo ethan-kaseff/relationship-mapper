@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { constructWebhookEvent } from "@/lib/stripe";
+import { recalcFundraiserTotal } from "@/lib/fundraiser-total";
 
 export async function POST(request: Request) {
   const body = await request.text();
@@ -32,6 +33,11 @@ export async function POST(request: Request) {
       case "invoice.payment_succeeded": {
         const invoice = event.data.object;
         await handleRecurringPayment(invoice);
+        break;
+      }
+      case "charge.refunded": {
+        const charge = event.data.object;
+        await handleRefund(charge);
         break;
       }
     }
@@ -123,10 +129,7 @@ async function handleCheckoutCompleted(session: any) {
       },
     });
 
-    await tx.fundraiser.update({
-      where: { id: fundraiserId },
-      data: { currentAmount: { increment: amount } },
-    });
+    await recalcFundraiserTotal(tx, fundraiserId);
 
     // If fundraiser is linked to an event, add the donor to the event invite list
     if (fundraiser.eventId) {
@@ -221,9 +224,40 @@ async function handleRecurringPayment(invoice: any) {
       },
     });
 
-    await tx.fundraiser.update({
-      where: { id: originalDonation.fundraiserId },
-      data: { currentAmount: { increment: amount } },
+    await recalcFundraiserTotal(tx, originalDonation.fundraiserId);
+  });
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function handleRefund(charge: any) {
+  const paymentId = charge.payment_intent;
+  if (!paymentId) return;
+
+  const donation = await prisma.donation.findUnique({
+    where: { stripePaymentId: paymentId },
+    select: { id: true, fundraiserId: true, amount: true, notes: true },
+  });
+  if (!donation) return;
+
+  const refunded = charge.amount_refunded ?? 0; // cents, cumulative across refunds
+  const original = charge.amount ?? donation.amount; // cents
+  const net = Math.max(0, original - refunded);
+
+  // Idempotent: if this donation is already reduced to the refunded net, skip
+  // (avoids duplicate notes / work on webhook re-delivery).
+  if (donation.amount === net) return;
+
+  const stamp = new Date().toISOString().split("T")[0];
+  const refundNote = `Refunded $${(refunded / 100).toFixed(2)} via Stripe on ${stamp} (original $${(original / 100).toFixed(2)}).`;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.donation.update({
+      where: { id: donation.id },
+      data: {
+        amount: net,
+        notes: donation.notes ? `${donation.notes}\n${refundNote}` : refundNote,
+      },
     });
+    await recalcFundraiserTotal(tx, donation.fundraiserId);
   });
 }

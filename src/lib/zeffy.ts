@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { recalcFundraiserTotal } from "@/lib/fundraiser-total";
 
 const ZEFFY_API_BASE = "https://api.zeffy.com/api/v1";
 
@@ -343,10 +344,7 @@ export async function syncZeffyDonations(
             },
           });
 
-          await tx.fundraiser.update({
-            where: { id: fundraiserId },
-            data: { currentAmount: { increment: amount } },
-          });
+          await recalcFundraiserTotal(tx, fundraiserId);
 
           if (eventId) {
             await addEventInviteForZeffyDonor(tx, eventId, peopleId, donorName, donorEmail ?? null);
@@ -516,10 +514,7 @@ export async function processZeffyWebhookPayment(
       },
     });
 
-    await tx.fundraiser.update({
-      where: { id: fundraiserId },
-      data: { currentAmount: { increment: amount } },
-    });
+    await recalcFundraiserTotal(tx, fundraiserId);
 
     if (eventId) {
       await addEventInviteForZeffyDonor(tx, eventId, peopleId, donorName, donorEmail ?? null);
