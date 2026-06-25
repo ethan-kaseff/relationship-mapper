@@ -9,6 +9,7 @@ import type {
   AdvancedSearchPerson,
   RefData,
 } from "./types";
+import SavedSearchesModal from "./SavedSearchesModal";
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -161,6 +162,7 @@ export default function AdvancedSearchPanel(props: Props) {
   const [refLoading, setRefLoading] = useState(true);
   const [filters, setFilters] = useState<FilterRow[]>([makeRow("status")]);
   const [results, setResults] = useState<AdvancedSearchPerson[] | null>(null);
+  const [allMatchingIds, setAllMatchingIds] = useState<string[]>([]);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
 
@@ -181,8 +183,10 @@ export default function AdvancedSearchPanel(props: Props) {
   // Saved searches
   const [savedSearches, setSavedSearches] = useState<{ id: string; name: string; filters: unknown }[]>([]);
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [savedSearchesOpen, setSavedSearchesOpen] = useState(false);
   const [saveName, setSaveName] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
     fetch("/api/saved-searches").then((r) => r.json()).then((data) => {
@@ -193,6 +197,7 @@ export default function AdvancedSearchPanel(props: Props) {
   async function handleSaveSearch() {
     if (!saveName.trim()) return;
     setSaving(true);
+    setSaveError("");
     try {
       const res = await fetch("/api/saved-searches", {
         method: "POST",
@@ -204,6 +209,9 @@ export default function AdvancedSearchPanel(props: Props) {
         setSavedSearches((prev) => [saved, ...prev]);
         setSaveDialogOpen(false);
         setSaveName("");
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setSaveError(data.error || "Could not save search.");
       }
     } finally {
       setSaving(false);
@@ -211,8 +219,18 @@ export default function AdvancedSearchPanel(props: Props) {
   }
 
   async function handleDeleteSavedSearch(id: string) {
-    await fetch(`/api/saved-searches/${id}`, { method: "DELETE" });
+    // Remove immediately so the deletion is acknowledged, then confirm with the server.
     setSavedSearches((prev) => prev.filter((s) => s.id !== id));
+    try {
+      const res = await fetch(`/api/saved-searches/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("delete failed");
+    } catch {
+      // Resync from the server if the delete didn't take.
+      fetch("/api/saved-searches")
+        .then((r) => r.json())
+        .then((d) => { if (Array.isArray(d)) setSavedSearches(d); })
+        .catch(() => {});
+    }
   }
 
   function handleLoadSavedSearch(search: { filters: unknown }) {
@@ -322,6 +340,7 @@ export default function AdvancedSearchPanel(props: Props) {
     setSearchError(null);
     setSelected(new Set());
     setModalSelected(new Set());
+    setAllMatchingIds([]);
     setBulkMessage(null);
     try {
       const res = await fetch("/api/people/advanced-search", {
@@ -330,7 +349,14 @@ export default function AdvancedSearchPanel(props: Props) {
         body: JSON.stringify({ filters }),
       });
       if (!res.ok) throw new Error();
-      setResults(await res.json());
+      const data = await res.json();
+      const people = Array.isArray(data) ? data : (data.people ?? []);
+      setResults(people);
+      setAllMatchingIds(
+        Array.isArray(data)
+          ? people.map((p: { id: string }) => p.id)
+          : (data.allIds ?? [])
+      );
     } catch {
       setSearchError("Search failed. Please try again.");
     } finally {
@@ -343,6 +369,7 @@ export default function AdvancedSearchPanel(props: Props) {
     setResults(null);
     setSelected(new Set());
     setModalSelected(new Set());
+    setAllMatchingIds([]);
     setBulkMessage(null);
     setSearchError(null);
     if (isPage) {
@@ -421,6 +448,18 @@ export default function AdvancedSearchPanel(props: Props) {
     props.mode === "modal"
       ? (results ?? []).filter((p) => !props.existingPeopleIds.includes(p.id))
       : (results ?? []);
+
+  // IDs of everyone matching the filters (not just the first 500 shown), minus
+  // anyone already invited — lets "select all" add people beyond the visible list.
+  const baseIds =
+    allMatchingIds.length > 0 ? allMatchingIds : displayResults.map((p) => p.id);
+  const existingIdSet =
+    props.mode === "modal" ? new Set(props.existingPeopleIds) : null;
+  const allSelectableIds = existingIdSet
+    ? baseIds.filter((id) => !existingIdSet.has(id))
+    : baseIds;
+  const totalSelectable = allSelectableIds.length;
+  const moreThanShown = totalSelectable > displayResults.length;
 
   // ── Value input renderer ──────────────────────────────────────────────────
 
@@ -768,65 +807,59 @@ export default function AdvancedSearchPanel(props: Props) {
           Clear All
         </button>
         <button
-          onClick={() => { setSaveName(""); setSaveDialogOpen(true); }}
+          onClick={() => { setSaveName(""); setSaveError(""); setSaveDialogOpen(true); }}
           className="px-4 py-2 border border-indigo-300 rounded-md text-sm text-indigo-700 hover:bg-indigo-50"
         >
           Save Search
         </button>
         {savedSearches.length > 0 && (
-          <div className="relative ml-auto group">
-            <button className="px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50 focus:ring-2 focus:ring-indigo-500">
-              Saved searches ▾
-            </button>
-            <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-md shadow-lg min-w-[200px] hidden group-focus-within:block group-hover:block">
-              {savedSearches.map((s) => (
-                <div key={s.id} className="flex items-center justify-between px-3 py-2 hover:bg-gray-50 gap-2">
-                  <button
-                    onClick={() => handleLoadSavedSearch(s)}
-                    className="flex-1 text-left text-sm text-gray-700 truncate"
-                  >
-                    {s.name}
-                  </button>
-                  <button
-                    onClick={() => handleDeleteSavedSearch(s.id)}
-                    className="text-gray-400 hover:text-red-500 text-xs shrink-0"
-                    title="Delete"
-                  >
-                    ✕
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
+          <button
+            onClick={() => setSavedSearchesOpen(true)}
+            className="ml-auto px-3 py-2 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          >
+            Saved searches ({savedSearches.length})
+          </button>
         )}
       </div>
 
       {/* Save search dialog */}
       {saveDialogOpen && (
-        <div className="mt-3 flex items-center gap-2 bg-indigo-50 border border-indigo-200 rounded-md p-3">
-          <input
-            type="text"
-            value={saveName}
-            onChange={(e) => setSaveName(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSaveSearch(); if (e.key === "Escape") setSaveDialogOpen(false); }}
-            placeholder="Search name…"
-            autoFocus
-            className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500"
-          />
-          <button
-            onClick={handleSaveSearch}
-            disabled={saving || !saveName.trim()}
-            className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {saving ? "Saving…" : "Save"}
-          </button>
-          <button
-            onClick={() => setSaveDialogOpen(false)}
-            className="px-3 py-1.5 border border-gray-300 text-sm text-gray-600 rounded-md hover:bg-gray-50"
-          >
-            Cancel
-          </button>
+        <div className="mt-3 bg-indigo-50 border border-indigo-200 rounded-md p-3">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={saveName}
+              onChange={(e) => { setSaveName(e.target.value); if (saveError) setSaveError(""); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSaveSearch(); if (e.key === "Escape") setSaveDialogOpen(false); }}
+              placeholder="Search name…"
+              autoFocus
+              className="flex-1 px-3 py-1.5 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-indigo-500"
+            />
+            <button
+              onClick={handleSaveSearch}
+              disabled={saving || !saveName.trim()}
+              className="px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save"}
+            </button>
+            <button
+              onClick={() => setSaveDialogOpen(false)}
+              className="px-3 py-1.5 border border-gray-300 text-sm text-gray-600 rounded-md hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+          </div>
+          {saveError && <p className="mt-2 text-xs text-red-600">{saveError}</p>}
         </div>
+      )}
+
+      {savedSearchesOpen && (
+        <SavedSearchesModal
+          searches={savedSearches}
+          onLoad={handleLoadSavedSearch}
+          onDelete={handleDeleteSavedSearch}
+          onClose={() => setSavedSearchesOpen(false)}
+        />
       )}
 
       {searchError && (
@@ -868,14 +901,16 @@ export default function AdvancedSearchPanel(props: Props) {
             {/* Results header */}
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-medium text-gray-700">
-                {displayResults.length} {displayResults.length === 1 ? "person" : "people"} found
+                {moreThanShown
+                  ? `Showing the first ${displayResults.length} of ${totalSelectable} matching`
+                  : `${totalSelectable} ${totalSelectable === 1 ? "person" : "people"} found`}
               </span>
-              {displayResults.length > 0 && (
+              {totalSelectable > 0 && (
                 <button
-                  onClick={() => setSelected(allSelected ? new Set() : new Set(displayResults.map((p) => p.id)))}
+                  onClick={() => setSelected(allSelected ? new Set() : new Set(allSelectableIds))}
                   className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
                 >
-                  {allSelected ? "Deselect all" : "Select all"}
+                  {allSelected ? "Deselect all" : `Select all ${totalSelectable}`}
                 </button>
               )}
             </div>
@@ -1025,18 +1060,20 @@ export default function AdvancedSearchPanel(props: Props) {
         <>
           <div className="flex items-center justify-between px-4 py-2 border-b flex-shrink-0">
             <span className="text-xs text-gray-500">
-              {displayResults.length} {displayResults.length === 1 ? "person" : "people"} found
+              {moreThanShown
+                ? `Showing the first ${displayResults.length} of ${totalSelectable} matching`
+                : `${totalSelectable} ${totalSelectable === 1 ? "person" : "people"} found`}
             </span>
-            {displayResults.length > 0 && (
+            {totalSelectable > 0 && (
               <button
                 onClick={() =>
                   setModalSelected(
-                    allModalSelected ? new Set() : new Set(displayResults.map((p) => p.id))
+                    allModalSelected ? new Set() : new Set(allSelectableIds)
                   )
                 }
                 className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
               >
-                {allModalSelected ? "Deselect all" : "Select all"}
+                {allModalSelected ? "Deselect all" : `Select all ${totalSelectable}`}
               </button>
             )}
           </div>
@@ -1078,7 +1115,7 @@ export default function AdvancedSearchPanel(props: Props) {
           onClick={props.onBack}
           className="flex-1 px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 text-sm"
         >
-          ← Simple Search
+          Cancel
         </button>
         <button
           onClick={async () => {
