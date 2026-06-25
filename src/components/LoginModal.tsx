@@ -15,7 +15,13 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   ]);
 }
 
-export default function LoginModal({ onClose }: { onClose: () => void }) {
+export default function LoginModal({
+  onClose,
+  notice,
+}: {
+  onClose: () => void;
+  notice?: string;
+}) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -120,6 +126,12 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
           <h2 className="text-2xl font-bold text-indigo-900 text-center mb-6">
             Sign In
           </h2>
+
+          {notice && (
+            <div className="bg-amber-50 text-amber-700 text-sm p-3 rounded mb-4 text-center">
+              {notice}
+            </div>
+          )}
 
           {redirecting ? (
             <div className="text-center py-8">
