@@ -120,12 +120,13 @@ function LandingPageContent() {
   const isLoggedIn = status === "authenticated";
   const searchParams = useSearchParams();
   const [showLogin, setShowLogin] = useState(false);
+  const timedOut = searchParams.get("timeout") === "1";
 
   useEffect(() => {
-    if (searchParams.get("login") === "true" && !isLoggedIn) {
+    if ((searchParams.get("login") === "true" || timedOut) && !isLoggedIn) {
       setShowLogin(true);
     }
-  }, [searchParams, isLoggedIn]);
+  }, [searchParams, isLoggedIn, timedOut]);
 
   return (
     <div className="min-h-screen">
@@ -376,7 +377,12 @@ function LandingPageContent() {
         </div>
       </footer>
 
-      {showLogin && <LoginModal onClose={() => setShowLogin(false)} />}
+      {showLogin && (
+        <LoginModal
+          onClose={() => setShowLogin(false)}
+          notice={timedOut ? "You were signed out due to inactivity." : undefined}
+        />
+      )}
     </div>
   );
 }
