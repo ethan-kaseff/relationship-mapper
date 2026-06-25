@@ -3,7 +3,17 @@
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
-import { X } from "lucide-react";
+import { X, KeyRound } from "lucide-react";
+import { startAuthentication } from "@simplewebauthn/browser";
+
+// Backstop so a stalling password-manager extension can't hang the button
+// forever — surfaces a clear error instead of an endless spinner.
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => setTimeout(() => reject(new Error(message)), ms)),
+  ]);
+}
 
 export default function LoginModal({ onClose }: { onClose: () => void }) {
   const router = useRouter();
@@ -13,6 +23,7 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
   const [loading, setLoading] = useState(false);
   const [redirecting, setRedirecting] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const backdropRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -42,6 +53,49 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
       setRedirecting(true);
       router.push("/dashboard");
       router.refresh();
+    }
+  }
+
+  async function handlePasskey() {
+    setError("");
+    setPasskeyLoading(true);
+    try {
+      const optionsRes = await fetch("/api/auth/passkey/authenticate/options", {
+        method: "POST",
+      });
+      if (!optionsRes.ok) throw new Error("Could not start passkey sign-in");
+      const options = await optionsRes.json();
+
+      const assertion = await withTimeout(
+        startAuthentication(options),
+        90000,
+        "PASSKEY_TIMEOUT"
+      );
+
+      const result = await signIn("passkey", {
+        response: JSON.stringify(assertion),
+        redirect: false,
+      });
+
+      if (result?.error) {
+        setError("Passkey sign-in failed. Try again or use your password.");
+      } else {
+        setRedirecting(true);
+        router.push("/dashboard");
+        router.refresh();
+      }
+    } catch (err) {
+      if (err instanceof Error && err.name === "NotAllowedError") {
+        // User cancelled the OS prompt — stay quiet.
+      } else if (err instanceof Error && err.message === "PASSKEY_TIMEOUT") {
+        setError(
+          "That took too long — a password manager may have interrupted it. Try again or use your password."
+        );
+      } else {
+        setError("Passkey sign-in was cancelled or isn't set up on this device.");
+      }
+    } finally {
+      setPasskeyLoading(false);
     }
   }
 
@@ -126,6 +180,22 @@ export default function LoginModal({ onClose }: { onClose: () => void }) {
                 className="w-full bg-indigo-900 text-white py-2 rounded font-medium hover:bg-opacity-90 transition-colors disabled:opacity-50"
               >
                 {loading ? "Signing in..." : "Sign In"}
+              </button>
+
+              <div className="flex items-center gap-3 pt-1">
+                <span className="h-px flex-1 bg-gray-200" />
+                <span className="text-xs text-gray-400">or</span>
+                <span className="h-px flex-1 bg-gray-200" />
+              </div>
+
+              <button
+                type="button"
+                onClick={handlePasskey}
+                disabled={passkeyLoading || loading}
+                className="w-full flex items-center justify-center gap-2 border border-indigo-900 text-indigo-900 py-2 rounded font-medium hover:bg-indigo-50 transition-colors disabled:opacity-50"
+              >
+                <KeyRound className="w-4 h-4" />
+                {passkeyLoading ? "Waiting for passkey…" : "Sign in with a passkey"}
               </button>
             </form>
           )}

@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession, signOut } from "next-auth/react";
 import { usePathname, useRouter } from "next/navigation";
+import { KeyRound } from "lucide-react";
+import PasskeyManager from "@/components/PasskeyManager";
 
 const allNavLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -51,6 +53,7 @@ export default function Navbar() {
 
   const [mounted, setMounted] = useState(false);
   const [viewAll, setViewAll] = useState(false);
+  const [showPasskeys, setShowPasskeys] = useState(false);
 
   useEffect(() => {
     const match = document.cookie.match(/(?:^|; )viewAllOffices=([^;]*)/);
@@ -73,7 +76,8 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="bg-indigo-900 text-white shadow-md print-hide">
+    <>
+      <nav className="bg-indigo-900 text-white shadow-md print-hide">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-8">
         <Link href="/" className="text-lg font-bold tracking-wide">
           JCRB Relationship Map
@@ -121,6 +125,14 @@ export default function Navbar() {
             <span className="text-indigo-200 text-xs">({ROLE_LABELS[role] || role})</span>
           </span>
           <button
+            onClick={() => setShowPasskeys(true)}
+            className="flex items-center gap-1 text-indigo-200 hover:text-white transition-colors"
+            title="Manage passkeys"
+          >
+            <KeyRound className="w-4 h-4" />
+            <span className="hidden sm:inline">Passkeys</span>
+          </button>
+          <button
             onClick={() => signOut({ callbackUrl: "/" })}
             className="hover:text-indigo-200 transition-colors"
           >
@@ -128,6 +140,8 @@ export default function Navbar() {
           </button>
         </div>
       </div>
-    </nav>
+      </nav>
+      {showPasskeys && <PasskeyManager onClose={() => setShowPasskeys(false)} />}
+    </>
   );
 }

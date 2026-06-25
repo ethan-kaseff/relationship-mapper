@@ -1,7 +1,16 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
+import { verifyAuthenticationResponse } from "@simplewebauthn/server";
+import type { AuthenticationResponseJSON } from "@simplewebauthn/types";
 import { prisma } from "@/lib/prisma";
+import {
+  AUTH_CHALLENGE_COOKIE,
+  getWebAuthnContext,
+  parseCookie,
+  credentialIdToBuffer,
+  parseTransports,
+} from "@/lib/webauthn";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   trustHost: true,
@@ -28,6 +37,78 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         if (!isValid) return null;
 
+        return {
+          id: user.id,
+          email: user.email,
+          name: `${user.firstName} ${user.lastName}`,
+          role: user.role,
+          officeId: user.officeId,
+          isSiloed: user.office.isSiloed,
+        };
+      },
+    }),
+    Credentials({
+      id: "passkey",
+      name: "Passkey",
+      credentials: { response: { label: "Passkey", type: "text" } },
+      async authorize(credentials, request) {
+        const raw = credentials?.response;
+        if (typeof raw !== "string") return null;
+
+        let assertion: AuthenticationResponseJSON;
+        try {
+          assertion = JSON.parse(raw);
+        } catch {
+          return null;
+        }
+
+        // The challenge was set as an httpOnly cookie by the matching
+        // /api/auth/passkey/authenticate/options request.
+        const expectedChallenge = parseCookie(
+          request.headers.get("cookie"),
+          AUTH_CHALLENGE_COOKIE
+        );
+        if (!expectedChallenge) return null;
+
+        const { rpID, origin } = getWebAuthnContext(request);
+
+        const passkey = await prisma.passkey.findUnique({
+          where: { credentialId: assertion.id },
+          include: { user: { include: { office: { select: { isSiloed: true } } } } },
+        });
+        if (!passkey) return null;
+
+        let verification;
+        try {
+          verification = await verifyAuthenticationResponse({
+            response: assertion,
+            expectedChallenge,
+            expectedOrigin: origin,
+            expectedRPID: rpID,
+            authenticator: {
+              credentialID: credentialIdToBuffer(passkey.credentialId),
+              credentialPublicKey: passkey.publicKey,
+              counter: passkey.counter,
+              transports: parseTransports(passkey.transports),
+            },
+            requireUserVerification: false,
+          });
+        } catch {
+          return null;
+        }
+
+        if (!verification.verified) return null;
+
+        // Persist the rolling counter to help detect cloned authenticators.
+        await prisma.passkey.update({
+          where: { id: passkey.id },
+          data: {
+            counter: verification.authenticationInfo.newCounter,
+            lastUsedAt: new Date(),
+          },
+        });
+
+        const { user } = passkey;
         return {
           id: user.id,
           email: user.email,
