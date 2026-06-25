@@ -259,25 +259,37 @@ export async function POST(request: Request) {
         ? groupWhereClauses[0]
         : { OR: groupWhereClauses };
 
-    const people = await prisma.people.findMany({
-      where: { ...officeFilter, ...filterWhere },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        status: true,
-        city: true,
-        state: true,
-        email1: true,
-        email2: true,
-        phoneNumber: true,
-        tags: { select: { tag: { select: { id: true, name: true } } } },
-      },
-      orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
-      take: 500,
-    });
+    const baseWhere = { ...officeFilter, ...filterWhere };
 
-    return NextResponse.json(people);
+    // Return the first 500 full records (keeps the query + on-screen list fast),
+    // plus every matching id so the UI can "select all matching" and add people
+    // beyond the 500 shown.
+    const [people, allMatches] = await Promise.all([
+      prisma.people.findMany({
+        where: baseWhere,
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          status: true,
+          city: true,
+          state: true,
+          email1: true,
+          email2: true,
+          phoneNumber: true,
+          tags: { select: { tag: { select: { id: true, name: true } } } },
+        },
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+        take: 500,
+      }),
+      prisma.people.findMany({
+        where: baseWhere,
+        select: { id: true },
+        orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+      }),
+    ]);
+
+    return NextResponse.json({ people, allIds: allMatches.map((m) => m.id) });
   } catch (error) {
     return handleApiError(error);
   }

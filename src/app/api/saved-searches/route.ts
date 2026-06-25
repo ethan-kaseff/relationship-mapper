@@ -29,6 +29,17 @@ export async function POST(request: Request) {
     const { name, filters } = await request.json();
     if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
+    const existing = await prisma.savedSearch.findFirst({
+      where: { userId, name: { equals: name.trim(), mode: "insensitive" } },
+      select: { id: true },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: "You already have a saved search with that name." },
+        { status: 409 }
+      );
+    }
+
     const search = await prisma.savedSearch.create({
       data: { name: name.trim(), filters, userId },
       select: { id: true, name: true, filters: true, createdAt: true },
