@@ -1,7 +1,8 @@
 "use client";
 
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import { useEffect, useRef, useState, useCallback } from "react";
+import { logoutTo } from "@/lib/logout";
 
 // Sign a logged-in user out after a period of inactivity, to protect donor and
 // financial data on an unattended machine. A warning with a countdown appears
@@ -83,7 +84,7 @@ export default function IdleTimeout() {
         if (!loggingOut.current) {
           loggingOut.current = true;
           clearInterval(interval);
-          signOut({ callbackUrl: "/?timeout=1" });
+          logoutTo("/?timeout=1");
         }
       } else if (remaining <= WARNING_MS) {
         warningActive.current = true;
@@ -121,7 +122,7 @@ export default function IdleTimeout() {
             Stay signed in
           </button>
           <button
-            onClick={() => signOut({ callbackUrl: "/" })}
+            onClick={() => logoutTo("/")}
             className="border border-gray-300 text-gray-700 px-4 py-2 rounded font-medium hover:bg-gray-50 transition-colors"
           >
             Sign out now
