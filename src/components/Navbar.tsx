@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
+import { useSession } from "next-auth/react";
+import { logoutTo } from "@/lib/logout";
 import { usePathname, useRouter } from "next/navigation";
 import { KeyRound } from "lucide-react";
 import PasskeyManager from "@/components/PasskeyManager";
@@ -133,7 +134,7 @@ export default function Navbar() {
             <span className="hidden sm:inline">Passkeys</span>
           </button>
           <button
-            onClick={() => signOut({ callbackUrl: "/" })}
+            onClick={() => logoutTo("/")}
             className="hover:text-indigo-200 transition-colors"
           >
             Logout
