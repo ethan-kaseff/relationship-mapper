@@ -38,6 +38,7 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, groups, onC
   const [advancedMode, setAdvancedMode] = useState(false);
 
   const [rsvpStatus, setRsvpStatus] = useState("YES");
+  const [rsvpTouched, setRsvpTouched] = useState(false);
   const [meal, setMeal] = useState("Standard");
   const [dietary, setDietary] = useState<string[]>([]);
   const [ticketType, setTicketType] = useState("Regular");
@@ -69,6 +70,18 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, groups, onC
       setLoading(false);
     });
   }, [existingPeopleIds]);
+
+  // Default RSVP to Pending when adding more than one person at once; keep
+  // single adds defaulting to Yes. Stops once the user picks a status manually.
+  useEffect(() => {
+    if (rsvpTouched) return;
+    setRsvpStatus(selected.size > 1 ? "PENDING" : "YES");
+  }, [selected.size, rsvpTouched]);
+
+  function handleRsvpChange(value: string) {
+    setRsvpTouched(true);
+    setRsvpStatus(value);
+  }
 
   function toggleTag(tagId: string) {
     setSelectedTagIds((prev) =>
@@ -308,7 +321,7 @@ export default function AddPeopleModal({ eventId, existingPeopleIds, groups, onC
 
         <div className="border-t px-4 pt-3 pb-4 space-y-2.5">
           <InviteOptionsPanel
-            rsvpStatus={rsvpStatus} onRsvpChange={setRsvpStatus}
+            rsvpStatus={rsvpStatus} onRsvpChange={handleRsvpChange}
             meal={meal} onMealChange={setMeal}
             dietary={dietary} onDietaryChange={setDietary}
             ticketType={ticketType} onTicketTypeChange={setTicketType}
